@@ -1,0 +1,955 @@
+<script src="https://js.tosspayments.com/v1/payment"></script>
+<style>
+/* === Cart Preview document.getElementById("cart-event-body-01")?.style.display
+mage (Fixed Square Frame, Contain) === */
+#cart-current-img{
+  width: 100%;
+  height: 100%;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+:root{
+  --section-pad-x: clamp(16px, 4vw, 40px);
+
+  /* ===== Thumb UX Tunables ===== */
+  --thumb-nav-btn-size: 36px;
+  --thumb-nav-btn-offset: 6px;
+  --thumb-edge-fade: 28px;
+  --thumb-edge-fade-strong: 42px;
+  --thumb-nav-z: 60;
+  /* ===== Cart Preview Arrow UX Tunables ===== */
+  --cart-arrow-hit: 64px;                 /* clickable button size */
+  --cart-arrow-x: 10px;                   /* align to thumbnail vertical line */
+  --cart-arrow-zone: 22%;                 /* hover/click zone width */
+  --cart-arrow-color: rgba(255,255,255,0.70);
+  --cart-arrow-color-hover: rgba(255,255,255,1);
+
+}
+
+
+:is(.preview-wrapper, .nav-wrapper, .cart-wrapper, .list-wrapper){
+  padding-inline: var(--section-pad-x);
+}
+
+/* =========================
+   Cart Preview Nav Buttons (IG/iOS style)
+   - No border, icon only
+   - Show only when cursor is in left/right zone
+   - Click near arrow triggers navigation
+   ========================= */
+
+/* host must be positioning context */
+.sh-cart-preview-host{
+  position: relative;
+}
+
+/* invisible hover/click zones (injected by JS) */
+.sh-arrow-zone{
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--cart-arrow-zone);
+  z-index: 49; /* under actual buttons (50) */
+  background: transparent;
+  pointer-events: auto;
+}
+.sh-arrow-zone.is-left{ left: 0; }
+.sh-arrow-zone.is-right{ right: 0; }
+
+/* Buttons: icon only, but with a generous hit size */
+#cart-prev-btn,
+#cart-next-btn,
+.sh-cart-nav-btn{
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 50;
+
+  width: var(--cart-arrow-hit);
+  height: var(--cart-arrow-hit);
+
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  padding: 0;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+  user-select: none;
+
+  opacity: 0;                 /* default hidden */
+  pointer-events: none;       /* zones handle near-click + show logic */
+  transition: transform 0.18s ease, opacity 0.18s ease, color 0.18s ease, filter 0.18s ease;
+
+  color: var(--cart-arrow-color);
+}
+
+#cart-prev-btn,
+.sh-cart-nav-btn.is-prev{ left: var(--cart-arrow-x); }
+
+#cart-next-btn,
+.sh-cart-nav-btn.is-next{ right: var(--cart-arrow-x); }
+
+/* show rules driven by JS classes on host */
+.sh-cart-preview-host.sh-arrow-hot-prev #cart-prev-btn,
+.sh-cart-preview-host.sh-arrow-hot-prev .sh-cart-nav-btn.is-prev{
+  opacity: 1;
+  pointer-events: auto;
+  color: var(--cart-arrow-color-hover);
+}
+.sh-cart-preview-host.sh-arrow-hot-next #cart-next-btn,
+.sh-cart-preview-host.sh-arrow-hot-next .sh-cart-nav-btn.is-next{
+  opacity: 1;
+  pointer-events: auto;
+  color: var(--cart-arrow-color-hover);
+}
+
+/* proximity emphasis (cursor in zone): scale the ICON (svg), not the button */
+.sh-cart-preview-host.sh-arrow-hot-prev #cart-prev-btn svg,
+.sh-cart-preview-host.sh-arrow-hot-prev .sh-cart-nav-btn.is-prev svg{
+  transform: scale(1.18);
+  filter: drop-shadow(0 2px 10px rgba(0,0,0,0.35));
+}
+.sh-cart-preview-host.sh-arrow-hot-next #cart-next-btn svg,
+.sh-cart-preview-host.sh-arrow-hot-next .sh-cart-nav-btn.is-next svg{
+  transform: scale(1.18);
+  filter: drop-shadow(0 2px 10px rgba(0,0,0,0.35));
+}
+
+/* direct hover on the arrow (stronger) */
+.sh-cart-preview-host.sh-arrow-hot-prev #cart-prev-btn:hover svg,
+.sh-cart-preview-host.sh-arrow-hot-prev .sh-cart-nav-btn.is-prev:hover svg,
+.sh-cart-preview-host.sh-arrow-hot-next #cart-next-btn:hover svg,
+.sh-cart-preview-host.sh-arrow-hot-next .sh-cart-nav-btn.is-next:hover svg{
+  transform: scale(1.32);
+  filter: drop-shadow(0 3px 14px rgba(0,0,0,0.45));
+}
+
+/* subtle press feedback */
+.sh-cart-preview-host.sh-arrow-hot-prev #cart-prev-btn:active svg,
+.sh-cart-preview-host.sh-arrow-hot-prev .sh-cart-nav-btn.is-prev:active svg,
+.sh-cart-preview-host.sh-arrow-hot-next #cart-next-btn:active svg,
+.sh-cart-preview-host.sh-arrow-hot-next .sh-cart-nav-btn.is-next:active svg{
+  transform: scale(0.96);
+  filter: none;
+}
+
+
+/* SVG should follow currentColor */
+.sh-cart-nav-btn svg,
+#cart-prev-btn svg,
+#cart-next-btn svg{
+  width: 44px;
+  height: 44px;
+  transform: scale(1);
+  transition: transform 0.18s ease, filter 0.18s ease;
+}
+.sh-cart-nav-btn svg * ,
+#cart-prev-btn svg * ,
+#cart-next-btn svg *{
+  stroke: currentColor;
+  fill: none;
+}
+
+/* Touch devices: always show (no hover), zones disabled */
+@media (hover: none) {
+  .sh-arrow-zone{ display:none; }
+  #cart-prev-btn,
+  #cart-next-btn,
+  .sh-cart-nav-btn{
+    opacity: 1;
+    pointer-events: auto;
+    color: var(--cart-arrow-color-hover);
+  }
+}
+
+
+/* =========================
+   Thumbnail Strip (All-in)
+   - Scroll (touch/trackpad)
+   - Wheel-to-horizontal (JS)
+   - Drag-to-scroll (JS)
+   - Edge fade hint (CSS + JS class)
+   - Left/Right buttons (JS creates)
+   ========================= */
+#cart-thumb-row{
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+#cart-thumb-row::-webkit-scrollbar{ display: none; }
+
+/* Thumb viewport: non-scrolling wrapper that holds fixed arrow buttons */
+.sh-thumb-viewport{
+  position: relative;
+  width: 100%;
+}
+
+/* Make scroll container sit under overlay buttons comfortably */
+.sh-thumb-viewport > #cart-thumb-row,
+.sh-thumb-viewport > .sh-thumb-strip{
+  padding-inline: calc(var(--thumb-nav-btn-size) + (var(--thumb-nav-btn-offset) * 2));
+}
+
+/* Host class gets applied to thumb row itself (JS adds .sh-thumb-strip) */
+.sh-thumb-strip{
+  position: relative;
+  display: flex;
+  gap: 10px;
+  padding: 10px 2px;
+  scroll-behavior: smooth;
+  user-select: none;
+  cursor: grab;
+}
+.sh-thumb-strip.is-dragging{
+  cursor: grabbing;
+}
+
+/* Edge fade hint �좎럩伊숂뙴�묒삕�좑옙 only when overflow exists (JS toggles .is-overflow) */
+.sh-thumb-strip.is-overflow::before,
+.sh-thumb-strip.is-overflow::after{
+  content: "";
+  position: sticky;
+  top: 0;
+  width: var(--thumb-edge-fade-strong);
+  height: 100%;
+  pointer-events: none;
+  z-index: calc(var(--thumb-nav-z) - 1);
+}
+.sh-thumb-strip.is-overflow::before{
+  left: 0;
+  background: linear-gradient(to right, rgba(18,18,20,0.85), rgba(18,18,20,0));
+}
+.sh-thumb-strip.is-overflow::after{
+  right: 0;
+  background: linear-gradient(to left, rgba(18,18,20,0.85), rgba(18,18,20,0));
+}
+
+/* Thumb nav buttons (show only when overflow) */
+.sh-thumb-nav-btn{
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: var(--thumb-nav-z);
+
+  width: var(--thumb-nav-btn-size);
+  height: var(--thumb-nav-btn-size);
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.16);
+  backdrop-filter: blur(10px);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  color: rgba(255,255,255,0.92);
+  cursor: pointer;
+  user-select: none;
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.sh-thumb-nav-btn:hover{
+  transform: translateY(-50%) scale(1.06);
+}
+.sh-thumb-nav-btn:active{
+  transform: translateY(-50%) scale(0.96);
+}
+
+.sh-thumb-nav-btn.is-left{ left: var(--thumb-nav-btn-offset); }
+.sh-thumb-nav-btn.is-right{ right: var(--thumb-nav-btn-offset); }
+
+/* Only show when overflow exists + user focuses/hover */
+.sh-thumb-strip.is-overflow:hover .sh-thumb-nav-btn,
+.sh-thumb-viewport.is-overflow:hover .sh-thumb-nav-btn{
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Disabled state */
+.sh-thumb-nav-btn.is-disabled{
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.sh-thumb-remove-btn{
+  position:absolute;
+  top:6px;
+  right:6px;
+  width:18px;
+  height:18px;
+  border-radius:999px;
+  border:0;
+  cursor:pointer;
+  line-height:18px;
+}
+
+/* =========================================================
+   Multi-Event Cart (Accordion) Styles
+   - Uses #cart-event-list + #cart-event-template structure
+   - Keeps legacy single-preview styles untouched
+   ========================================================= */
+
+:root{
+  --cart-acc-gap: 14px;
+  --cart-acc-radius: 18px;
+
+  --cart-acc-border: rgba(255,255,255,0.10);
+  --cart-acc-bg: rgba(255,255,255,0.06);
+
+  --cart-preview-radius: 16px;
+  --cart-preview-bg: rgba(32,32,34,0.85);
+  --cart-preview-border: rgba(255,255,255,0.10);
+
+  --cart-thumb-size: 64px;
+  --cart-thumb-gap: 10px;
+}
+
+/* container */
+#cart-event-list{
+  padding-inline: var(--section-pad-x);
+}
+
+/* per event section (template clone will receive this class in JS) */
+.cart-event-section{
+  border: 1px solid var(--cart-acc-border);
+  background: var(--cart-acc-bg);
+  border-radius: var(--cart-acc-radius);
+  padding: 14px 14px;
+  margin-top: var(--cart-acc-gap);
+}
+
+/* header row (clickable) */
+.cart-event-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.cart-event-left-wrapper{
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cart-event-index{
+  font-weight: 300;
+  opacity: 1.00;
+  color: #cccccc;
+  white-space: nowrap;
+  font-size: 12px
+}
+
+.cart-event-title{
+  font-weight: 700;
+  font-size: 21px;
+  color: white;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cart-event-right-wrapper{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.cart-event-subtotal{
+  font-weight: 400;
+  font-size: 18px;
+  font-family: Pretendard, Outfit;
+  color: white;
+  white-space: nowrap;
+}
+
+.cart-event-toggle{
+  transition: transform 0.18s ease;
+  transform: rotate(0deg);
+  opacity: 0.9;
+}
+
+.cart-event-section.is-open .cart-event-toggle{
+  transform: rotate(180deg);
+}
+
+/* body */
+.cart-event-body{
+  margin-top: 12px;
+}
+
+/* per-event package labels */
+.cart-event-package-label,
+.cart-event-package-price{
+  margin-top: 10px;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* =========================================================
+   Per-Event Preview Block (in .cart-event-preview-mount)
+   ========================================================= */
+.cart-preview{
+  width: 100%;
+  border: 1px solid var(--cart-preview-border);
+  background: var(--cart-preview-bg);
+  border-radius: var(--cart-preview-radius);
+  padding: 14px;
+}
+
+.cart-preview-current{
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: #202022;
+
+  overflow: hidden;
+
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.cart-preview-nav{
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.cart-preview-btn{
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(0,0,0,0.25);
+  color: inherit;
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+.cart-preview-btn:disabled{
+  opacity: 0.4;
+  cursor: default;
+}
+
+.cart-preview-thumbs-wrap{
+  position: relative;
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+.cart-preview-thumbs{
+  display: flex;
+  gap: var(--cart-thumb-gap);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 6px;
+}
+.cart-preview-thumbs::-webkit-scrollbar{ display: none; }
+
+.cart-thumb{
+  width: var(--cart-thumb-size);
+  height: var(--cart-thumb-size);
+  border-radius: 10px;
+  background-size: cover;
+  background-position: center;
+  flex: 0 0 auto;
+  opacity: 0.85;
+  cursor: pointer;
+}
+.cart-thumb.is-active{
+  opacity: 1;
+  outline: 2px solid rgba(255,255,255,0.35);
+}
+/* ====== SOT Cart: multi-event list layout fix ====== */
+#cart-event-list{
+  height: auto !important;
+  min-height: 1px !important;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.cart-event-section{
+  position: relative;
+  width: 100%;
+}
+.cart-event-header{
+  cursor: pointer;
+}
+
+/* =========================
+   [PATCH] Cart Thumb Nav (iOS/Instagram-style)
+   - Buttons fixed at edges; thumbs scroll underneath.
+   ========================= */
+
+:root{
+  --thumb-nav-btn-size: 34px;
+  --thumb-nav-btn-offset: 10px;
+  --thumb-nav-z: 20;
+  --thumb-edge-fade-strong: 54px;
+}
+
+/* Wrap is positioning context */
+.cart-preview-thumbs-wrap{
+  position: relative;
+}
+
+/* Only add side padding when overflow (so we don't create empty margin when buttons hidden) */
+.cart-preview-thumbs-wrap.is-overflow .cart-preview-thumbs{
+  padding-inline: calc(var(--thumb-nav-btn-size) + (var(--thumb-nav-btn-offset) * 2));
+}
+
+/* Base button style (visible only when overflow) */
+.cart-preview-thumbs-wrap .sh-thumb-nav-btn{
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--thumb-nav-btn-size);
+  height: var(--thumb-nav-btn-size);
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(0,0,0,0.28);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: rgba(255,255,255,0.92);
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: var(--thumb-nav-z);
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.cart-preview-thumbs-wrap.is-overflow .sh-thumb-nav-btn{
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.cart-preview-thumbs-wrap .sh-thumb-nav-btn.is-left{ left: var(--thumb-nav-btn-offset); }
+.cart-preview-thumbs-wrap .sh-thumb-nav-btn.is-right{ right: var(--thumb-nav-btn-offset); }
+
+/* Disabled state */
+.cart-preview-thumbs-wrap .sh-thumb-nav-btn:disabled{
+  opacity: 0.35 !important;
+  cursor: default;
+}
+
+/* Edge fades (optional but iOS-like) */
+.cart-preview-thumbs-wrap.is-overflow::before,
+.cart-preview-thumbs-wrap.is-overflow::after{
+  content: "";
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: var(--thumb-edge-fade-strong);
+  pointer-events: none;
+  z-index: calc(var(--thumb-nav-z) - 1);
+}
+.cart-preview-thumbs-wrap.is-overflow::before{
+  left: 0;
+  background: linear-gradient(to right, rgba(32,32,34,0.92), rgba(32,32,34,0));
+}
+.cart-preview-thumbs-wrap.is-overflow::after{
+  right: 0;
+  background: linear-gradient(to left, rgba(32,32,34,0.92), rgba(32,32,34,0));
+}
+
+
+/* =========================================================
+   [STEP1 PATCH] Thumb Nav Visibility Policy (Desktop hover + Mobile)
+   - Desktop: show only on hover when overflow exists
+   - Mobile/Touch (no hover): show when overflow exists
+   - Works with .cart-preview-thumbs-wrap.is-overflow and/or
+     .sh-thumb-viewport.is-overflow toggles
+   ========================================================= */
+
+/* Default: hidden */
+.sh-thumb-nav-btn{
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Desktop hover: show only when overflow + hovered */
+.cart-preview-thumbs-wrap.is-overflow:hover .sh-thumb-nav-btn,
+.sh-thumb-viewport.is-overflow:hover .sh-thumb-nav-btn,
+.sh-thumb-strip.is-overflow:hover .sh-thumb-nav-btn{
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Touch devices (no hover): show when overflow */
+@media (hover: none) {
+  .cart-preview-thumbs-wrap.is-overflow .sh-thumb-nav-btn,
+  .sh-thumb-viewport.is-overflow .sh-thumb-nav-btn,
+  .sh-thumb-strip.is-overflow .sh-thumb-nav-btn{
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+}
+
+
+/* =========================================================
+   [STEP2 PATCH] Thumb arrows: ALWAYS ON (no hover gate)
+   - Request from user: thumbnail arrows should be always visible/active
+   - Keeps styling, but removes hover/overflow visibility gating
+   ========================================================= */
+
+/* In cart preview thumbs area, always show arrows */
+.cart-preview-thumbs-wrap .sh-thumb-nav-btn{
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* If JS adds .is-disabled, DO NOT hide; just dim */
+.cart-preview-thumbs-wrap .sh-thumb-nav-btn.is-disabled{
+  opacity: 0.35 !important;
+  pointer-events: auto !important;
+}
+
+/* If there is any "overflow-only" rule, neutralize it */
+.cart-preview-thumbs-wrap.is-overflow .sh-thumb-nav-btn{
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Mobile/desktop rules above already cover; keep media blocks intact */
+
+
+
+/* =========================================================
+   [MOVED FROM JS] Cart Footer / Agree UI (STEP1 refactor)
+   - Keep visuals in CSS, JS only toggles classes
+   ========================================================= */
+body{
+  padding-bottom: 84px;
+}
+
+#cart-list-container.sh-cart-list-container{
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+#sh-cart-footer-bar.sh-cart-footer-bar{
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999999;
+  background: #fff;
+  border-top: 1px solid #eee;
+  box-shadow: 0 -8px 24px rgba(0,0,0,.08);
+  padding: 14px 16px;
+}
+
+.sh-cart-footer-inner{
+  max-width: 920px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sh-cart-footer-price{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sh-cart-footer-price-label{
+  font-size: 14px;
+  font-weight: 600;
+  color: #555;
+}
+
+.sh-cart-footer-price-value{
+  font-size: 18px;
+  font-weight: 800;
+  color: #111;
+}
+
+.sh-cart-footer-right{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.sh-cart-agree-wrap{
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+  max-width: 320px;
+}
+
+#checkout-agree{
+  margin-top: 2px;
+}
+
+/* JS adds .is-attn when user clicks pay without agreeing */
+#checkout-agree.is-attn{
+  outline: 2px solid #ff3b30;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.sh-cart-agree-text{
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.sh-cart-checkout-btn{
+  appearance: none;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  background: #111;
+  color: #fff;
+  min-width: 140px;
+}
+
+/* =========================================================
+   [MOVED FROM JS] Thumb tiles (main strip)
+   ========================================================= */
+.sh-cart-thumb{
+  width: 60px;
+  height: 60px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  border: 2px solid transparent;
+  opacity: 0.5;
+  transition: all 0.2s ease;
+}
+
+.sh-cart-thumb.is-active{
+  border-color: #3b82f6;
+  opacity: 1;
+}
+
+.sh-cart-thumb-img{
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.2s ease;
+  transform: scale(1);
+}
+
+.sh-cart-thumb.is-active .sh-cart-thumb-img{
+  transform: scale(1.1);
+}
+
+/* Extend remove btn visuals (base positioning already defined above) */
+.sh-thumb-remove-btn{
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: 14px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+}
+
+/* =========================================================
+   [MOVED FROM JS] iOS swipe overlay DOM
+   ========================================================= */
+#sh-cart-swipe-wrap.sh-cart-swipe-wrap{
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: transparent;
+  z-index: 5;
+  display: none;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+
+#sh-cart-swipe-track.sh-cart-swipe-track{
+  display: flex;
+  width: 0px;
+  height: 100%;
+  will-change: transform;
+  transition: none;
+  transform: translate3d(0,0,0);
+}
+
+.sh-cart-swipe-panel{
+  flex: 0 0 auto;
+  width: 0px;
+  min-width: 0px;
+  height: 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-color: transparent;
+  box-sizing: border-box;
+  padding: 0px;
+  background-clip: border-box;
+  background-origin: border-box;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+
+
+
+/* ================================
+   Preview badges (Delete / Select)
+   - injected into #cart-current-img
+================================= */
+.sh-cart-preview-host { position: relative; }
+
+.sh-pv-badge{
+  position:absolute;
+  top:10px;
+  width:32px;
+  height:32px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(255,255,255,0.22);
+  background: rgba(0,0,0,0.42);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.28);
+  z-index: 50;
+  cursor: pointer;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 140ms ease, transform 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+
+.sh-pv-badge:hover{
+  opacity:1;
+  transform: scale(1.02);
+  background: rgba(0,0,0,0.28);
+  border-color: rgba(255,255,255,0.28);
+}
+
+.sh-pv-badge:active{ transform: scale(0.98); }
+
+.sh-pv-badge svg{
+  width:16px;
+  height:16px;
+  color:#fff;
+}
+
+.sh-pv-badge.is-delete{ left:10px; }
+.sh-pv-badge.is-select{ right:10px; }
+
+/* Select state: selected is blue, unselected is dark */
+.sh-pv-badge.is-select.is-selected{
+  background: rgba(59,130,246,0.92);
+  border-color: rgba(255,255,255,0.32);
+}
+
+.sh-pv-badge.is-select.is-unselected{
+  background: rgba(0,0,0,0.42);
+  border-color: rgba(255,255,255,0.22);
+}
+
+</style>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  // IG/iOS-style hover/click zones for cart preview arrows
+  const hosts = document.querySelectorAll(".sh-cart-preview-host");
+  hosts.forEach((host) => {
+    // Avoid double-inject
+    if (host.querySelector(".sh-arrow-zone")) return;
+
+    const prevBtn = host.querySelector("#cart-prev-btn, .sh-cart-nav-btn.is-prev");
+    const nextBtn = host.querySelector("#cart-next-btn, .sh-cart-nav-btn.is-next");
+
+    // Create zones
+    const leftZone = document.createElement("div");
+    leftZone.className = "sh-arrow-zone is-left";
+    const rightZone = document.createElement("div");
+    rightZone.className = "sh-arrow-zone is-right";
+
+    host.appendChild(leftZone);
+    host.appendChild(rightZone);
+
+    function setHot(which, on) {
+      if (which === "prev") host.classList.toggle("sh-arrow-hot-prev", !!on);
+      if (which === "next") host.classList.toggle("sh-arrow-hot-next", !!on);
+    }
+
+    function prevEnabled() {
+      return !!prevBtn && !prevBtn.disabled;
+    }
+    function nextEnabled() {
+      return !!nextBtn && !nextBtn.disabled;
+    }
+
+    // Hover behavior: show only while cursor is inside zone
+    leftZone.addEventListener("mouseenter", () => setHot("prev", prevEnabled()));
+    leftZone.addEventListener("mouseleave", () => setHot("prev", false));
+    rightZone.addEventListener("mouseenter", () => setHot("next", nextEnabled()));
+    rightZone.addEventListener("mouseleave", () => setHot("next", false));
+
+    // Click near arrow triggers navigation
+    leftZone.addEventListener("click", (e) => {
+      if (!prevEnabled()) return;
+      e.preventDefault();
+      prevBtn.click();
+    });
+    rightZone.addEventListener("click", (e) => {
+      if (!nextEnabled()) return;
+      e.preventDefault();
+      nextBtn.click();
+    });
+
+    // Keep states in sync if buttons become disabled/enabled dynamically
+    const obs = new MutationObserver(() => {
+      if (!prevEnabled()) setHot("prev", false);
+      if (!nextEnabled()) setHot("next", false);
+      leftZone.style.pointerEvents = prevEnabled() ? "auto" : "none";
+      rightZone.style.pointerEvents = nextEnabled() ? "auto" : "none";
+    });
+    if (prevBtn) obs.observe(prevBtn, { attributes: true, attributeFilter: ["disabled", "style", "class"] });
+    if (nextBtn) obs.observe(nextBtn, { attributes: true, attributeFilter: ["disabled", "style", "class"] });
+
+    // Initial
+    leftZone.style.pointerEvents = prevEnabled() ? "auto" : "none";
+    rightZone.style.pointerEvents = nextEnabled() ? "auto" : "none";
+  });
+});
+</script>
