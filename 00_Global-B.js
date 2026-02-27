@@ -1,4 +1,3 @@
-<script>
 document.addEventListener("DOMContentLoaded", function () {
   console.log("[Shout-out] Global UI & Cart Manager loaded.");
 
@@ -222,4 +221,3 @@ document.addEventListener("DOMContentLoaded", function () {
   })();
 
 });
-</script>
