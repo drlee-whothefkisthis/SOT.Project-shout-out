@@ -1,4 +1,3 @@
-<script>
   document.addEventListener("DOMContentLoaded", function() {
     // 1. 마우스 우클릭 방지
     document.addEventListener("contextmenu", function(e) {
@@ -150,4 +149,3 @@
   color: #fff;
   box-shadow: 0 2px 8px rgba(0,0,0,.18);
 }
-</style>
