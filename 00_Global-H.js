@@ -1,5 +1,3 @@
-<style>
-  /* ===== Gallery Grid Base (Modern Dense Layout) ===== */
   #galleryGrid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -80,13 +78,11 @@
     transition: transform 0.4s ease;
   }
 
-  /* 기존 hover 확대 효과 유지 */
   .gallery-card:hover .gallery-media{
     transform: scale(1.03);
   }
 
 
-  /* ===== Selection Badge & State (업그레이드) ===== */
   .gallery-card .sel-badge {
     position: absolute; top: 10px; right: 10px;
     width: 28px; height: 28px; border-radius: 999px;
@@ -96,27 +92,22 @@
     box-shadow: 0 6px 18px rgba(0,0,0,0.28);
     z-index: 6;
 
-    /* ✅ (핵심) 이제 클릭 가능 */
     pointer-events: auto;
     cursor: pointer;
 
-    /* 기본은 숨김 */
     opacity: 0; transform: scale(0.96);
     transition: all 140ms ease;
   }
 
-  /* ✅ (핵심) "선택 안된 상태"에서도 호버하면 빈 체크(색 없음)가 보이게 */
   @media (hover: hover) {
     .gallery-card:hover .sel-badge {
       opacity: 1;
       transform: scale(1);
-      /* [EDIT-LINE H-1] 빈 체크 배지의 배경/테두리 강도 조절 */
       background: rgba(0,0,0,0.28);
       border-color: rgba(255,255,255,0.28);
     }
   }
 
-  /* 선택 상태면 항상 보이게 + 파란색 채움 */
   .gallery-card.is-selected .sel-badge {
     opacity: 1; transform: scale(1);
     background: rgba(59,130,246,0.92);
@@ -132,12 +123,10 @@
     stroke-width: 3; stroke-linecap: round; stroke-linejoin: round;
   }
 
-  /* ===== Modal & Tray UI ===== */
   #shoutModalOverlay {
     position: fixed; inset: 0; z-index: 99999; display: none;
     align-items: center; justify-content: center; padding: 18px;
 
-    /* [EDIT-LINE A] overlay opacity */
     background: rgba(0,0,0,0.72);
     backdrop-filter: blur(10px);
   }
@@ -171,18 +160,15 @@
     object-fit: contain;
     border-radius: 16px;
 
-    /* ✅ 이미지 클릭으로 선택 토글하니까 커서도 버튼처럼 */
     cursor: pointer;
   }
 
   #shoutModalImg.is-selected{
-    /* [EDIT-LINE B] 테두리 두께/색/글로우 조절 */
     box-shadow:
       0 0 0 3px rgba(59,130,246,0.92),
       0 16px 40px rgba(0,0,0,0.45);
   }
 
-  /* ===== iOS-style Modal Nav ===== */
   .shoutModalNavBtn{
     position: absolute;
     top: 50%;
@@ -202,9 +188,9 @@
     -webkit-tap-highlight-color: transparent;
     transition: transform 140ms ease, background 140ms ease, border-color 140ms ease, opacity 140ms ease;
     opacity: 0.98;
-    padding: 0;      /* ✅ 버튼 기본 패딩 제거 */
-    font-size: 0;    /* ✅ iOS Safari inline 렌더링 오프셋 차단 */
-    line-height: 0;  /* ✅ line box 영향 제거 */
+    padding: 0;      
+    font-size: 0;   
+    line-height: 0;  
   }
   .shoutModalNavBtn:hover{
     background: rgba(255,255,255,0.14);
@@ -217,7 +203,7 @@
   .shoutModalNavBtn.is-right{ right: 14px; left: auto; }
   .shoutModalNavBtn svg{
     width: 18px; height: 18px;
-    display: block; /* ✅ 중요 */
+    display: block; 
     fill: none;
     stroke: #fff;
     stroke-width: 2.8;
@@ -244,10 +230,6 @@
   .shoutMiniThumb { flex: 0 0 50px; height: 50px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.2); }
   .shoutMiniThumb img { width: 100%; height: 100%; object-fit: cover; }
 
-  /* =========================================
-   Gallery Selected Overlay (GLOBAL STYLE)
-   - is-in-cart 클래스만 JS에서 토글
-========================================= */
 
 .gallery-card{
   position:relative;
@@ -257,9 +239,7 @@
     filter .18s cubic-bezier(.25,.1,.25,1);
 }
 
-/* ------------------------------
-   반투명 화이트 오버레이
------------------------------- */
+
 .gallery-card::before{
   content:"";
   position:absolute;
@@ -277,10 +257,6 @@
     transform .22s cubic-bezier(.25,.1,.25,1);
 }
 
-/* ------------------------------
-   선택 개수 표시 텍스트
-   HTML 수정 없이 pseudo 사용
------------------------------- */
 .gallery-card::after{
   content:attr(data-selected-label);
   position:absolute;
@@ -301,9 +277,6 @@
     transform .22s cubic-bezier(.25,.1,.25,1);
 }
 
-/* ------------------------------
-   선택 상태 (JS가 is-in-cart 붙임)
------------------------------- */
 .gallery-card.is-in-cart::before,
 .gallery-card.is-selected::before,
 .gallery-card.is-selected::after,
@@ -316,38 +289,25 @@
   transform:translateY(0) scale(1);
 }
 
-/* 카드 자체 살짝 눌림 (Apple 느낌) */
 .gallery-card.is-in-cart{
   transform:scale(0.985);
   filter:saturate(.85);
 }
 
-/* ------------------------------
-   기존 선택 테두리 유지
------------------------------- */
 .gallery-card.is-in-cart,
 .gallery-card.is-selected{
   outline:2px solid #2f80ed;
   outline-offset:-2px;
 }
 
-
-/* =========================================================
-   PATCH (2026-02-27)
-   Gallery cart-in lock state
-   - is-in-cart: dark overlay + no hover/click + no check badge + no selected visuals
-   (BODY 패치와 세트로 사용)
-========================================================= */
-
 .gallery-card.is-in-cart{
-  pointer-events:none; /* hover/click/tap 완전 차단 */
+  pointer-events:none; 
   cursor: default;
   box-shadow: none !important;
   transform: none !important;
   filter: none !important;
 }
 
-/* cart-in은 '선택 UI' 자체를 숨김 */
 .gallery-card.is-in-cart .sel-badge{
   opacity: 0 !important;
   transform: scale(.96) !important;
@@ -355,7 +315,6 @@
   border-color: transparent !important;
 }
 
-/* 기존: 화이트 오버레이(선택됨 느낌) → cart-in은 다크 오버레이로 교체 */
 .gallery-card.is-in-cart::before{
   opacity: 1 !important;
   transform: none !important;
@@ -364,14 +323,11 @@
   -webkit-backdrop-filter: blur(2px) !important;
 }
 
-/* cart-in은 선택 라벨(가운데 텍스트)도 숨김 */
 .gallery-card.is-in-cart::after{
   opacity: 0 !important;
 }
 
-/* 혹시 JS/기존 상태 때문에 is-selected가 같이 붙어도 무력화 */
 .gallery-card.is-in-cart.is-selected{
   box-shadow: none !important;
 }
 
-</style>
