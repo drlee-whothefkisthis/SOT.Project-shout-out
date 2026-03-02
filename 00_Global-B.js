@@ -1,4 +1,3 @@
-<script>
 (function () {
 
   const USE_TEST_IMAGES = false;
@@ -1191,4 +1190,3 @@
   document.addEventListener("DOMContentLoaded", initGallery);
 
 })();
-</script>
