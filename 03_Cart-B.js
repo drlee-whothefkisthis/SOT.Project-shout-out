@@ -73,6 +73,60 @@ const BUBBLE_API_ORIGIN = "https://plp-62309.bubbleapps.io/version-test/api/1.1/
 const WF_CREATE_ORDER = "/api/1.1/wf/create_order";
 const currentImgEl = document.getElementById("cart-current-img");
 const thumbRowEl = document.getElementById("cart-thumb-row");
+// --- Thumb strip UX (selected border + active scale + center alignment) ---
+(function ensureThumbStripStyles(){
+  try{
+    if (!thumbRowEl) return;
+    // Style injection (override-friendly)
+    const STYLE_ID = "sh-cart-thumb-strip-style";
+    if (!document.getElementById(STYLE_ID)) {
+      const st = document.createElement("style");
+      st.id = STYLE_ID;
+      st.textContent = `
+        /* Cart thumb strip: selected = border, active = scale, strip centered when no overflow */
+        #cart-thumb-row{
+          display:flex;
+          align-items:center;
+          gap:8px;
+          overflow-x:auto;
+          overflow-y:hidden;
+          -webkit-overflow-scrolling:touch;
+          scroll-behavior:smooth;
+          scroll-snap-type:x proximity;
+        }
+        #cart-thumb-row.is-overflow{ justify-content:flex-start; }
+        #cart-thumb-row:not(.is-overflow){ justify-content:center; }
+
+        #cart-thumb-row .sh-cart-thumb{
+          flex:0 0 auto;
+          border:2px solid transparent;
+          border-radius:10px;
+          box-sizing:border-box;
+          transform:scale(1);
+          transition:transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+          scroll-snap-align:center;
+        }
+
+        /* Selected = border (single source of truth) */
+        #cart-thumb-row .sh-cart-thumb.is-selected{
+          border-color:rgba(255,255,255,0.92);
+          box-shadow:0 0 0 1px rgba(0,0,0,0.18);
+        }
+
+        /* Active = scale-up only (border comes from .is-selected) */
+        #cart-thumb-row .sh-cart-thumb.is-active{
+          transform:scale(1.12);
+          z-index:2;
+        }
+        #cart-thumb-row .sh-cart-thumb.is-active:not(.is-selected){
+          border-color:transparent !important;
+          box-shadow:none !important;
+        }
+      `;
+      document.head.appendChild(st);
+    }
+  }catch(e){}
+})();
 let prevBtn = document.getElementById("cart-prev-btn");
 let nextBtn = document.getElementById("cart-next-btn");
 let container = document.getElementById("cart-list-container");
@@ -440,6 +494,8 @@ function updateThumbOverflowUI(){
 if (!thumbRowEl) return;
 const hasOverflow = thumbRowEl.scrollWidth > (thumbRowEl.clientWidth + 2);
 thumbRowEl.classList.toggle("is-overflow", hasOverflow);
+// Center-align strip when it fits; switch to normal scroll layout when overflowing
+try { thumbRowEl.style.justifyContent = hasOverflow ? "flex-start" : "center"; } catch (e) {}
 if (thumbLeftBtn) { const atLeft = thumbRowEl.scrollLeft <= 2; thumbLeftBtn.classList.toggle("is-disabled", !hasOverflow || atLeft); }
 if (thumbRightBtn) { const maxLeft = thumbRowEl.scrollWidth - thumbRowEl.clientWidth; const atRight = thumbRowEl.scrollLeft >= (maxLeft - 2); thumbRightBtn.classList.toggle("is-disabled", !hasOverflow || atRight); }
 }
