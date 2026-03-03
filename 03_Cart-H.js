@@ -1,7 +1,3 @@
-<script src="https://js.tosspayments.com/v1/payment"></script>
-<style>
-/* === Cart Preview document.getElementById("cart-event-body-01")?.style.display
-mage (Fixed Square Frame, Contain) === */
 #cart-current-img{
   width: 100%;
   height: 100%;
@@ -886,70 +882,40 @@ body{
   border-color: rgba(255,255,255,0.22);
 }
 
-</style>
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  // IG/iOS-style hover/click zones for cart preview arrows
-  const hosts = document.querySelectorAll(".sh-cart-preview-host");
-  hosts.forEach((host) => {
-    // Avoid double-inject
-    if (host.querySelector(".sh-arrow-zone")) return;
 
-    const prevBtn = host.querySelector("#cart-prev-btn, .sh-cart-nav-btn.is-prev");
-    const nextBtn = host.querySelector("#cart-next-btn, .sh-cart-nav-btn.is-next");
+/* =========================
+   Cart preview thumbnail UX
+   ========================= */
+#cart-thumb-row{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+  scroll-behavior:smooth;
+}
+#cart-thumb-row::-webkit-scrollbar{ display:none; }
 
-    // Create zones
-    const leftZone = document.createElement("div");
-    leftZone.className = "sh-arrow-zone is-left";
-    const rightZone = document.createElement("div");
-    rightZone.className = "sh-arrow-zone is-right";
+.sh-cart-thumb{
+  flex:0 0 auto;
+  transition: transform 160ms ease, outline-color 160ms ease;
+  will-change: transform;
+}
 
-    host.appendChild(leftZone);
-    host.appendChild(rightZone);
+/* Selected (payment target): border */
+.sh-cart-thumb.is-selected{
+  outline:2px solid rgba(255,255,255,0.92);
+  outline-offset:2px;
+}
 
-    function setHot(which, on) {
-      if (which === "prev") host.classList.toggle("sh-arrow-hot-prev", !!on);
-      if (which === "next") host.classList.toggle("sh-arrow-hot-next", !!on);
-    }
+/* Active (currently previewed): scale-up */
+.sh-cart-thumb.is-active{
+  transform: scale(1.08);
+}
 
-    function prevEnabled() {
-      return !!prevBtn && !prevBtn.disabled;
-    }
-    function nextEnabled() {
-      return !!nextBtn && !nextBtn.disabled;
-    }
-
-    // Hover behavior: show only while cursor is inside zone
-    leftZone.addEventListener("mouseenter", () => setHot("prev", prevEnabled()));
-    leftZone.addEventListener("mouseleave", () => setHot("prev", false));
-    rightZone.addEventListener("mouseenter", () => setHot("next", nextEnabled()));
-    rightZone.addEventListener("mouseleave", () => setHot("next", false));
-
-    // Click near arrow triggers navigation
-    leftZone.addEventListener("click", (e) => {
-      if (!prevEnabled()) return;
-      e.preventDefault();
-      prevBtn.click();
-    });
-    rightZone.addEventListener("click", (e) => {
-      if (!nextEnabled()) return;
-      e.preventDefault();
-      nextBtn.click();
-    });
-
-    // Keep states in sync if buttons become disabled/enabled dynamically
-    const obs = new MutationObserver(() => {
-      if (!prevEnabled()) setHot("prev", false);
-      if (!nextEnabled()) setHot("next", false);
-      leftZone.style.pointerEvents = prevEnabled() ? "auto" : "none";
-      rightZone.style.pointerEvents = nextEnabled() ? "auto" : "none";
-    });
-    if (prevBtn) obs.observe(prevBtn, { attributes: true, attributeFilter: ["disabled", "style", "class"] });
-    if (nextBtn) obs.observe(nextBtn, { attributes: true, attributeFilter: ["disabled", "style", "class"] });
-
-    // Initial
-    leftZone.style.pointerEvents = prevEnabled() ? "auto" : "none";
-    rightZone.style.pointerEvents = nextEnabled() ? "auto" : "none";
-  });
-});
-</script>
+/* Active but not selected: no border */
+.sh-cart-thumb.is-active:not(.is-selected){
+  outline:none;
+}
