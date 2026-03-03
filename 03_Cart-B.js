@@ -80,7 +80,6 @@ let priceText = document.getElementById("cart-total-price");
 let checkoutBtn = document.getElementById("btn-checkout");
 let checkoutLocked = true;
 let agreeCheckbox = document.getElementById("checkout-agree");
-ensureCartThumbUxStyles();
 
 function nudgeAgreeCheckbox() {
 if (!agreeCheckbox) return;
@@ -911,4 +910,70 @@ if (this.checked) {
 this.classList.remove("is-attn");}
 });
 }
+});
+
+// === moved from HEAD ===
+document.addEventListener("DOMContentLoaded", function () {
+  // IG/iOS-style hover/click zones for cart preview arrows
+  const hosts = document.querySelectorAll(".sh-cart-preview-host");
+  hosts.forEach((host) => {
+    // Avoid double-inject
+    if (host.querySelector(".sh-arrow-zone")) return;
+
+    const prevBtn = host.querySelector("#cart-prev-btn, .sh-cart-nav-btn.is-prev");
+    const nextBtn = host.querySelector("#cart-next-btn, .sh-cart-nav-btn.is-next");
+
+    // Create zones
+    const leftZone = document.createElement("div");
+    leftZone.className = "sh-arrow-zone is-left";
+    const rightZone = document.createElement("div");
+    rightZone.className = "sh-arrow-zone is-right";
+
+    host.appendChild(leftZone);
+    host.appendChild(rightZone);
+
+    function setHot(which, on) {
+      if (which === "prev") host.classList.toggle("sh-arrow-hot-prev", !!on);
+      if (which === "next") host.classList.toggle("sh-arrow-hot-next", !!on);
+    }
+
+    function prevEnabled() {
+      return !!prevBtn && !prevBtn.disabled;
+    }
+    function nextEnabled() {
+      return !!nextBtn && !nextBtn.disabled;
+    }
+
+    // Hover behavior: show only while cursor is inside zone
+    leftZone.addEventListener("mouseenter", () => setHot("prev", prevEnabled()));
+    leftZone.addEventListener("mouseleave", () => setHot("prev", false));
+    rightZone.addEventListener("mouseenter", () => setHot("next", nextEnabled()));
+    rightZone.addEventListener("mouseleave", () => setHot("next", false));
+
+    // Click near arrow triggers navigation
+    leftZone.addEventListener("click", (e) => {
+      if (!prevEnabled()) return;
+      e.preventDefault();
+      prevBtn.click();
+    });
+    rightZone.addEventListener("click", (e) => {
+      if (!nextEnabled()) return;
+      e.preventDefault();
+      nextBtn.click();
+    });
+
+    // Keep states in sync if buttons become disabled/enabled dynamically
+    const obs = new MutationObserver(() => {
+      if (!prevEnabled()) setHot("prev", false);
+      if (!nextEnabled()) setHot("next", false);
+      leftZone.style.pointerEvents = prevEnabled() ? "auto" : "none";
+      rightZone.style.pointerEvents = nextEnabled() ? "auto" : "none";
+    });
+    if (prevBtn) obs.observe(prevBtn, { attributes: true, attributeFilter: ["disabled", "style", "class"] });
+    if (nextBtn) obs.observe(nextBtn, { attributes: true, attributeFilter: ["disabled", "style", "class"] });
+
+    // Initial
+    leftZone.style.pointerEvents = prevEnabled() ? "auto" : "none";
+    rightZone.style.pointerEvents = nextEnabled() ? "auto" : "none";
+  });
 });
