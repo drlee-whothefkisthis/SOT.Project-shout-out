@@ -1,4 +1,3 @@
-<script>
 document.addEventListener("DOMContentLoaded", function () {
 const AUTH_INTENT_KEY = "shout_auth_intent";
 const AUTH_LOGIN_URL = "/login";
@@ -71,9 +70,7 @@ const SUCCESS_URL = window.location.origin + "/payments-results/success";
 const FAIL_URL = window.location.origin + "/payments-results/fail";
 const THUMB_SCROLL_STEP = 280;
 const BUBBLE_API_ORIGIN = "https://plp-62309.bubbleapps.io/version-test/api/1.1/wf";
-const WF_SYNC_CART = "/api/1.1/wf/sync_cart_from_local";
 const WF_CREATE_ORDER = "/api/1.1/wf/create_order";
-const CART_SYNC_DEBOUNCE_MS = 350;
 const currentImgEl = document.getElementById("cart-current-img");
 const thumbRowEl = document.getElementById("cart-thumb-row");
 let prevBtn = document.getElementById("cart-prev-btn");
@@ -83,6 +80,8 @@ let priceText = document.getElementById("cart-total-price");
 let checkoutBtn = document.getElementById("btn-checkout");
 let checkoutLocked = true;
 let agreeCheckbox = document.getElementById("checkout-agree");
+ensureCartThumbUxStyles();
+
 function nudgeAgreeCheckbox() {
 if (!agreeCheckbox) return;
 try {
@@ -99,7 +98,7 @@ async function startPayment(){
 try{
 if (agreeCheckbox && !agreeCheckbox.checked) { alert("약관에 동의해 주세요."); return; }
 const userId = localStorage.getItem("shout_users_id");
-if(!userId){ try{ sessionStorage.setItem(AUTH_INTENT_KEY, JSON.stringify({ after: "start_payment" })); sessionStorage.setItem("shout_cart_sync_needed", "true"); }catch(e){} window.location.href = AUTH_LOGIN_URL; return; }
+if(!userId){ try{ sessionStorage.setItem(AUTH_INTENT_KEY, JSON.stringify({ after: "start_payment" })); }catch(e){} window.location.href = AUTH_LOGIN_URL; return; }
 const allItems = (window.ShoutCart && typeof window.ShoutCart.getItems === 'function') ? window.ShoutCart.getItems() : cartItems;
 ensureSelectedIds({ save: true });
 const items = getSelectedItemsFrom(allItems);
@@ -131,6 +130,17 @@ let packageLabelText = document.getElementById("cart-package-label");
 let selectedCountText = document.getElementById("cart-selected-count");
 let eventListEl = document.getElementById("cart-event-list");
 const __secPreviewIdxByGroupKey = new Map();
+const __secThumbScrollByGroupKey = new Map();
+const __openGroupKeySet = new Set();
+function snapshotOpenGroupKeys() {
+  __openGroupKeySet.clear();
+  const openSecs = document.querySelectorAll('.cart-event-section.is-open[data-group-key]');
+  openSecs.forEach(sec => {
+    const k = String(sec.getAttribute('data-group-key') || '').trim();
+    if (k) __openGroupKeySet.add(k);
+  });
+}
+
 let eventTemplateEl = document.getElementById("cart-event-template");
 let thumbLeftBtn = null;
 let thumbRightBtn = null;
@@ -199,7 +209,6 @@ try { localStorage.setItem("shout_cart_data", JSON.stringify(cartData)); } catch
 }
 }
 let __shout_cart_render_seq = 0;
-let __shout_cart_sync_timer = null;
 function loadCartFromStorage() {
 if (window.ShoutCart && typeof window.ShoutCart.getItems === "function") {
 try {
@@ -227,25 +236,6 @@ cartItems = [];
 }
 function getUsersId() {
 return localStorage.getItem("shout_users_id") || "";
-}
-function getCartPhotoIds() {
-return cartItems.map(it => (it && it._id ? String(it._id) : "")).filter(Boolean);
-}
-async function syncCartNow(reason) {
-const usersId = getUsersId();
-if (!usersId) return;
-const photoIds = getCartPhotoIds();
-const body = new URLSearchParams();
-body.set("users_id", usersId);
-body.set("photo_ids", JSON.stringify(photoIds));
-const url = BUBBLE_API_ORIGIN.replace(/\/$/, "") + WF_SYNC_CART;
-try {
-await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" }, body: body.toString() });
-} catch (err) {}
-}
-function scheduleCartSync(reason) {
-if (__shout_cart_sync_timer) clearTimeout(__shout_cart_sync_timer);
-__shout_cart_sync_timer = setTimeout(() => { syncCartNow(reason); }, CART_SYNC_DEBOUNCE_MS);
 }
 function ensureCartUi() {
 if (!container) {
@@ -418,11 +408,34 @@ const selected = pid ? isPhotoSelected(pid) : true;
 __pvSelectBtn.classList.toggle("is-selected", !!selected);
 __pvSelectBtn.classList.toggle("is-unselected", !selected);
 }
+function centerThumbToIndex(idx, { smooth } = { smooth: true }) {
+  if (!thumbRowEl) return;
+  const el = thumbRowEl.querySelector(`[data-thumb-idx="${idx}"]`);
+  if (!el) return;
+
+  // Prefer manual centering for iOS/Safari consistency
+  try {
+    const row = thumbRowEl;
+    const rowRect = row.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const currentLeft = row.scrollLeft;
+
+    const elCenterInViewport = (elRect.left - rowRect.left) + (elRect.width / 2);
+    const target = currentLeft + elCenterInViewport - (rowRect.width / 2);
+
+    const maxLeft = Math.max(0, row.scrollWidth - row.clientWidth);
+    const clamped = Math.max(0, Math.min(maxLeft, target));
+
+    row.scrollTo({ left: clamped, behavior: smooth ? "smooth" : "auto" });
+    return;
+  } catch (e) {}
+
+  // Fallback
+  try { el.scrollIntoView({ behavior: smooth ? "smooth" : "auto", inline: "center", block: "nearest" }); }
+  catch (e2) { try { el.scrollIntoView(true); } catch (e3) {} }
+}
 function scrollSelectedThumbIntoView(){
-if (!thumbRowEl) return;
-const el = thumbRowEl.querySelector(`[data-thumb-idx="${currentIndex}"]`);
-if (!el) return;
-try { el.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" }); } catch (e) { el.scrollIntoView(true); }
+  centerThumbToIndex(currentIndex, { smooth: true });
 }
 function updateThumbOverflowUI(){
 if (!thumbRowEl) return;
@@ -450,11 +463,15 @@ setCurrentPreview(safeSrc); try { updatePreviewBadgesUI(); } catch (e) {}
 }
 const keepLeft = thumbLeftBtn; const keepRight = thumbRightBtn;
 thumbRowEl.innerHTML = "";
+const __selectedSet = new Set(getSelectedIds());
 cartItems.forEach((item, idx) => {
 const thumbBox = document.createElement("div");
-const isSelected = (idx === currentIndex);
+const photoId = getItemId(item);
+const isActive = (idx === currentIndex);
+const isSelected = !!(photoId && __selectedSet.has(photoId));
 thumbBox.setAttribute("data-thumb-idx", String(idx));
-thumbBox.className = "sh-cart-thumb" + (isSelected ? " is-active" : "");
+if (photoId) thumbBox.setAttribute("data-photo-id", photoId);
+thumbBox.className = "sh-cart-thumb" + (isActive ? " is-active" : "") + (isSelected ? " is-selected" : "");
 const img = document.createElement("div");
 img.className = "sh-cart-thumb-img";
 const bgUrl = item.preview_url.startsWith("http") ? item.preview_url : "https:" + item.preview_url;
@@ -565,17 +582,27 @@ prev = prevOverlay; next = nextOverlay;
 const thumbsWrap = document.createElement("div"); thumbsWrap.className = "cart-preview-thumbs-wrap";
 const thumbs = document.createElement("div"); thumbs.className = "cart-preview-thumbs";
 thumbsWrap.appendChild(thumbs); wrap.appendChild(current); wrap.appendChild(thumbsWrap);
-return { wrap, current, thumbs, prev, next };
+return { wrap, current, thumbsWrap, thumbs, prev, next };
 }
 function normalizeUrl(url){if(!url)return"";const s=String(url);if(s.startsWith("http"))return s;if(s.startsWith("//"))return"https:"+s;return s;}
 function bindSectionPreview(mountEl, items) {
 if (!mountEl) return; const list = Array.isArray(items) ? items : [];
 const ui = buildSectionPreviewDOM(); mountEl.innerHTML = ""; mountEl.appendChild(ui.wrap);
+const __thumbWrap = ui.thumbsWrap;
 const __gk = (list && list[0]) ? getGroupKey(list[0]) : "";
 let idx = 0;
 if (__gk && list.length) {
 const saved = __secPreviewIdxByGroupKey.get(__gk);
 if (Number.isFinite(saved)) idx = Math.max(0, Math.min(list.length - 1, saved));
+}
+if (__gk && __thumbWrap) {
+  const sLeft = __secThumbScrollByGroupKey.get(__gk);
+  if (Number.isFinite(sLeft)) {
+    try { __thumbWrap.scrollLeft = sLeft; } catch (e) {}
+  }
+  __thumbWrap.addEventListener('scroll', () => {
+    try { __secThumbScrollByGroupKey.set(__gk, __thumbWrap.scrollLeft || 0); } catch (e) {}
+  }, { passive: true });
 }
 let __secDel = null;
 let __secSel = null;
@@ -600,15 +627,31 @@ __secDel.addEventListener("click", (e) => {
 e.preventDefault(); e.stopPropagation();
 const pid = getSecPid();
 if (!pid) return;
+try {
+  const gk = __gk;
+  if (gk) {
+    const groupIds = list.map(it => it && it._id ? String(it._id) : '').filter(Boolean);
+    const pos = groupIds.indexOf(pid);
+    if (pos >= 0) {
+      const newLen = Math.max(0, groupIds.length - 1);
+      if (newLen === 0) __secPreviewIdxByGroupKey.delete(gk);
+      else __secPreviewIdxByGroupKey.set(gk, Math.max(0, Math.min(newLen - 1, pos)));
+    }
+  }
+} catch (e0) {}
 removeItemByPhotoId(pid);
 });
 __secSel.addEventListener("click", (e) => {
 e.preventDefault(); e.stopPropagation();
 const pid = getSecPid();
 if (!pid) return;
+const __y = window.scrollY || 0;
+const __sl = (__thumbWrap && __thumbWrap.scrollLeft) ? __thumbWrap.scrollLeft : 0;
 toggleSelectedId(pid);
+try { snapshotOpenGroupKeys(); } catch (e0) {}
 try { renderMultiEventAccordion(); } catch (e2) {}
 try { updateSectionBadgesUI(); } catch (e3) {}
+setTimeout(() => { try { window.scrollTo(0, __y); } catch(e4) {} try { if (__gk && __thumbWrap) __thumbWrap.scrollLeft = __sl; } catch(e5) {} }, 0);
 });
 ui.wrap.appendChild(__secDel);
 ui.wrap.appendChild(__secSel);
@@ -667,6 +710,7 @@ renderThumbs(); renderCurrent(); mountSectionBadges(); setupPerEventThumbNav();
 }
 async function renderMultiEventAccordion() {
 const __mySeq = ++__shout_cart_render_seq;
+try { snapshotOpenGroupKeys(); } catch (e) {}
 eventListEl = document.getElementById("cart-event-list"); eventTemplateEl = document.getElementById("cart-event-template");
 if (!eventListEl || !eventTemplateEl) return false;
 eventTemplateEl.style.display = "none"; hideLegacySingleEventUI();
@@ -680,7 +724,7 @@ const __selectedSet = new Set(__selectedIds);
 let grandTotal = 0;
 groups.forEach((g, i) => {
 const section = eventTemplateEl.cloneNode(true); section.classList.remove("cart-event-template");
-const idx2 = pad2(i + 1); section.id = `cart-event-section-${idx2}`; section.style.display = ""; section.classList.add("cart-event-section"); section.setAttribute("data-event-code", String(g.event_code || ""));
+const idx2 = pad2(i + 1); section.id = `cart-event-section-${idx2}`; section.style.display = ""; section.classList.add("cart-event-section"); section.setAttribute("data-event-code", String(g.event_code || "")); section.setAttribute("data-group-key", String(g.key || ""));
 const header = section.querySelector(".cart-event-header"); const body = section.querySelector(".cart-event-body");
 if (header) header.id = `cart-event-header-${idx2}`; if (body) body.id = `cart-event-body-${idx2}`;
 const idxEl = section.querySelector(".cart-event-index"); const titleEl = section.querySelector(".cart-event-title"); const subtotalEl = section.querySelector(".cart-event-subtotal");
@@ -694,10 +738,10 @@ const subtotal = calcEventAmountByCount(count); grandTotal += subtotal;
 if (subtotalEl) { subtotalEl.id = `cart-event-subtotal-${idx2}`; subtotalEl.textContent = "₩ " + Number(subtotal).toLocaleString("ko-KR"); }
 if (body) body.style.display = "none";
 const mount = section.querySelector(".cart-event-preview-mount"); if (mount) { mount.id = `cart-event-preview-mount-${idx2}`; bindSectionPreview(mount, g.items); }
-function setOpen(open) { if (!body) return; section.classList.toggle("is-open", !!open); body.style.display = open ? "block" : "none"; }
-if (groups.length === 1) setOpen(true);
+function setOpen(open) { if (!body) return; const on = !!open; section.classList.toggle("is-open", on); body.style.display = on ? "block" : "none"; const gk = String(g.key || "").trim(); if (gk) { if (on) __openGroupKeySet.add(gk); else __openGroupKeySet.delete(gk); } }
+if (groups.length === 1 || __openGroupKeySet.has(String(g.key || '').trim())) setOpen(true);
 if (header) header.style.pointerEvents = "auto";
-section.addEventListener("click", (ev) => { const h = ev.target && ev.target.closest ? ev.target.closest(".cart-event-header") : null; if (!h) return; const isOpen = section.classList.contains("is-open"); setOpen(!isOpen); }, true);
+section.addEventListener("click", (ev) => { const h = ev.target && ev.target.closest ? ev.target.closest(".cart-event-header") : null; if (!h) return; if (ev.target && ev.target.closest) { if (ev.target.closest('.sh-pv-badge') || ev.target.closest('.cart-preview') || ev.target.closest('.sh-thumb-remove-btn') || ev.target.closest('button') && !ev.target.closest('.cart-event-header')) { return; } } const isOpen = section.classList.contains("is-open"); setOpen(!isOpen); }, true);
 eventListEl.appendChild(section);
 });
 if (priceText) priceText.innerText = formatKRW(grandTotal); updateFooterMeta(groups); return true;
@@ -730,6 +774,7 @@ return sum + calcEventAmountByCount(c);
 if (priceText) priceText.innerText = formatKRW(total); updateFooterMeta(localGroups); if (checkoutBtn) checkoutBtn.innerText = "결제하기";
 }
 function rerenderCartUI() {
+try { snapshotOpenGroupKeys(); } catch (e) {}
 Promise.resolve(renderMultiEventAccordion()).then((didMulti) => { if (didMulti) return; renderCartList(); renderCartPreviewUI(); try { bindPreviewNav(); } catch (e) {} try { bindThumbUx(); } catch (e) {} setTimeout(() => { try { updateThumbOverflowUI(); } catch (e) {} }, 0); });
 }
 function removeItemByPhotoId(photoId) {
@@ -743,7 +788,7 @@ try { window.ShoutCart.remove(removedId); cartItems = (window.ShoutCart.getItems
 cartItems.splice(index, 1); cartData.items = cartItems; removeFromSelectedIds(removedId, { save: false }); ensureSelectedIds({ save: false }); localStorage.setItem("shout_cart_data", JSON.stringify(cartData));
 }
 if (currentIndex >= cartItems.length) currentIndex = Math.max(0, cartItems.length - 1);
-rerenderCartUI(); scheduleCartSync("remove_item");
+rerenderCartUI();
 }
 function bindPreviewNav(){
 if (__SHOUT_CART_PREVIEW_NAV_BOUND) return; __SHOUT_CART_PREVIEW_NAV_BOUND = true; if (!prevBtn || !nextBtn) return;
@@ -847,12 +892,15 @@ if (checkoutBtn) checkoutBtn.onclick = callStartPayment;
 document.querySelectorAll(".cart-preview-nav").forEach(el => el.remove());
 const intent = sessionStorage.getItem(AUTH_INTENT_KEY);
 if (intent) {
-const data = JSON.parse(intent);
-if (data.after === "start_payment" && localStorage.getItem("shout_users_id")) {
-sessionStorage.removeItem(AUTH_INTENT_KEY); const needSync = sessionStorage.getItem("shout_cart_sync_needed") === "true";
-if (needSync) { sessionStorage.removeItem("shout_cart_sync_needed"); syncCartNow("after_login_return"); }
-setTimeout(startPayment, 300);
-}
+  try {
+    const data = JSON.parse(intent);
+    if (data && data.after === "start_payment" && localStorage.getItem("shout_users_id")) {
+      sessionStorage.removeItem(AUTH_INTENT_KEY);
+      setTimeout(startPayment, 300);
+    }
+  } catch (e) {
+    try { sessionStorage.removeItem(AUTH_INTENT_KEY); } catch (_) {}
+  }
 }
 }
 window.addEventListener("pageshow", init); init();
@@ -864,4 +912,3 @@ this.classList.remove("is-attn");}
 });
 }
 });
-</script>
