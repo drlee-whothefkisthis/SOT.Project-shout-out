@@ -905,6 +905,7 @@ document.addEventListener("DOMContentLoaded", function() {
         titleEl.textContent = g.event_display_name || "UNKNOWN";
       }
       if (bibEl) {
+        bibEl.id = `cart-list-bib-${idx2}`;
         bibEl.textContent = `# ${g.bib || "-"}`;
       }
       const __allItems = Array.isArray(g.items) ? g.items : [];
