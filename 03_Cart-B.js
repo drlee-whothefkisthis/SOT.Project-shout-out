@@ -894,6 +894,7 @@ document.addEventListener("DOMContentLoaded", function() {
       if (body) body.id = `cart-event-body-${idx2}`;
       const idxEl = section.querySelector(".cart-event-index");
       const titleEl = section.querySelector(".cart-event-title");
+      const bibEl = section.querySelector(".cart-list-bib");
       const subtotalEl = section.querySelector(".cart-event-subtotal");
       if (idxEl) {
         idxEl.id = `cart-event-index-${idx2}`;
@@ -902,6 +903,9 @@ document.addEventListener("DOMContentLoaded", function() {
       if (titleEl) {
         titleEl.id = `cart-event-title-${idx2}`;
         titleEl.textContent = g.event_display_name || "UNKNOWN";
+      }
+      if (bibEl) {
+        bibEl.textContent = `# ${g.bib || "-"}`;
       }
       const __allItems = Array.isArray(g.items) ? g.items : [];
       const count = __allItems.reduce((n, it) => n + (__selectedSet.has(getItemId(it)) ?
