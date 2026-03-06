@@ -496,6 +496,11 @@ document.addEventListener("DOMContentLoaded", function() {
         photoIds.push(id);
       }
       const bibMeta = buildBibMeta(items);
+      const __bibToSend = String((cartData && cartData.bib) || getPrimaryBib(items) || "").trim();
+      if (!__bibToSend) {
+        alert("참가번호(bib)가 없어 결제를 진행할 수 없습니다. 다시 담아주세요.");
+        return;
+      }
       let amount = calcTotalAmountByGroups(items);
       const orderName = `사진 ${photoIds.length}장`;
       let orderId = `shout_${Date.now()}_${Math.random().toString(16).slice(2,8)}`;
@@ -504,8 +509,6 @@ document.addEventListener("DOMContentLoaded", function() {
         const body = new URLSearchParams();
         body.set("users_id", userId);
         body.set("orderId", orderId);
-        const __bibToSend = String((cartData && cartData.bib) || getPrimaryBib(items) || "").trim();
-        if (!__bibToSend) { alert("참가번호(bib)가 없어 결제를 진행할 수 없습니다. 다시 담아주세요."); return; }
         body.set("bib", __bibToSend);
         const bibMetaJson = JSON.stringify(bibMeta || []);
         body.set("bib_meta", bibMetaJson);
