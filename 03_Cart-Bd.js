@@ -479,7 +479,8 @@ const res = await fetch(url, {
         orderId: orderId,
         orderName: orderName,
         successUrl: SUCCESS_URL,
-        failUrl: FAIL_URL
+        failUrl: FAIL_URL,
+        windowTarget: "self"
       });
     } catch (err) {
       console.error("[startPayment] error:", err);
