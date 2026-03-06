@@ -1,5 +1,6 @@
 document.addEventListener("DOMContentLoaded", function() {
   const AUTH_INTENT_KEY = "shout_auth_intent";
+  const CHECKOUT_CONTEXT_KEY = "shout_checkout_context";
   const AUTH_LOGIN_URL = "/login";
   const UNIT_PRICE = 5000;
   const PACKAGE_THRESHOLD = 5;
@@ -30,6 +31,46 @@ document.addEventListener("DOMContentLoaded", function() {
 
   function formatKRW(n) {
     return Number(n).toLocaleString("ko-KR") + "원";
+  }
+
+  function buildCheckoutContext(items, extra) {
+    const list = Array.isArray(items) ? items : [];
+    const groupsMap = new Map();
+    list.forEach((it) => {
+      const eventId = String((it && (it.event_id || it.eventId || it.event_code)) || "").trim();
+      const eventDisplayName = String((it && (it.event_display_name || it.eventName || it.event_name)) || "").trim();
+      const bib = String((it && (it.bib ?? it.bib_no ?? it.bibNumber ?? it.bib_number)) || "").trim();
+      const key = `${eventId}__${bib}`;
+      if (!groupsMap.has(key)) {
+        groupsMap.set(key, {
+          event_id: eventId,
+          event_display_name: eventDisplayName,
+          bib: bib,
+          count: 0
+        });
+      }
+      groupsMap.get(key).count += 1;
+    });
+    return {
+      saved_at: Date.now(),
+      order_id: String((extra && (extra.order_id || extra.orderId)) || "").trim(),
+      order_name: String((extra && (extra.order_name || extra.orderName)) || "").trim(),
+      amount: Number((extra && extra.amount) || 0) || 0,
+      users_id: String((extra && extra.users_id) || "").trim(),
+      primary_bib: String((extra && extra.primary_bib) || "").trim(),
+      selected_count: list.length,
+      photo_ids: Array.isArray(extra && extra.photo_ids) ? extra.photo_ids : [],
+      bib_meta: Array.isArray(extra && extra.bib_meta) ? extra.bib_meta : [],
+      groups: Array.from(groupsMap.values())
+    };
+  }
+
+  function persistCheckoutContext(ctx) {
+    try {
+      const raw = JSON.stringify(ctx || {});
+      sessionStorage.setItem(CHECKOUT_CONTEXT_KEY, raw);
+      localStorage.setItem(CHECKOUT_CONTEXT_KEY, raw);
+    } catch (e) { warn("silent catch: checkout.context.persist", e); }
   }
 
   function getGroupKey(it) {
@@ -487,11 +528,27 @@ const res = await fetch(url, {
         paymentModalConfirmBtnEl.disabled = true;
         paymentModalConfirmBtnEl.textContent = "결제 요청 중...";
       }
+      const checkoutContext = buildCheckoutContext(items, {
+        users_id: userId,
+        order_id: orderId,
+        order_name: orderName,
+        amount: amount,
+        primary_bib: __bibToSend,
+        photo_ids: photoIds,
+        bib_meta: bibMeta
+      });
+      persistCheckoutContext(checkoutContext);
+      const successUrlObj = new URL(SUCCESS_URL, window.location.origin);
+      successUrlObj.searchParams.set("ctx", orderId);
+      successUrlObj.searchParams.set("from", "cart");
+      const failUrlObj = new URL(FAIL_URL, window.location.origin);
+      failUrlObj.searchParams.set("ctx", orderId);
+      failUrlObj.searchParams.set("from", "cart");
       await paymentWidgets.requestPayment({
         orderId: orderId,
         orderName: orderName,
-        successUrl: SUCCESS_URL,
-        failUrl: FAIL_URL,
+        successUrl: successUrlObj.toString(),
+        failUrl: failUrlObj.toString(),
         windowTarget: "self"
       });
     } catch (err) {
