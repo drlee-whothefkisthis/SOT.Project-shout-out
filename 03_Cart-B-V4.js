@@ -313,7 +313,9 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function goToCheckoutPage() {
-    const items = getSelectedItems();
+    const allItems = (window.ShoutCart && typeof window.ShoutCart.getItems === 'function') ? window.ShoutCart.getItems() : cartItems;
+    const items = getSelectedItemsFrom(allItems);
+    
     const amountValue = getSelectedCheckoutAmount();
     if (amountValue <= 0 || !Array.isArray(items) || items.length === 0) {
       alert("장바구니가 비어있습니다.");
@@ -328,6 +330,7 @@ document.addEventListener("DOMContentLoaded", function() {
         mobile: true
       }));
     } catch (e) { warn("silent catch: mobile.checkout.entry", e); }
+    
     window.location.href = CHECKOUT_PAGE_URL + "?from=cart&mobile=1";
   }
 
