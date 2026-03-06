@@ -146,6 +146,8 @@ document.addEventListener("DOMContentLoaded", function() {
   const TOSS_CLIENT_KEY = "test_gck_Z61JOxRQVEbNXYJv1q4grW0X9bAq";
   const SUCCESS_URL = window.location.origin + "/payments-results/success";
   const FAIL_URL = window.location.origin + "/payments-results/fail";
+  const CHECKOUT_PAGE_URL = window.location.origin + "/checkout";
+  const MOBILE_CHECKOUT_MAX_WIDTH = 767.98;
   const THUMB_SCROLL_STEP = 280;
   const BUBBLE_API_ORIGIN = "https://plp-62309.bubbleapps.io/version-test";
   const WF_CREATE_ORDER = "/api/1.1/wf/create-order";
@@ -280,6 +282,53 @@ document.addEventListener("DOMContentLoaded", function() {
       return false;
     }
     return true;
+  }
+
+  function isMobileCheckoutMode() {
+    try {
+      const ua = String(navigator.userAgent || navigator.vendor || window.opera || "");
+      const byUa = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+      const byWidth = window.matchMedia ? window.matchMedia(`(max-width: ${MOBILE_CHECKOUT_MAX_WIDTH}px)`).matches : (window.innerWidth <= MOBILE_CHECKOUT_MAX_WIDTH);
+      return !!(byUa || byWidth);
+    } catch (e) {
+      warn("silent catch: mobile.checkout.detect", e);
+      return window.innerWidth <= MOBILE_CHECKOUT_MAX_WIDTH;
+    }
+  }
+
+  function buildPreCheckoutContext(items) {
+    const list = Array.isArray(items) ? items : [];
+    const amount = getSelectedCheckoutAmount();
+    const userId = String(localStorage.getItem("shout_users_id") || "").trim();
+    const photoIds = list.map(getItemId).filter(Boolean);
+    const bibMeta = buildBibMeta(list);
+    const primaryBib = String((cartData && cartData.bib) || getPrimaryBib(list) || "").trim();
+    return buildCheckoutContext(list, {
+      users_id: userId,
+      amount: amount,
+      primary_bib: primaryBib,
+      photo_ids: photoIds,
+      bib_meta: bibMeta
+    });
+  }
+
+  function goToCheckoutPage() {
+    const items = getSelectedItems();
+    const amountValue = getSelectedCheckoutAmount();
+    if (amountValue <= 0 || !Array.isArray(items) || items.length === 0) {
+      alert("장바구니가 비어있습니다.");
+      return;
+    }
+    const ctx = buildPreCheckoutContext(items);
+    persistCheckoutContext(ctx);
+    try {
+      sessionStorage.setItem("shout_checkout_entry", JSON.stringify({
+        from: "cart",
+        at: Date.now(),
+        mobile: true
+      }));
+    } catch (e) { warn("silent catch: mobile.checkout.entry", e); }
+    window.location.href = CHECKOUT_PAGE_URL + "?from=cart&mobile=1";
   }
 
   function openPaymentModal() {
@@ -1960,11 +2009,15 @@ rerenderCartUI();
     if (!__didMulti) {
       renderCartList();
     }
-    ensurePaymentWidgetDom();
+    if (!isMobileCheckoutMode()) ensurePaymentWidgetDom();
     if (checkoutBtn) checkoutBtn.onclick = function(e) {
       if (e && typeof e.preventDefault === "function") e.preventDefault();
-      /* [CHECK 3] 결제 버튼 1차 역할은 모달 오픈. 단, 약관 선통과 후에만 연다. */
+      /* [CHECK 3] 결제 버튼은 공통으로 약관 선검사 후 진행한다. 모바일은 체크아웃 페이지로 이동, 데스크톱은 모달을 연다. */
       if (!canOpenPaymentModalWithPrecheck()) return;
+      if (isMobileCheckoutMode()) {
+        goToCheckoutPage();
+        return;
+      }
       openPaymentModal();
     };
     document.querySelectorAll(".cart-preview-nav").forEach(el => el.remove());
@@ -1976,8 +2029,12 @@ rerenderCartUI();
           "shout_users_id")) {
           sessionStorage.removeItem(AUTH_INTENT_KEY);
           setTimeout(function() {
-            /* [CHECK 4] 로그인 복귀 후에도 동일하게 약관 선검사 후 모달을 연다. */
+            /* [CHECK 4] 로그인 복귀 후에도 동일하게 약관 선검사 후 진행한다. 모바일은 체크아웃 페이지로 이동, 데스크톱은 모달을 연다. */
             if (!canOpenPaymentModalWithPrecheck()) return;
+            if (isMobileCheckoutMode()) {
+              goToCheckoutPage();
+              return;
+            }
             openPaymentModal();
           }, 300);
         }
