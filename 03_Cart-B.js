@@ -1,3 +1,4 @@
+<script>
 document.addEventListener("DOMContentLoaded", function() {
   const AUTH_INTENT_KEY = "shout_auth_intent";
   const AUTH_LOGIN_URL = "/login";
@@ -5,6 +6,22 @@ document.addEventListener("DOMContentLoaded", function() {
   const PACKAGE_THRESHOLD = 5;
   const PACKAGE_PRICE = 24900;
   const PACKAGE_LABEL_TEXT = "무제한 패키지";
+
+  // Debug toggles: add ?debug_cart=1 to enable verbose warnings
+  const DEBUG_CART = (new URLSearchParams(location.search).get("debug_cart") === "1");
+  function warn(tag, err, extra) {
+    if (!DEBUG_CART) return;
+    try { console.warn(`[Cart Warning] ${tag}`, err, extra || ""); } catch (_) {}
+  }
+  function log(tag, extra) {
+    if (!DEBUG_CART) return;
+    try { console.log(`[Cart Debug] ${tag}`, extra || ""); } catch (_) {}
+  }
+
+  // Prevent double init (multiple DOMContentLoaded listeners / script duplicates)
+  if (window.__SHOUT_CART_INIT_DONE__) return;
+  window.__SHOUT_CART_INIT_DONE__ = true;
+
 
   function calcAmountByCount(count) {
     const c = Number(count) || 0;
@@ -81,8 +98,8 @@ document.addEventListener("DOMContentLoaded", function() {
   const SUCCESS_URL = window.location.origin + "/payments-results/success";
   const FAIL_URL = window.location.origin + "/payments-results/fail";
   const THUMB_SCROLL_STEP = 280;
-  const BUBBLE_API_ORIGIN = "https://plp-62309.bubbleapps.io/version-test/api/1.1/wf";
-  const WF_CREATE_ORDER = "/api/1.1/wf/create_order";
+  const BUBBLE_API_ORIGIN = "https://plp-62309.bubbleapps.io/version-test";
+  const WF_CREATE_ORDER = "/api/1.1/wf/create-order";
   let container = document.getElementById("cart-list-container");
   let priceText = document.getElementById("cart-total-price");
   let checkoutBtn = document.getElementById("btn-checkout");
@@ -113,7 +130,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
     try {
       agreeCheckbox.classList.add("is-attn");
-    } catch (e) {}
+    } catch (e) { warn("silent catch: agreeCheckbox.attn", e); }
   }
   async function startPayment() {
     try {
@@ -127,7 +144,7 @@ document.addEventListener("DOMContentLoaded", function() {
           sessionStorage.setItem(AUTH_INTENT_KEY, JSON.stringify({
             after: "start_payment"
           }));
-        } catch (e) {}
+        } catch (e) { warn("silent catch: auth.intent.store", e); }
         window.location.href = AUTH_LOGIN_URL;
         return;
       }
@@ -144,7 +161,7 @@ document.addEventListener("DOMContentLoaded", function() {
       const seen = new Set();
       const photoIds = [];
       for (const it of items) {
-        const id = String(it && it._id || "").trim();
+        const id = String((it && (it._id || it.photo_id || it.photoId || it.id)) || "").trim();
         if (!id) continue;
         if (seen.has(id)) continue;
         seen.add(id);
@@ -158,24 +175,54 @@ document.addEventListener("DOMContentLoaded", function() {
         const url = BUBBLE_API_ORIGIN.replace(/\/$/, "") + WF_CREATE_ORDER;
         const body = new URLSearchParams();
         body.set("users_id", userId);
-        body.set("amount", String(amount));
-        body.set("photo_ids_json", JSON.stringify(photoIds));
-        body.set("bib_meta_json", JSON.stringify(bibMeta));
-        body.set("success_url", SUCCESS_URL);
-        body.set("fail_url", FAIL_URL);
-        const res = await fetch(url, {
+        body.set("orderId", orderId);
+        const __bibToSend = String((cartData && cartData.bib) || __shout_getUniqueBib(items) || "").trim();
+        if (!__bibToSend) { alert("참가번호(bib)가 없어 결제를 진행할 수 없습니다. 다시 담아주세요."); return; }
+        body.set("bib", __bibToSend);
+        // paymentKey is not available yet; Bubble parameter is required, so send a placeholder.
+        body.set("paymentKey", "__PENDING__");
+        // Bubble workflow historically used photo_ids_json (JSON string). Some versions use photo_ids.
+        // For maximum backward-compatibility, send BOTH as the same JSON array string.
+        const photoIdsJson = JSON.stringify(photoIds);
+        body.set("photo_ids", photoIdsJson);
+        body.set("photo_ids_json", photoIdsJson);
+
+const res = await fetch(url, {
           method: "POST",
           headers: {
             "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
           },
           body: body.toString()
         });
-        const j = await res.json().catch(() => null);
+
+        // --- Debug visibility: Bubble often returns useful error text on 400 ---
+        let rawText = "";
+        let j = null;
+        try { rawText = await res.text(); } catch (e) { warn("silent catch: createOrder.readText", e); }
+        try { j = rawText ? JSON.parse(rawText) : null; } catch (e) { /* not JSON */ }
+
+        if (!res.ok) {
+          // Expose the real reason when debug_cart=1, and STOP the payment flow to prevent data mismatch.
+          warn("createOrder.httpError", new Error(`HTTP ${res.status}`), {
+            url,
+            status: res.status,
+            statusText: res.statusText,
+            response: (j || rawText || "").toString().slice(0, 2000),
+            payloadKeys: Array.from(body.keys()),
+            users_id: userId,
+            orderId,
+            photo_count: photoIds.length,
+            amount
+          });
+          alert("주문 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
+          return;
+        }
+
         const bubble = j && (j.response || j);
-        if (bubble && (bubble.order_id || bubble.orderId)) {
+if (bubble && (bubble.order_id || bubble.orderId)) {
           orderId = bubble.order_id || bubble.orderId;
         }
-      } catch (e) {}
+      } catch (e) { warn("silent catch: createOrder.parseResponse", e); }
       if (typeof TossPayments !== "function") {
         alert("결제 모듈을 불러오지 못했습니다. (TossPayments)");
         return;
@@ -222,6 +269,34 @@ document.addEventListener("DOMContentLoaded", function() {
   let eventTemplateEl = document.getElementById("cart-event-template");
   let thumbLeftBtn = null;
   let thumbRightBtn = null;
+
+  // ------------------------------------------
+  // CartData normalization (root bib sync)
+  // - legacy cart stored bib on each item: item.bib
+  // - Bubble create-order currently requires root-level "bib"
+  // ------------------------------------------
+  function __shout_getUniqueBib(items) {
+    const set = new Set();
+    (items || []).forEach((it) => {
+      const b = (it && (it.bib ?? it.bib_no ?? it.bibNumber ?? it.bib_number)) ?? "";
+      const s = String(b).trim();
+      if (s) set.add(s);
+    });
+    if (set.size === 1) return Array.from(set)[0];
+    return "";
+  }
+
+  function __shout_syncRootBib(data) {
+    if (!data || typeof data !== "object") return data;
+    if (!Array.isArray(data.items)) data.items = [];
+    const root = String(data.bib ?? "").trim();
+    if (!root) {
+      const b = __shout_getUniqueBib(data.items);
+      if (b) data.bib = b;
+    }
+    return data;
+  }
+
   let cartData = {
     items: []
   };
@@ -273,8 +348,9 @@ document.addEventListener("DOMContentLoaded", function() {
     const changed = JSON.stringify(before || []) !== JSON.stringify(after);
     if (save && changed) {
       try {
-        localStorage.setItem("shout_cart_data", JSON.stringify(cartData));
-      } catch (e) {}
+        cartData = __shout_syncRootBib(cartData);
+    localStorage.setItem("shout_cart_data", JSON.stringify(cartData));
+      } catch (e) { warn("silent catch: storage.saveCart", e); }
     }
     return {
       changed,
@@ -311,11 +387,38 @@ document.addEventListener("DOMContentLoaded", function() {
     cartData.selected_ids = cartData.selected_ids.filter((x) => String(x || "").trim() !== pid);
     if (save && cartData.selected_ids.length !== beforeLen) {
       try {
-        localStorage.setItem("shout_cart_data", JSON.stringify(cartData));
-      } catch (e) {}
+        cartData = __shout_syncRootBib(cartData);
+    localStorage.setItem("shout_cart_data", JSON.stringify(cartData));
+      } catch (e) { warn("silent catch: storage.saveCart", e); }
     }
   }
   let __shout_cart_render_seq = 0;
+  let __sectionPreviewSwipeResizeWindowBound = false;
+  const __sectionPreviewSwipeResizeRegistry = new Set();
+
+  function __bindSectionPreviewSwipeResizeWindow() {
+    if (__sectionPreviewSwipeResizeWindowBound) return;
+    __sectionPreviewSwipeResizeWindowBound = true;
+
+    const run = () => {
+      __sectionPreviewSwipeResizeRegistry.forEach((fn) => {
+        try { fn(); } catch (e) {}
+      });
+    };
+
+    window.addEventListener("resize", run);
+    window.addEventListener("orientationchange", run);
+  }
+
+  function __registerSectionPreviewSwipeResize(fn) {
+    if (typeof fn !== "function") return () => {};
+    __bindSectionPreviewSwipeResizeWindow();
+    __sectionPreviewSwipeResizeRegistry.add(fn);
+    return () => {
+      __sectionPreviewSwipeResizeRegistry.delete(fn);
+    };
+  }
+
 
   function loadCartFromStorage() {
     if (window.ShoutCart && typeof window.ShoutCart.getItems === "function") {
@@ -328,7 +431,7 @@ document.addEventListener("DOMContentLoaded", function() {
           save: false
         });
         return;
-      } catch (e) {}
+      } catch (e) { warn("silent catch: ShoutCart.getItems", e); }
     }
     const savedData = localStorage.getItem("shout_cart_data");
     if (!savedData) {
@@ -339,7 +442,10 @@ document.addEventListener("DOMContentLoaded", function() {
       const parsed = JSON.parse(savedData);
       if (parsed && Array.isArray(parsed.items)) {
         cartData = parsed;
-        cartItems = parsed.items;
+        cartData = __shout_syncRootBib(cartData);
+        cartItems = cartData.items;
+        try { localStorage.setItem("shout_cart_data", JSON.stringify(cartData)); } catch(e) {}
+        cartItems = cartData.items;
         ensureSelectedIds({
           save: true
         });
@@ -434,8 +540,9 @@ document.addEventListener("DOMContentLoaded", function() {
     const next = has ? list.filter(x => x !== pid) : list.concat([pid]);
     cartData.selected_ids = uniqueStrings(next);
     try {
-      localStorage.setItem("shout_cart_data", JSON.stringify(cartData));
-    } catch (e) {}
+      cartData = __shout_syncRootBib(cartData);
+    localStorage.setItem("shout_cart_data", JSON.stringify(cartData));
+    } catch (e) { warn("silent catch: storage.saveCart", e); }
   }
 
 
@@ -490,7 +597,7 @@ document.addEventListener("DOMContentLoaded", function() {
     });
     return Array.from(map.values());
   }
-  const BUBBLE_DATA_ORIGIN = (BUBBLE_API_ORIGIN || "").replace("/api/1.1/wf", "/api/1.1/obj");
+  const BUBBLE_DATA_ORIGIN = (BUBBLE_API_ORIGIN || "").replace(/\/$/, "") + "/api/1.1/obj";
   async function hydrateGroupDisplayNames(groups) {
     if (!Array.isArray(groups) || groups.length === 0) return;
     if (!BUBBLE_DATA_ORIGIN || !BUBBLE_DATA_ORIGIN.includes("/api/1.1/obj")) return;
@@ -548,7 +655,7 @@ document.addEventListener("DOMContentLoaded", function() {
             .event_display_name || String(name);
           localStorage.setItem("shout_cart_data", JSON.stringify(parsed));
         }
-      } catch (e) {}
+      } catch (e) { warn("silent catch: storage.migrateMeta", e); }
     });
   }
 
@@ -578,6 +685,7 @@ document.addEventListener("DOMContentLoaded", function() {
     next.className = "cart-preview-btn cart-preview-next";
     next.textContent = "다음";
     wrap.classList.add("sh-cart-preview-host");
+    injectArrowZones(wrap);
     const csWrap = window.getComputedStyle(wrap);
     if (csWrap.position === "static") wrap.style.position = "relative";
     const prevOverlay = document.createElement("button");
@@ -639,12 +747,12 @@ document.addEventListener("DOMContentLoaded", function() {
       if (Number.isFinite(sLeft)) {
         try {
           __thumbWrap.scrollLeft = sLeft;
-        } catch (e) {}
+        } catch (e) { warn("silent catch: thumbScroll.restore", e); }
       }
       __thumbWrap.addEventListener('scroll', () => {
         try {
           __secThumbScrollByGroupKey.set(__gk, __thumbWrap.scrollLeft || 0);
-        } catch (e) {}
+        } catch (e) { warn("silent catch: thumbScroll.save", e); }
       }, {
         passive: true
       });
@@ -661,7 +769,7 @@ document.addEventListener("DOMContentLoaded", function() {
       if (__secDel && __secSel) return;
       try {
         ui.wrap.classList.add("sh-cart-preview-host");
-      } catch (e) {}
+      } catch (e) { warn("silent catch: previewHost.class", e); }
       __secDel = document.createElement("button");
       __secDel.type = "button";
       __secDel.className = "sh-pv-badge is-delete";
@@ -734,7 +842,90 @@ document.addEventListener("DOMContentLoaded", function() {
       __secSel.classList.toggle("is-unselected", !selected);
     }
 
-    function renderThumbs() {
+    function ensureThumbVisible(scroller, childEl, pad) {
+      if (!scroller || !childEl) return;
+      const p = (typeof pad === "number") ? pad : 10;
+
+      const left = childEl.offsetLeft;
+      const right = left + childEl.offsetWidth;
+
+      const viewLeft = scroller.scrollLeft;
+      const viewRight = viewLeft + scroller.clientWidth;
+
+      if (left < viewLeft + p) {
+        scroller.scrollLeft = Math.max(0, left - p);
+        return;
+      }
+      // If clipped on right
+      if (right > viewRight - p) {
+        scroller.scrollLeft = Math.max(0, right - scroller.clientWidth + p);
+        return;
+      }
+    }
+
+        function enableGrabScroll(scroller) {
+      if (!scroller) return;
+      if (scroller.dataset && scroller.dataset.grabScrollReady === "1") return;
+      if (scroller.dataset) scroller.dataset.grabScrollReady = "1";
+      try { scroller.dataset.grabDragged = "0"; } catch (e) { warn("silent catch: grabScroll.dataset", e); }
+
+      const DRAG_THRESHOLD_PX = 6;
+      const DRAG_SPEED = 1.2;
+
+      let isDown = false;
+      let startX = 0;
+      let startScrollLeft = 0;
+      let dragged = false;
+      let activePointerId = null;
+
+      function setDragging(on) {
+        scroller.classList.toggle("is-dragging", !!on);
+      }
+
+      function onPointerDown(e) {
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        isDown = true;
+        dragged = false;
+        activePointerId = e.pointerId;
+        startX = e.clientX;
+        startScrollLeft = scroller.scrollLeft;
+        setDragging(true);
+        try { scroller.setPointerCapture(activePointerId); } catch (_) {}
+      }
+
+      function onPointerMove(e) {
+        if (!isDown) return;
+        if (activePointerId != null && e.pointerId !== activePointerId) return;
+        const dx = e.clientX - startX;
+        if (Math.abs(dx) > DRAG_THRESHOLD_PX) { dragged = true; try { scroller.dataset.grabDragged = "1"; } catch (e) { warn("silent catch: grabScroll.dataset", e); } }
+        e.preventDefault();
+        scroller.scrollLeft = startScrollLeft - dx * DRAG_SPEED;
+      }
+
+      function endPointer(e) {
+        if (!isDown) return;
+        if (activePointerId != null && e.pointerId !== activePointerId) return;
+        isDown = false;
+        setDragging(false);
+        try { scroller.releasePointerCapture(activePointerId); } catch (_) {}
+        activePointerId = null;
+        setTimeout(() => { dragged = false; }, 0);
+      }
+
+      scroller.addEventListener("pointerdown", onPointerDown, { passive: true });
+      scroller.addEventListener("pointermove", onPointerMove, { passive: false });
+      scroller.addEventListener("pointerup", endPointer, { passive: true });
+      scroller.addEventListener("pointercancel", endPointer, { passive: true });
+      scroller.addEventListener("pointerleave", endPointer, { passive: true });
+
+      scroller.addEventListener("click", (e) => {
+        if (!dragged) return;
+        e.preventDefault();
+        e.stopPropagation();
+      }, true);
+    }
+
+function renderThumbs() {
       ui.thumbs.innerHTML = "";
       list.forEach((it, i) => {
         const t = document.createElement("div");
@@ -742,20 +933,15 @@ document.addEventListener("DOMContentLoaded", function() {
         const u = normalizeUrl(it && it.preview_url);
         if (u) t.style.backgroundImage = `url("${u}")`;
         const pid = it && it._id ? String(it._id) : "";
-        t.addEventListener("click", () => {
-          idx = i;
-          renderCurrent();
-          if (__gk) __secPreviewIdxByGroupKey.set(__gk, idx);
-          try {
-            mountSectionBadges();
-          } catch (e) {}
-          try {
-            updateSectionBadgesUI();
-          } catch (e2) {}
-        });
+        t.setAttribute("data-thumb-idx", String(i));
         ui.thumbs.appendChild(t);
       });
     }
+
+    try {
+      const activeEl = ui.thumbs && ui.thumbs.children ? ui.thumbs.children[idx] : null;
+      ensureThumbVisible(ui.thumbs, activeEl, 10);
+    } catch (e3) {}
 
     function renderCurrent() {
       const it = list[idx];
@@ -764,17 +950,387 @@ document.addEventListener("DOMContentLoaded", function() {
       Array.from(ui.thumbs.children).forEach((node, i) => {
         node.classList.toggle("is-active", i === idx);
       });
+      try {
+        const activeEl = ui.thumbs && ui.thumbs.children ? ui.thumbs.children[idx] : null;
+        ensureThumbVisible(ui.thumbs, activeEl, 10);
+      } catch (e3) {}
       if (__gk) __secPreviewIdxByGroupKey.set(__gk, idx);
       try {
         updateSectionBadgesUI();
-      } catch (e) {}
+      } catch (e) { warn("silent catch: sectionBadges.update", e); }
       ui.prev.disabled = (idx <= 0);
       ui.next.disabled = (idx >= list.length - 1);
+    }
+
+
+    function bindSectionPreviewSwipeIOS() {
+      const host = ui.current;
+      if (!host) return;
+      if (host.dataset.sectionPreviewSwipeBound === "1") return;
+      host.dataset.sectionPreviewSwipeBound = "1";
+
+      let __HOST_BG_HIDDEN = false;
+
+      function hideHostBg() {
+        if (__HOST_BG_HIDDEN) return;
+        __HOST_BG_HIDDEN = true;
+        let bgColor = "#000";
+        try {
+          const cs = getComputedStyle(host);
+          bgColor = cs.backgroundColor || bgColor;
+        } catch (_) {}
+        host.style.backgroundImage = "none";
+        host.style.backgroundColor = bgColor;
+      }
+
+      function restoreHostBg() {
+        if (!__HOST_BG_HIDDEN) return;
+        __HOST_BG_HIDDEN = false;
+        host.style.backgroundColor = "";
+        host.style.backgroundImage = "";
+        try {
+          renderCurrent();
+        } catch (e) { warn("silent catch: sectionSwipe.restore", e); }
+      }
+
+      try {
+        const hostCS = getComputedStyle(host);
+        if (hostCS.position === "static") host.style.position = "relative";
+      } catch (e) {}
+
+      const SWIPE_WRAP_ID = `sh-cart-swipe-wrap-${__gk || 'default'}`;
+      const SWIPE_TRACK_ID = `sh-cart-swipe-track-${__gk || 'default'}`;
+      const PANEL_PREV_ID = `sh-cart-swipe-prev-${__gk || 'default'}`;
+      const PANEL_CUR_ID = `sh-cart-swipe-cur-${__gk || 'default'}`;
+      const PANEL_NEXT_ID = `sh-cart-swipe-next-${__gk || 'default'}`;
+
+      let wrap = null;
+      let track = null;
+      let pPrev = null;
+      let pCur = null;
+      let pNext = null;
+
+      function ensureSwipeDom() {
+        try {
+          const csHost = getComputedStyle(host);
+          if (csHost.position === "static") host.style.position = "relative";
+        } catch (_) {}
+
+        wrap = host.querySelector(`#${CSS.escape(SWIPE_WRAP_ID)}`);
+        if (!wrap) {
+          wrap = document.createElement("div");
+          wrap.id = SWIPE_WRAP_ID;
+          Object.assign(wrap.style, {
+            position: "absolute",
+            inset: "0",
+            overflow: "hidden",
+            background: "transparent",
+            zIndex: "5",
+            display: "none",
+            touchAction: "pan-y",
+            overscrollBehavior: "contain"
+          });
+          host.appendChild(wrap);
+        }
+
+        try {
+          const cs = getComputedStyle(host);
+          wrap.style.background = cs.backgroundColor || "transparent";
+        } catch (_) {}
+
+        track = wrap.querySelector(`#${CSS.escape(SWIPE_TRACK_ID)}`);
+        if (!track) {
+          track = document.createElement("div");
+          track.id = SWIPE_TRACK_ID;
+          Object.assign(track.style, {
+            display: "flex",
+            width: "0px",
+            height: "100%",
+            willChange: "transform",
+            transition: "none",
+            transform: "translate3d(0,0,0)"
+          });
+          wrap.appendChild(track);
+        }
+
+        pPrev = wrap.querySelector(`#${CSS.escape(PANEL_PREV_ID)}`);
+        if (!pPrev) { pPrev = document.createElement("div"); pPrev.id = PANEL_PREV_ID; }
+        pCur = wrap.querySelector(`#${CSS.escape(PANEL_CUR_ID)}`);
+        if (!pCur) { pCur = document.createElement("div"); pCur.id = PANEL_CUR_ID; }
+        pNext = wrap.querySelector(`#${CSS.escape(PANEL_NEXT_ID)}`);
+        if (!pNext) { pNext = document.createElement("div"); pNext.id = PANEL_NEXT_ID; }
+
+        [pPrev, pCur, pNext].forEach((el) => {
+          Object.assign(el.style, {
+            flex: "0 0 auto",
+            width: "0px",
+            minWidth: "0px",
+            height: "100%",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            backgroundSize: "contain",
+            backgroundColor: "transparent",
+            boxSizing: "border-box",
+            padding: "0px",
+            backgroundClip: "border-box",
+            backgroundOrigin: "border-box",
+            userSelect: "none",
+            WebkitUserDrag: "none",
+            touchAction: "pan-y",
+            overscrollBehavior: "contain"
+          });
+        });
+
+        if (pPrev.parentElement !== track) track.appendChild(pPrev);
+        if (pCur.parentElement !== track) track.appendChild(pCur);
+        if (pNext.parentElement !== track) track.appendChild(pNext);
+      }
+
+      function getViewportW() {
+        if (!wrap) return 0;
+        const cs = getComputedStyle(wrap);
+        const pl = parseFloat(cs.paddingLeft) || 0;
+        const pr = parseFloat(cs.paddingRight) || 0;
+        return Math.max(0, (wrap.clientWidth || 0) - pl - pr);
+      }
+
+      function setTrackPx(px, withAnim) {
+        if (!track) return;
+        if (withAnim) track.style.transition = `transform ${ANIM_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1)`;
+        else track.style.transition = "none";
+        track.style.transform = `translate3d(${px}px, 0, 0)`;
+      }
+
+      function snapToCenterIdle() {
+        const w = getViewportW();
+        setTrackPx(-w, false);
+      }
+
+      function applySwipeSizes() {
+        if (!wrap || !track || !pPrev || !pCur || !pNext) return;
+        const w = getViewportW();
+        if (!w) return;
+        track.style.width = (w * 3) + "px";
+        [pPrev, pCur, pNext].forEach((el) => {
+          el.style.width = w + "px";
+          el.style.minWidth = w + "px";
+          el.style.flex = "0 0 " + w + "px";
+        });
+        snapToCenterIdle();
+      }
+
+      function preloadPanels(curIdx) {
+        if (!list || list.length === 0) return;
+        const cur = Math.max(0, Math.min(list.length - 1, curIdx));
+        const prev = Math.max(0, cur - 1);
+        const next = Math.min(list.length - 1, cur + 1);
+        const curSrc = normalizeUrl(list[cur] && list[cur].preview_url);
+        const prevSrc = normalizeUrl(list[prev] && list[prev].preview_url);
+        const nextSrc = normalizeUrl(list[next] && list[next].preview_url);
+        pCur.style.backgroundImage = curSrc ? `url("${curSrc}")` : "none";
+        pPrev.style.backgroundImage = prevSrc ? `url("${prevSrc}")` : "none";
+        pNext.style.backgroundImage = nextSrc ? `url("${nextSrc}")` : "none";
+      }
+
+      function hideOverlay() {
+        if (!wrap) return;
+        wrap.style.display = "none";
+        restoreHostBg();
+        snapToCenterIdle();
+      }
+
+      const ANIM_MS = 220;
+      const THRESHOLD_RATIO = 0.18;
+      const TAP_SLOP = 8;
+      const MAX_Y = 90;
+
+      let startX = 0;
+      let startY = 0;
+      let dx = 0;
+      let dy = 0;
+      let dragging = false;
+      let animating = false;
+      let axisLocked = null;
+
+      const detachResize = __registerSectionPreviewSwipeResize(() => {
+        if (!document.documentElement.contains(host)) {
+          detachResize();
+          return;
+        }
+        if (wrap && wrap.style.display !== "none") applySwipeSizes();
+      });
+
+      host.addEventListener("touchstart", (ev) => {
+        if (animating) return;
+        if (!list || list.length === 0) return;
+        const t = ev.touches && ev.touches[0];
+        if (!t) return;
+
+        ensureSwipeDom();
+        preloadPanels(idx);
+        hideHostBg();
+        wrap.style.display = "block";
+        applySwipeSizes();
+        snapToCenterIdle();
+
+        startX = t.clientX;
+        startY = t.clientY;
+        dx = 0;
+        dy = 0;
+        axisLocked = null;
+        dragging = true;
+
+        const w = getViewportW();
+        setTrackPx(-w, false);
+      }, { passive: true });
+
+      host.addEventListener("touchmove", (ev) => {
+        if (!dragging) return;
+        const t = ev.touches && ev.touches[0];
+        if (!t) return;
+
+        dx = t.clientX - startX;
+        dy = t.clientY - startY;
+
+        if (!axisLocked) axisLocked = (Math.abs(dx) > Math.abs(dy)) ? "x" : "y";
+
+        if (axisLocked === "y") {
+          if (Math.abs(dy) > MAX_Y && Math.abs(dy) > Math.abs(dx)) {
+            dragging = false;
+            animating = true;
+            hideOverlay();
+            setTimeout(() => { animating = false; }, ANIM_MS + 40);
+          }
+          return;
+        }
+
+        ev.preventDefault();
+        const w = getViewportW();
+        setTrackPx(-w + dx, false);
+      }, { passive: false });
+
+      function finishSwipe(nextDir) {
+        const w = getViewportW();
+        animating = true;
+        setTrackPx(-w + (nextDir * w), true);
+        setTimeout(() => {
+          animating = false;
+          if (nextDir < 0 && idx < list.length - 1) idx += 1;
+          else if (nextDir > 0 && idx > 0) idx -= 1;
+          renderCurrent();
+          hideOverlay();
+        }, ANIM_MS + 40);
+      }
+
+      host.addEventListener("touchend", () => {
+        if (!dragging) return;
+        dragging = false;
+        if (!list || list.length === 0) { hideOverlay(); return; }
+
+        const w = getViewportW();
+        const threshold = w * THRESHOLD_RATIO;
+
+        if (Math.abs(dx) <= TAP_SLOP && Math.abs(dy) <= TAP_SLOP) {
+          animating = true;
+          setTrackPx(-w, true);
+          setTimeout(() => {
+            animating = false;
+            hideOverlay();
+          }, ANIM_MS + 30);
+          return;
+        }
+
+        if (Math.abs(dx) < threshold) {
+          animating = true;
+          setTrackPx(-w, true);
+          setTimeout(() => {
+            animating = false;
+            hideOverlay();
+          }, ANIM_MS + 40);
+          return;
+        }
+
+        if (dx < 0) {
+          if (idx >= list.length - 1) {
+            animating = true;
+            setTrackPx(-w, true);
+            setTimeout(() => {
+              animating = false;
+              hideOverlay();
+            }, ANIM_MS + 40);
+            return;
+          }
+          finishSwipe(-1);
+        } else {
+          if (idx <= 0) {
+            animating = true;
+            setTrackPx(-w, true);
+            setTimeout(() => {
+              animating = false;
+              hideOverlay();
+            }, ANIM_MS + 40);
+            return;
+          }
+          finishSwipe(1);
+        }
+      }, { passive: true });
+
+      host.addEventListener("touchcancel", () => {
+        if (!dragging) return;
+        dragging = false;
+        animating = true;
+        const w = getViewportW();
+        setTrackPx(-w, true);
+        setTimeout(() => {
+          animating = false;
+          hideOverlay();
+        }, ANIM_MS + 40);
+      }, { passive: true });
     }
 
     function setupPerEventThumbNav() {
       const thumbRowEl = ui.thumbs;
       if (!thumbRowEl) return;
+      try { enableGrabScroll(thumbRowEl); } catch (e0) {}
+
+      if (!thumbRowEl.dataset.thumbClickBound) {
+        thumbRowEl.dataset.thumbClickBound = "1";
+        let __lastDownIdx = -1;
+        let __lastDownTs = 0;
+
+        thumbRowEl.addEventListener("pointerdown", (e) => {
+          const th = e.target && e.target.closest ? e.target.closest(".cart-thumb") : null;
+          if (!th) return;
+          const di = th.getAttribute("data-thumb-idx");
+          const ni = Number(di);
+          if (!Number.isFinite(ni)) return;
+          __lastDownIdx = ni;
+          __lastDownTs = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+        }, true);
+
+        thumbRowEl.addEventListener("click", (e) => {
+          // If grab-scroll marked this interaction as a drag, ignore
+          if (thumbRowEl.dataset.grabDragged === "1") return;
+
+          let ni = -1;
+          const th = e.target && e.target.closest ? e.target.closest(".cart-thumb") : null;
+          if (th) {
+            const di = th.getAttribute("data-thumb-idx");
+            ni = Number(di);
+          } else {
+            const now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+            if (__lastDownIdx >= 0 && (now - __lastDownTs) < 500) ni = __lastDownIdx;
+          }
+
+          if (!Number.isFinite(ni) || ni < 0 || ni >= list.length) return;
+
+          idx = ni;
+          renderCurrent();
+          if (__gk) __secPreviewIdxByGroupKey.set(__gk, idx);
+          try { mountSectionBadges(); } catch (e1) {}
+          try { updateSectionBadgesUI(); } catch (e2) {}
+        }, false);
+      }
       const thumbsWrap = ui.wrap && ui.wrap.querySelector(".cart-preview-thumbs-wrap");
       if (!thumbsWrap) return;
       let leftBtn = thumbsWrap.querySelector(".sh-thumb-nav-btn.is-left");
@@ -849,12 +1405,13 @@ document.addEventListener("DOMContentLoaded", function() {
     renderCurrent();
     mountSectionBadges();
     setupPerEventThumbNav();
+    bindSectionPreviewSwipeIOS();
   }
   async function renderMultiEventAccordion() {
     const __mySeq = ++__shout_cart_render_seq;
     try {
       snapshotOpenGroupKeys();
-    } catch (e) {}
+    } catch (e) { warn("silent catch: accordion.snapshotOpen", e); }
     eventListEl = document.getElementById("cart-event-list");
     eventTemplateEl = document.getElementById("cart-event-template");
     if (!eventListEl || !eventTemplateEl) return false;
@@ -906,7 +1463,7 @@ document.addEventListener("DOMContentLoaded", function() {
       }
       if (bibEl) {
         bibEl.id = `cart-list-bib-${idx2}`;
-        bibEl.textContent = `# ${g.bib || "-"}`;
+        bibEl.textContent = `${g.bib || "-"}`;
       }
       const __allItems = Array.isArray(g.items) ? g.items : [];
       const count = __allItems.reduce((n, it) => n + (__selectedSet.has(getItemId(it)) ?
@@ -919,7 +1476,7 @@ document.addEventListener("DOMContentLoaded", function() {
       grandTotal += subtotal;
       if (subtotalEl) {
         subtotalEl.id = `cart-event-subtotal-${idx2}`;
-        subtotalEl.textContent = "₩ " + Number(subtotal).toLocaleString("ko-KR");
+        subtotalEl.textContent = Number(subtotal).toLocaleString("ko-KR") + "원";
       }
       if (body) body.style.display = "none";
       const mount = section.querySelector(".cart-event-preview-mount");
@@ -1005,7 +1562,7 @@ document.addEventListener("DOMContentLoaded", function() {
   function rerenderCartUI() {
     try {
       snapshotOpenGroupKeys();
-    } catch (e) {}
+    } catch (e) { warn("silent catch: accordion.snapshotOpen", e); }
     Promise.resolve(renderMultiEventAccordion()).then((didMulti) => {
       if (didMulti) return;
       renderCartList();
@@ -1033,7 +1590,7 @@ document.addEventListener("DOMContentLoaded", function() {
         ensureSelectedIds({
           save: false
         });
-      } catch (e) {}
+      } catch (e) { warn("silent catch: ShoutCart.getItems", e); }
     } else {
       cartItems.splice(index, 1);
       cartData.items = cartItems;
@@ -1043,15 +1600,11 @@ document.addEventListener("DOMContentLoaded", function() {
       ensureSelectedIds({
         save: false
       });
-      localStorage.setItem("shout_cart_data", JSON.stringify(cartData));
+      cartData = __shout_syncRootBib(cartData);
+    localStorage.setItem("shout_cart_data", JSON.stringify(cartData));
     }
 rerenderCartUI();
   }
-
-  // (swipe removed)
-
-
-
 
   function encourageTag(t) {
     return t || "";
@@ -1102,75 +1655,81 @@ rerenderCartUI();
   }
 });
 
-// === moved from HEAD ===
+
+function injectArrowZones(root) {
+  try {
+    if (!root) return;
+
+    let hosts = [];
+    try {
+      if (root.querySelectorAll) {
+        hosts = Array.from(root.querySelectorAll(".sh-cart-preview-host"));
+      }
+    } catch (e) {}
+
+    try {
+      if (root.classList && root.classList.contains("sh-cart-preview-host")) {
+        hosts.unshift(root);
+      }
+    } catch (e) {}
+
+    // De-dupe
+    try {
+      hosts = Array.from(new Set(hosts));
+    } catch (e) {}
+
+    hosts.forEach((host) => {
+      if (host.querySelector(".sh-arrow-zone")) return;
+
+      const prevBtn = host.querySelector("#cart-prev-btn, .sh-cart-nav-btn.is-prev");
+      const nextBtn = host.querySelector("#cart-next-btn, .sh-cart-nav-btn.is-next");
+
+      const leftZone = document.createElement("div");
+      leftZone.className = "sh-arrow-zone is-left";
+      const rightZone = document.createElement("div");
+      rightZone.className = "sh-arrow-zone is-right";
+
+      host.appendChild(leftZone);
+      host.appendChild(rightZone);
+
+      function setHot(which, on) {
+        if (which === "prev") host.classList.toggle("sh-arrow-hot-prev", !!on);
+        if (which === "next") host.classList.toggle("sh-arrow-hot-next", !!on);
+      }
+
+      function prevEnabled() {
+        return !!prevBtn && !prevBtn.disabled;
+      }
+
+      function nextEnabled() {
+        return !!nextBtn && !nextBtn.disabled;
+      }
+
+      leftZone.addEventListener("mouseenter", () => setHot("prev", prevEnabled()));
+      leftZone.addEventListener("mouseleave", () => setHot("prev", false));
+      rightZone.addEventListener("mouseenter", () => setHot("next", nextEnabled()));
+      rightZone.addEventListener("mouseleave", () => setHot("next", false));
+
+      leftZone.addEventListener("click", (e) => {
+        if (!prevEnabled()) return;
+        try { prevBtn && prevBtn.click(); } catch (err) {}
+      });
+
+      rightZone.addEventListener("click", (e) => {
+        if (!nextEnabled()) return;
+        try { nextBtn && nextBtn.click(); } catch (err) {}
+      });
+    });
+  } catch (e) {
+    try { console.warn("[Cart Warning] injectArrowZones failed", e); } catch (_) {}
+  }
+}
+
 document.addEventListener("DOMContentLoaded", function() {
-  // IG/iOS-style hover/click zones for cart preview arrows
-  const hosts = document.querySelectorAll(".sh-cart-preview-host");
-  hosts.forEach((host) => {
-    // Avoid double-inject
-    if (host.querySelector(".sh-arrow-zone")) return;
+  if (window.__SHOUT_CART_ZONES_DONE__) return;
+  window.__SHOUT_CART_ZONES_DONE__ = true;
 
-    const prevBtn = host.querySelector("#cart-prev-btn, .sh-cart-nav-btn.is-prev");
-    const nextBtn = host.querySelector("#cart-next-btn, .sh-cart-nav-btn.is-next");
-
-    // Create zones
-    const leftZone = document.createElement("div");
-    leftZone.className = "sh-arrow-zone is-left";
-    const rightZone = document.createElement("div");
-    rightZone.className = "sh-arrow-zone is-right";
-
-    host.appendChild(leftZone);
-    host.appendChild(rightZone);
-
-    function setHot(which, on) {
-      if (which === "prev") host.classList.toggle("sh-arrow-hot-prev", !!on);
-      if (which === "next") host.classList.toggle("sh-arrow-hot-next", !!on);
-    }
-
-    function prevEnabled() {
-      return !!prevBtn && !prevBtn.disabled;
-    }
-
-    function nextEnabled() {
-      return !!nextBtn && !nextBtn.disabled;
-    }
-
-    // Hover behavior: show only while cursor is inside zone
-    leftZone.addEventListener("mouseenter", () => setHot("prev", prevEnabled()));
-    leftZone.addEventListener("mouseleave", () => setHot("prev", false));
-    rightZone.addEventListener("mouseenter", () => setHot("next", nextEnabled()));
-    rightZone.addEventListener("mouseleave", () => setHot("next", false));
-
-    // Click near arrow triggers navigation
-    leftZone.addEventListener("click", (e) => {
-      if (!prevEnabled()) return;
-      e.preventDefault();
-      prevBtn.click();
-    });
-    rightZone.addEventListener("click", (e) => {
-      if (!nextEnabled()) return;
-      e.preventDefault();
-      nextBtn.click();
-    });
-
-    // Keep states in sync if buttons become disabled/enabled dynamically
-    const obs = new MutationObserver(() => {
-      if (!prevEnabled()) setHot("prev", false);
-      if (!nextEnabled()) setHot("next", false);
-      leftZone.style.pointerEvents = prevEnabled() ? "auto" : "none";
-      rightZone.style.pointerEvents = nextEnabled() ? "auto" : "none";
-    });
-    if (prevBtn) obs.observe(prevBtn, {
-      attributes: true,
-      attributeFilter: ["disabled", "style", "class"]
-    });
-    if (nextBtn) obs.observe(nextBtn, {
-      attributes: true,
-      attributeFilter: ["disabled", "style", "class"]
-    });
-
-    // Initial
-    leftZone.style.pointerEvents = prevEnabled() ? "auto" : "none";
-    rightZone.style.pointerEvents = nextEnabled() ? "auto" : "none";
-  });
+  injectArrowZones(document);
 });
+
+</script>
