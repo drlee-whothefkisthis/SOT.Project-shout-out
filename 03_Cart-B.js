@@ -1,4 +1,3 @@
-<script>
 document.addEventListener("DOMContentLoaded", function() {
   const AUTH_INTENT_KEY = "shout_auth_intent";
   const AUTH_LOGIN_URL = "/login";
@@ -1731,5 +1730,3 @@ document.addEventListener("DOMContentLoaded", function() {
 
   injectArrowZones(document);
 });
-
-</script>
