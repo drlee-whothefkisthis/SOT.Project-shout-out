@@ -77,6 +77,15 @@ document.addEventListener("DOMContentLoaded", function() {
     return out;
   }
 
+  function getPrimaryBib(items) {
+    for (const it of (items || [])) {
+      const b = (it && (it.bib ?? it.bib_no ?? it.bibNumber ?? it.bib_number)) ?? "";
+      const s = String(b).trim();
+      if (s) return s;
+    }
+    return "";
+  }
+
   function updateFooterMeta(groups) {
     const selectedIds = getSelectedIds();
     const count = selectedIds.length;
@@ -402,9 +411,12 @@ document.addEventListener("DOMContentLoaded", function() {
         const body = new URLSearchParams();
         body.set("users_id", userId);
         body.set("orderId", orderId);
-        const __bibToSend = String((cartData && cartData.bib) || __shout_getUniqueBib(items) || "").trim();
+        const __bibToSend = String((cartData && cartData.bib) || getPrimaryBib(items) || "").trim();
         if (!__bibToSend) { alert("참가번호(bib)가 없어 결제를 진행할 수 없습니다. 다시 담아주세요."); return; }
         body.set("bib", __bibToSend);
+        const bibMetaJson = JSON.stringify(bibMeta || []);
+        body.set("bib_meta", bibMetaJson);
+        body.set("bib_meta_json", bibMetaJson);
         // paymentKey is not available yet; Bubble parameter is required, so send a placeholder.
         body.set("paymentKey", "__PENDING__");
         /* [CHECK 5] 기존 Bubble 파라미터(users_id, bib, photo_ids_json 등) 유지 */
@@ -538,12 +550,21 @@ const res = await fetch(url, {
     return "";
   }
 
+  function __shout_getPrimaryBib(items) {
+    for (const it of (items || [])) {
+      const b = (it && (it.bib ?? it.bib_no ?? it.bibNumber ?? it.bib_number)) ?? "";
+      const s = String(b).trim();
+      if (s) return s;
+    }
+    return "";
+  }
+
   function __shout_syncRootBib(data) {
     if (!data || typeof data !== "object") return data;
     if (!Array.isArray(data.items)) data.items = [];
     const root = String(data.bib ?? "").trim();
     if (!root) {
-      const b = __shout_getUniqueBib(data.items);
+      const b = __shout_getPrimaryBib(data.items);
       if (b) data.bib = b;
     }
     return data;
