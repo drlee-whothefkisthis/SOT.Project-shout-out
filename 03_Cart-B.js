@@ -93,7 +93,7 @@ document.addEventListener("DOMContentLoaded", function() {
       packageLabelText.textContent = hasPackage ? PACKAGE_LABEL_TEXT : "";
     }
   }
-  const TOSS_CLIENT_KEY = "test_ck_0RnYX2w532qQQl9gBdJl8NeyqApQ";
+  const TOSS_CLIENT_KEY = "test_gck_Z61JOxRQVEbNXYJv1q4grW0X9bAq";
   const SUCCESS_URL = window.location.origin + "/payments-results/success";
   const FAIL_URL = window.location.origin + "/payments-results/fail";
   const THUMB_SCROLL_STEP = 280;
@@ -104,6 +104,233 @@ document.addEventListener("DOMContentLoaded", function() {
   let checkoutBtn = document.getElementById("btn-checkout");
   let checkoutLocked = true;
   let agreeCheckbox = document.getElementById("checkout-agree");
+
+  /* [CHECK 1] 결제위젯 상태 전역 관리 + mount point는 모달 내부에서만 사용 */
+  let paymentMethodEl = document.getElementById("payment-method");
+  let agreementEl = document.getElementById("agreement");
+  let widgetSectionEl = document.getElementById("sh-payment-widget-section");
+  let paymentModalEl = document.getElementById("sh-payment-modal");
+  let paymentModalBackdropEl = null;
+  let paymentModalPanelEl = null;
+  let paymentModalCloseBtnEl = null;
+  let paymentModalConfirmBtnEl = null;
+  let paymentModalTitleEl = null;
+  let paymentModalAmountEl = null;
+  let tossPaymentsInstance = null;
+  let paymentWidgets = null;
+  let paymentWidgetReady = false;
+  let paymentWidgetRenderPending = false;
+  let paymentWidgetCustomerKey = "";
+  let paymentWidgetLastAmount = null;
+  let paymentModalOpen = false;
+
+  function getOrCreateAnonymousCustomerKey() {
+    try {
+      const KEY = "shout_toss_widget_customer_key";
+      let v = sessionStorage.getItem(KEY);
+      if (v) return String(v);
+      v = "anon_" + Date.now() + "_" + Math.random().toString(16).slice(2, 10);
+      sessionStorage.setItem(KEY, v);
+      return String(v);
+    } catch (e) {
+      warn("silent catch: widget.customerKey.session", e);
+      return "anon_" + Date.now() + "_" + Math.random().toString(16).slice(2, 10);
+    }
+  }
+
+  function getPaymentWidgetCustomerKey() {
+    const userId = String(localStorage.getItem("shout_users_id") || "").trim();
+    if (userId) return "user_" + userId;
+    return getOrCreateAnonymousCustomerKey();
+  }
+
+  function ensurePaymentWidgetDom() {
+    if (paymentModalEl && paymentMethodEl && agreementEl && paymentModalConfirmBtnEl) {
+      return paymentModalEl;
+    }
+
+    paymentModalEl = document.getElementById("sh-payment-modal");
+    if (!paymentModalEl) {
+      paymentModalEl = document.createElement("div");
+      paymentModalEl.id = "sh-payment-modal";
+      paymentModalEl.className = "sh-payment-modal";
+      paymentModalEl.style.cssText = [
+        "position:fixed",
+        "inset:0",
+        "z-index:999999",
+        "display:none"
+      ].join(";");
+      paymentModalEl.innerHTML = `
+        <div class="sh-payment-modal-backdrop" style="position:absolute;inset:0;background:rgba(17,24,39,0.58);"></div>
+        <div class="sh-payment-modal-panel" role="dialog" aria-modal="true" aria-labelledby="sh-payment-modal-title" style="position:relative;width:min(560px,calc(100vw - 24px));max-height:calc(100vh - 24px);margin:12px auto;background:#fff;border-radius:20px;box-shadow:0 24px 80px rgba(15,23,42,0.28);overflow:hidden;display:flex;flex-direction:column;">
+          <div class="sh-payment-modal-head" style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 14px;border-bottom:1px solid rgba(15,23,42,0.08);">
+            <div>
+              <div id="sh-payment-modal-title" style="font-size:18px;font-weight:700;line-height:1.3;color:#111827;">결제수단 선택</div>
+              <div id="sh-payment-modal-amount" style="margin-top:4px;font-size:13px;line-height:1.4;color:#6b7280;">선택한 사진 기준 금액</div>
+            </div>
+            <button type="button" class="sh-payment-modal-close" aria-label="닫기" style="border:0;background:transparent;font-size:28px;line-height:1;color:#111827;cursor:pointer;padding:0 2px;">×</button>
+          </div>
+          <div class="sh-payment-modal-body" style="padding:16px 16px 0;overflow:auto;">
+            <div id="sh-payment-widget-section" class="sh-payment-widget-section">
+              <div id="payment-method" class="sh-payment-method"></div>
+              <div id="agreement" class="sh-payment-agreement" style="margin-top:14px;"></div>
+            </div>
+          </div>
+          <div class="sh-payment-modal-foot" style="padding:16px;border-top:1px solid rgba(15,23,42,0.08);background:#fff;">
+            <button type="button" id="sh-payment-confirm-btn" class="sh-payment-confirm-btn" style="width:100%;height:52px;border:0;border-radius:14px;background:#0064ff;color:#fff;font-size:16px;font-weight:700;cursor:pointer;">결제 진행</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(paymentModalEl);
+    }
+
+    paymentModalBackdropEl = paymentModalEl.querySelector('.sh-payment-modal-backdrop');
+    paymentModalPanelEl = paymentModalEl.querySelector('.sh-payment-modal-panel');
+    paymentModalCloseBtnEl = paymentModalEl.querySelector('.sh-payment-modal-close');
+    paymentModalConfirmBtnEl = paymentModalEl.querySelector('#sh-payment-confirm-btn');
+    paymentModalTitleEl = paymentModalEl.querySelector('#sh-payment-modal-title');
+    paymentModalAmountEl = paymentModalEl.querySelector('#sh-payment-modal-amount');
+    widgetSectionEl = paymentModalEl.querySelector('#sh-payment-widget-section');
+    paymentMethodEl = paymentModalEl.querySelector('#payment-method');
+    agreementEl = paymentModalEl.querySelector('#agreement');
+
+    if (paymentModalBackdropEl && !paymentModalBackdropEl.__boundClose) {
+      paymentModalBackdropEl.__boundClose = true;
+      paymentModalBackdropEl.addEventListener('click', closePaymentModal);
+    }
+    if (paymentModalCloseBtnEl && !paymentModalCloseBtnEl.__boundClose) {
+      paymentModalCloseBtnEl.__boundClose = true;
+      paymentModalCloseBtnEl.addEventListener('click', closePaymentModal);
+    }
+    if (paymentModalConfirmBtnEl && !paymentModalConfirmBtnEl.__boundConfirm) {
+      paymentModalConfirmBtnEl.__boundConfirm = true;
+      paymentModalConfirmBtnEl.addEventListener('click', callStartPayment);
+    }
+    if (!paymentModalEl.__boundEsc) {
+      paymentModalEl.__boundEsc = true;
+      document.addEventListener('keydown', function(ev) {
+        if (!paymentModalOpen) return;
+        if (ev.key === 'Escape') closePaymentModal();
+      });
+    }
+    return paymentModalEl;
+  }
+
+  function updatePaymentModalSummary(amountValue) {
+    if (!paymentModalAmountEl) return;
+    const count = getSelectedIds().length;
+    paymentModalAmountEl.textContent = `${count}장 선택 · ${formatKRW(amountValue)}`;
+  }
+
+  function canOpenPaymentModalWithPrecheck() {
+    /* [CHECK 2] 장바구니 약관 체크는 모달 오픈 전에 선검사한다. */
+    if (agreeCheckbox && !agreeCheckbox.checked) {
+      alert("약관에 동의해 주세요.");
+      nudgeAgreeCheckbox();
+      return false;
+    }
+    return true;
+  }
+
+  function openPaymentModal() {
+    /* [CHECK 2] 결제위젯은 장바구니 안 고정배치가 아니라 모달 내부에 선렌더 */
+    const amountValue = getSelectedCheckoutAmount();
+    if (amountValue <= 0) {
+      alert("장바구니가 비어있습니다.");
+      return;
+    }
+    const modal = ensurePaymentWidgetDom();
+    if (!modal) {
+      alert("결제 모달을 준비하지 못했습니다.");
+      return;
+    }
+    updatePaymentModalSummary(amountValue);
+    modal.style.display = "block";
+    paymentModalOpen = true;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    Promise.resolve().then(() => initPaymentWidget(false)).catch((e) => {
+      warn("silent catch: widget.modalOpenInit", e);
+    });
+  }
+
+  function closePaymentModal() {
+    if (!paymentModalEl) return;
+    paymentModalEl.style.display = "none";
+    paymentModalOpen = false;
+    document.documentElement.style.overflow = "";
+    document.body.style.overflow = "";
+  }
+
+  function getSelectedCheckoutAmount() {
+    const localGroups = buildEventGroups(cartItems);
+    const selectedIds = getSelectedIds();
+    const selectedSet = new Set(selectedIds);
+    const total = localGroups.length > 0 ?
+      localGroups.reduce((sum, g) => {
+        const arr = Array.isArray(g.items) ? g.items : [];
+        const c = arr.reduce((n, it) => n + (selectedSet.has(getItemId(it)) ? 1 : 0), 0);
+        return sum + calcEventAmountByCount(c);
+      }, 0) :
+      calcAmountByCount(selectedIds.length);
+    return Number(total) || 0;
+  }
+
+  async function initPaymentWidget(forceRerender) {
+    /* [CHECK 2] 장바구니 UI 렌더 완료 후 결제위젯을 1회만 렌더 */
+    if (paymentWidgetRenderPending) return;
+    const amountValue = getSelectedCheckoutAmount();
+    const hasItems = amountValue > 0;
+    const mount = ensurePaymentWidgetDom();
+    if (!mount || !paymentMethodEl || !agreementEl) return;
+    if (!hasItems) return;
+    updatePaymentModalSummary(amountValue);
+
+    if (typeof TossPayments !== "function") {
+      warn("widget.sdkMissing", new Error("TossPayments SDK missing"));
+      return;
+    }
+
+    const nextCustomerKey = getPaymentWidgetCustomerKey();
+    const shouldRecreate = !!forceRerender || !paymentWidgets || paymentWidgetCustomerKey !== nextCustomerKey;
+
+    paymentWidgetRenderPending = true;
+    try {
+      if (shouldRecreate) {
+        paymentWidgetCustomerKey = nextCustomerKey;
+        tossPaymentsInstance = TossPayments(TOSS_CLIENT_KEY);
+        paymentWidgets = tossPaymentsInstance.widgets({
+          customerKey: paymentWidgetCustomerKey
+        });
+        paymentWidgetReady = false;
+        paymentWidgetLastAmount = null;
+        paymentMethodEl.innerHTML = "";
+        agreementEl.innerHTML = "";
+      }
+
+      if (paymentWidgetLastAmount !== amountValue) {
+        await paymentWidgets.setAmount({
+          currency: "KRW",
+          value: amountValue
+        });
+        paymentWidgetLastAmount = amountValue;
+      }
+
+      if (!paymentWidgetReady) {
+        await paymentWidgets.renderPaymentMethods({
+          selector: "#payment-method"
+        });
+        await paymentWidgets.renderAgreement({
+          selector: "#agreement"
+        });
+        paymentWidgetReady = true;
+      }
+    } catch (e) {
+      warn("silent catch: widget.init", e);
+    } finally {
+      paymentWidgetRenderPending = false;
+    }
+  }
 
   function nudgeAgreeCheckbox() {
     if (!agreeCheckbox) return;
@@ -167,7 +394,7 @@ document.addEventListener("DOMContentLoaded", function() {
         photoIds.push(id);
       }
       const bibMeta = buildBibMeta(items);
-      const amount = calcTotalAmountByGroups(items);
+      let amount = calcTotalAmountByGroups(items);
       const orderName = `사진 ${photoIds.length}장`;
       let orderId = `shout_${Date.now()}_${Math.random().toString(16).slice(2,8)}`;
       try {
@@ -180,6 +407,7 @@ document.addEventListener("DOMContentLoaded", function() {
         body.set("bib", __bibToSend);
         // paymentKey is not available yet; Bubble parameter is required, so send a placeholder.
         body.set("paymentKey", "__PENDING__");
+        /* [CHECK 5] 기존 Bubble 파라미터(users_id, bib, photo_ids_json 등) 유지 */
         // Bubble workflow historically used photo_ids_json (JSON string). Some versions use photo_ids.
         // For maximum backward-compatibility, send BOTH as the same JSON array string.
         const photoIdsJson = JSON.stringify(photoIds);
@@ -218,17 +446,36 @@ const res = await fetch(url, {
         }
 
         const bubble = j && (j.response || j);
-if (bubble && (bubble.order_id || bubble.orderId)) {
+        if (bubble && (bubble.order_id || bubble.orderId)) {
           orderId = bubble.order_id || bubble.orderId;
+        }
+        if (bubble && Number.isFinite(Number(bubble.amount))) {
+          amount = Number(bubble.amount);
         }
       } catch (e) { warn("silent catch: createOrder.parseResponse", e); }
       if (typeof TossPayments !== "function") {
         alert("결제 모듈을 불러오지 못했습니다. (TossPayments)");
         return;
       }
-      const tossPayments = TossPayments(TOSS_CLIENT_KEY);
-      await tossPayments.requestPayment("카드", {
-        amount: amount,
+      /* [CHECK 3] 장바구니 버튼은 모달 오픈, 모달 내부 버튼만 실제 결제 실행 */
+      await initPaymentWidget(false);
+      if (!paymentWidgets || !paymentWidgetReady) {
+        alert("결제 위젯을 준비하지 못했습니다. 새로고침 후 다시 시도해주세요.");
+        return;
+      }
+      if (paymentWidgetLastAmount !== amount) {
+        await paymentWidgets.setAmount({
+          currency: "KRW",
+          value: amount
+        });
+        paymentWidgetLastAmount = amount;
+      }
+      /* [CHECK 4] create-order 응답 amount/orderId를 최종 결제 기준값으로 사용 */
+      if (paymentModalConfirmBtnEl) {
+        paymentModalConfirmBtnEl.disabled = true;
+        paymentModalConfirmBtnEl.textContent = "결제 요청 중...";
+      }
+      await paymentWidgets.requestPayment({
         orderId: orderId,
         orderName: orderName,
         successUrl: SUCCESS_URL,
@@ -237,6 +484,11 @@ if (bubble && (bubble.order_id || bubble.orderId)) {
     } catch (err) {
       console.error("[startPayment] error:", err);
       alert("결제 진행 중 오류가 발생했습니다.");
+    } finally {
+      if (paymentModalConfirmBtnEl) {
+        paymentModalConfirmBtnEl.disabled = false;
+        paymentModalConfirmBtnEl.textContent = "결제 진행";
+      }
     }
   }
 
@@ -497,6 +749,10 @@ if (bubble && (bubble.order_id || bubble.orderId)) {
       agreeText.className = "sh-cart-agree-text";
       agreeWrap.appendChild(agreeCheckbox);
       agreeWrap.appendChild(agreeText);
+      /* [CHECK 1-1] 결제위젯 mount point는 모달 내부에서만 생성한다.
+         - 장바구니 푸터에는 #payment-method / #agreement 를 만들지 않는다.
+         - 중복 DOM ID 방지 목적 */
+      widgetSectionEl = null;
       checkoutBtn = document.createElement("button");
       checkoutBtn.id = "btn-checkout";
       checkoutBtn.disabled = false;
@@ -1563,8 +1819,10 @@ function renderThumbs() {
       snapshotOpenGroupKeys();
     } catch (e) { warn("silent catch: accordion.snapshotOpen", e); }
     Promise.resolve(renderMultiEventAccordion()).then((didMulti) => {
-      if (didMulti) return;
-      renderCartList();
+      if (!didMulti) renderCartList();
+      if (paymentModalOpen) return initPaymentWidget(false);
+    }).catch((e) => {
+      warn("silent catch: widget.rerender.afterCart", e);
     });
   }
 
@@ -1616,15 +1874,20 @@ rerenderCartUI();
     window.addEventListener("shout_cart_changed", function(e) {
       try {
         loadCartFromStorage();
-        renderMultiEventAccordion();
-        renderCartList();
+        rerenderCartUI();
       } catch (err) {}
     });
     const __didMulti = await renderMultiEventAccordion();
     if (!__didMulti) {
       renderCartList();
     }
-    if (checkoutBtn) checkoutBtn.onclick = callStartPayment;
+    ensurePaymentWidgetDom();
+    if (checkoutBtn) checkoutBtn.onclick = function(e) {
+      if (e && typeof e.preventDefault === "function") e.preventDefault();
+      /* [CHECK 3] 결제 버튼 1차 역할은 모달 오픈. 단, 약관 선통과 후에만 연다. */
+      if (!canOpenPaymentModalWithPrecheck()) return;
+      openPaymentModal();
+    };
     document.querySelectorAll(".cart-preview-nav").forEach(el => el.remove());
     const intent = sessionStorage.getItem(AUTH_INTENT_KEY);
     if (intent) {
@@ -1633,7 +1896,11 @@ rerenderCartUI();
         if (data && data.after === "start_payment" && localStorage.getItem(
           "shout_users_id")) {
           sessionStorage.removeItem(AUTH_INTENT_KEY);
-          setTimeout(startPayment, 300);
+          setTimeout(function() {
+            /* [CHECK 4] 로그인 복귀 후에도 동일하게 약관 선검사 후 모달을 연다. */
+            if (!canOpenPaymentModalWithPrecheck()) return;
+            openPaymentModal();
+          }, 300);
         }
       } catch (e) {
         try {
