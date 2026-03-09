@@ -210,11 +210,15 @@ document.addEventListener("DOMContentLoaded", function() {
         "position:fixed",
         "inset:0",
         "z-index:999999",
-        "display:none"
+        "display:none",
+        "align-items:center",
+        "justify-content:center",
+        "padding:24px",
+        "box-sizing:border-box"
       ].join(";");
       paymentModalEl.innerHTML = `
         <div class="sh-payment-modal-backdrop" style="position:absolute;inset:0;background:rgba(17,24,39,0.58);"></div>
-        <div class="sh-payment-modal-panel" role="dialog" aria-modal="true" aria-labelledby="sh-payment-modal-title" style="position:relative;width:min(560px,calc(100vw - 24px));max-height:calc(100vh - 24px);margin:12px auto;background:#fff;border-radius:20px;box-shadow:0 24px 80px rgba(15,23,42,0.28);overflow:hidden;display:flex;flex-direction:column;">
+        <div class="sh-payment-modal-panel" role="dialog" aria-modal="true" aria-labelledby="sh-payment-modal-title" style="position:relative;width:min(560px,calc(100vw - 48px));max-height:calc(100vh - 48px);background:#fff;border-radius:20px;box-shadow:0 24px 80px rgba(15,23,42,0.28);overflow:hidden;display:flex;flex-direction:column;">
           <div class="sh-payment-modal-head" style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 14px;border-bottom:1px solid rgba(15,23,42,0.08);">
             <div>
               <div id="sh-payment-modal-title" style="font-size:18px;font-weight:700;line-height:1.3;color:#111827;">결제수단 선택</div>
@@ -347,7 +351,7 @@ document.addEventListener("DOMContentLoaded", function() {
       return;
     }
     updatePaymentModalSummary(amountValue);
-    modal.style.display = "block";
+    modal.style.display = "flex";
     paymentModalOpen = true;
     document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
