@@ -22,6 +22,39 @@ document.addEventListener("DOMContentLoaded", function() {
   if (window.__SHOUT_CART_INIT_DONE__) return;
   window.__SHOUT_CART_INIT_DONE__ = true;
 
+  let cartLoadingMaskEl = null;
+
+  function ensureCartLoadingMask() {
+    if (cartLoadingMaskEl && document.body && document.body.contains(cartLoadingMaskEl)) return cartLoadingMaskEl;
+    cartLoadingMaskEl = document.getElementById("sh-cart-loading-mask");
+    if (!cartLoadingMaskEl) {
+      cartLoadingMaskEl = document.createElement("div");
+      cartLoadingMaskEl.id = "sh-cart-loading-mask";
+      cartLoadingMaskEl.setAttribute("aria-hidden", "true");
+      cartLoadingMaskEl.innerHTML = [
+        '<div class="sh-cart-loading-box" role="status" aria-live="polite" aria-label="장바구니 불러오는 중">',
+        '  <div class="sh-cart-loading-spinner"></div>',
+        '  <div class="sh-cart-loading-text">장바구니를 불러오는 중입니다.</div>',
+        '</div>'
+      ].join("");
+      document.body.appendChild(cartLoadingMaskEl);
+    }
+    return cartLoadingMaskEl;
+  }
+
+  function setInitialCartLoadingState(isLoading) {
+    if (!document.body) return;
+    ensureCartLoadingMask();
+    if (isLoading) {
+      document.body.classList.add("sh-cart-loading");
+      document.body.classList.remove("sh-cart-ready");
+      return;
+    }
+    document.body.classList.remove("sh-cart-loading");
+    document.body.classList.add("sh-cart-ready");
+  }
+
+  setInitialCartLoadingState(true);
 
   function calcAmountByCount(count) {
     const c = Number(count) || 0;
@@ -2006,52 +2039,57 @@ rerenderCartUI();
   async function init() {
     if (window.__shout_cart_init_ran) return;
     window.__shout_cart_init_ran = true;
-    ensureCartUi();
-    loadCartFromStorage();
-    window.addEventListener("shout_cart_changed", function(e) {
-      try {
-        loadCartFromStorage();
-        rerenderCartUI();
-      } catch (err) {}
-    });
-    const __didMulti = await renderMultiEventAccordion();
-    if (!__didMulti) {
-      renderCartList();
-    }
-    if (!isMobileCheckoutMode()) ensurePaymentWidgetDom();
-    if (checkoutBtn) checkoutBtn.onclick = function(e) {
-      if (e && typeof e.preventDefault === "function") e.preventDefault();
-      /* [CHECK 3] 결제 버튼은 공통으로 약관 선검사 후 진행한다. 모바일은 체크아웃 페이지로 이동, 데스크톱은 모달을 연다. */
-      if (!canOpenPaymentModalWithPrecheck()) return;
-      if (isMobileCheckoutMode()) {
-        goToCheckoutPage();
-        return;
-      }
-      openPaymentModal();
-    };
-    document.querySelectorAll(".cart-preview-nav").forEach(el => el.remove());
-    const intent = sessionStorage.getItem(AUTH_INTENT_KEY);
-    if (intent) {
-      try {
-        const data = JSON.parse(intent);
-        if (data && data.after === "start_payment" && localStorage.getItem(
-          "shout_users_id")) {
-          sessionStorage.removeItem(AUTH_INTENT_KEY);
-          setTimeout(function() {
-            /* [CHECK 4] 로그인 복귀 후에도 동일하게 약관 선검사 후 진행한다. 모바일은 체크아웃 페이지로 이동, 데스크톱은 모달을 연다. */
-            if (!canOpenPaymentModalWithPrecheck()) return;
-            if (isMobileCheckoutMode()) {
-              goToCheckoutPage();
-              return;
-            }
-            openPaymentModal();
-          }, 300);
-        }
-      } catch (e) {
+    setInitialCartLoadingState(true);
+    try {
+      ensureCartUi();
+      loadCartFromStorage();
+      window.addEventListener("shout_cart_changed", function(e) {
         try {
-          sessionStorage.removeItem(AUTH_INTENT_KEY);
-        } catch (_) {}
+          loadCartFromStorage();
+          rerenderCartUI();
+        } catch (err) {}
+      });
+      const __didMulti = await renderMultiEventAccordion();
+      if (!__didMulti) {
+        renderCartList();
       }
+      if (!isMobileCheckoutMode()) ensurePaymentWidgetDom();
+      if (checkoutBtn) checkoutBtn.onclick = function(e) {
+        if (e && typeof e.preventDefault === "function") e.preventDefault();
+        /* [CHECK 3] 결제 버튼은 공통으로 약관 선검사 후 진행한다. 모바일은 체크아웃 페이지로 이동, 데스크톱은 모달을 연다. */
+        if (!canOpenPaymentModalWithPrecheck()) return;
+        if (isMobileCheckoutMode()) {
+          goToCheckoutPage();
+          return;
+        }
+        openPaymentModal();
+      };
+      document.querySelectorAll(".cart-preview-nav").forEach(el => el.remove());
+      const intent = sessionStorage.getItem(AUTH_INTENT_KEY);
+      if (intent) {
+        try {
+          const data = JSON.parse(intent);
+          if (data && data.after === "start_payment" && localStorage.getItem(
+            "shout_users_id")) {
+            sessionStorage.removeItem(AUTH_INTENT_KEY);
+            setTimeout(function() {
+              /* [CHECK 4] 로그인 복귀 후에도 동일하게 약관 선검사 후 진행한다. 모바일은 체크아웃 페이지로 이동, 데스크톱은 모달을 연다. */
+              if (!canOpenPaymentModalWithPrecheck()) return;
+              if (isMobileCheckoutMode()) {
+                goToCheckoutPage();
+                return;
+              }
+              openPaymentModal();
+            }, 300);
+          }
+        } catch (e) {
+          try {
+            sessionStorage.removeItem(AUTH_INTENT_KEY);
+          } catch (_) {}
+        }
+      }
+    } finally {
+      setInitialCartLoadingState(false);
     }
   }
   window.addEventListener("pageshow", init);
