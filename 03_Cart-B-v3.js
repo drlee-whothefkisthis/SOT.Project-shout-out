@@ -201,6 +201,9 @@ document.addEventListener("DOMContentLoaded", function() {
   let paymentModalConfirmBtnEl = null;
   let paymentModalTitleEl = null;
   let paymentModalAmountEl = null;
+  let paymentModalSelectedCountEl = null;
+  let paymentModalBibListEl = null;
+  let paymentModalPlannedAmountEl = null;
   let tossPaymentsInstance = null;
   let paymentWidgets = null;
   let paymentWidgetReady = false;
@@ -260,6 +263,20 @@ document.addEventListener("DOMContentLoaded", function() {
             <button type="button" class="sh-payment-modal-close" aria-label="닫기" style="border:0;background:transparent;font-size:28px;line-height:1;color:#111827;cursor:pointer;padding:0 2px;">×</button>
           </div>
           <div class="sh-payment-modal-body" style="padding:16px 16px 0;overflow:auto;">
+            <div class="sh-payment-modal-summary" style="margin-bottom:16px;padding:16px 18px;border-radius:16px;background:#f8fafc;border:1px solid rgba(15,23,42,0.08);">
+              <div class="sh-payment-summary-row" style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+                <div style="font-size:15px;line-height:1.5;color:#374151;">선택 사진</div>
+                <div id="sh-payment-modal-selected-count" style="font-size:15px;line-height:1.5;font-weight:700;color:#111827;">0장</div>
+              </div>
+              <div class="sh-payment-summary-row" style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:12px;">
+                <div style="font-size:15px;line-height:1.5;color:#374151;">참가번호</div>
+                <div id="sh-payment-modal-bib-list" style="font-size:15px;line-height:1.5;font-weight:700;color:#111827;text-align:right;word-break:break-word;">-</div>
+              </div>
+              <div class="sh-payment-summary-row" style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:12px;">
+                <div style="font-size:15px;line-height:1.5;color:#374151;">결제 예정 금액</div>
+                <div id="sh-payment-modal-planned-amount" style="font-size:15px;line-height:1.5;font-weight:700;color:#111827;">0원</div>
+              </div>
+            </div>
             <div id="sh-payment-widget-section" class="sh-payment-widget-section">
               <div id="payment-method" class="sh-payment-method"></div>
               <div id="agreement" class="sh-payment-agreement" style="margin-top:14px;"></div>
@@ -279,6 +296,9 @@ document.addEventListener("DOMContentLoaded", function() {
     paymentModalConfirmBtnEl = paymentModalEl.querySelector('#sh-payment-confirm-btn');
     paymentModalTitleEl = paymentModalEl.querySelector('#sh-payment-modal-title');
     paymentModalAmountEl = paymentModalEl.querySelector('#sh-payment-modal-amount');
+    paymentModalSelectedCountEl = paymentModalEl.querySelector('#sh-payment-modal-selected-count');
+    paymentModalBibListEl = paymentModalEl.querySelector('#sh-payment-modal-bib-list');
+    paymentModalPlannedAmountEl = paymentModalEl.querySelector('#sh-payment-modal-planned-amount');
     widgetSectionEl = paymentModalEl.querySelector('#sh-payment-widget-section');
     paymentMethodEl = paymentModalEl.querySelector('#payment-method');
     agreementEl = paymentModalEl.querySelector('#agreement');
@@ -305,10 +325,35 @@ document.addEventListener("DOMContentLoaded", function() {
     return paymentModalEl;
   }
 
+  function getSelectedBibListForModalSummary() {
+    const allItems = (window.ShoutCart && typeof window.ShoutCart.getItems === 'function') ? window.ShoutCart.getItems() : cartItems;
+    const items = getSelectedItemsFrom(allItems);
+    const seen = new Set();
+    const out = [];
+    (Array.isArray(items) ? items : []).forEach((it) => {
+      const bib = String((it && (it.bib ?? it.bib_no ?? it.bibNumber ?? it.bib_number)) || "").trim();
+      if (!bib) return;
+      if (seen.has(bib)) return;
+      seen.add(bib);
+      out.push(bib);
+    });
+    return out;
+  }
+
+  function formatBibListForModalSummary(bibList) {
+    const list = (Array.isArray(bibList) ? bibList : []).map((x) => String(x || "").trim()).filter(Boolean);
+    if (!list.length) return "-";
+    if (list.length <= 3) return list.join(", ");
+    return `${list.slice(0, 3).join(", ")} 외 ${list.length - 3}개`;
+  }
+
   function updatePaymentModalSummary(amountValue) {
-    if (!paymentModalAmountEl) return;
     const count = getSelectedIds().length;
-    paymentModalAmountEl.textContent = `${count}장 선택 · ${formatKRW(amountValue)}`;
+    const bibList = getSelectedBibListForModalSummary();
+    if (paymentModalAmountEl) paymentModalAmountEl.textContent = `${count}장 선택 · ${formatKRW(amountValue)}`;
+    if (paymentModalSelectedCountEl) paymentModalSelectedCountEl.textContent = `${count}장`;
+    if (paymentModalBibListEl) paymentModalBibListEl.textContent = formatBibListForModalSummary(bibList);
+    if (paymentModalPlannedAmountEl) paymentModalPlannedAmountEl.textContent = formatKRW(amountValue);
   }
 
   function canOpenPaymentModalWithPrecheck() {
