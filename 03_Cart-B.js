@@ -281,7 +281,6 @@ document.addEventListener("DOMContentLoaded", function() {
   function canOpenPaymentModalWithPrecheck() {
     /* [CHECK 2] 장바구니 약관 체크는 모달 오픈 전에 선검사한다. */
     if (agreeCheckbox && !agreeCheckbox.checked) {
-      alert("약관에 동의해 주세요.");
       nudgeAgreeCheckbox();
       return false;
     }
