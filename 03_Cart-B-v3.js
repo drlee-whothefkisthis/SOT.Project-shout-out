@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", function() {
   const AUTH_INTENT_KEY = "shout_auth_intent";
   const CHECKOUT_CONTEXT_KEY = "shout_checkout_context";
   const AUTH_LOGIN_URL = "/login";
-  const UNIT_PRICE = 5000;
+  const UNIT_PRICE = 6000;
   const PACKAGE_THRESHOLD = 5;
   const PACKAGE_PRICE = 24900;
   const PACKAGE_LABEL_TEXT = "무제한 패키지";
