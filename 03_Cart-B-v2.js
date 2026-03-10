@@ -362,6 +362,30 @@ document.addEventListener("DOMContentLoaded", function() {
       nudgeAgreeCheckbox();
       return false;
     }
+
+    const allItems = (window.ShoutCart && typeof window.ShoutCart.getItems === "function") ? window.ShoutCart.getItems() : cartItems;
+    const items = getSelectedItemsFrom(allItems);
+    const amountValue = getSelectedCheckoutAmount();
+    if (amountValue <= 0 || !Array.isArray(items) || items.length === 0) {
+      alert("장바구니가 비어있습니다.");
+      return false;
+    }
+
+    const userId = String(localStorage.getItem("shout_users_id") || "").trim();
+    if (!userId) {
+      try {
+        const returnTo = String(window.location.href || (window.location.origin + "/cart")).trim() || (window.location.origin + "/cart");
+        sessionStorage.setItem(AUTH_INTENT_KEY, JSON.stringify({
+          after: "start_payment",
+          return_to: returnTo,
+          fallback_to: window.location.origin + "/gallery"
+        }));
+        localStorage.setItem("shout_cart_sync_needed", "true");
+      } catch (e) { warn("silent catch: auth.intent.precheck.store", e); }
+      window.location.href = AUTH_LOGIN_URL;
+      return false;
+    }
+
     return true;
   }
 
