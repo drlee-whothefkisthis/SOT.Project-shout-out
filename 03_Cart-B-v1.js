@@ -551,7 +551,9 @@ document.addEventListener("DOMContentLoaded", function() {
       if (!userId) {
         try {
           sessionStorage.setItem(AUTH_INTENT_KEY, JSON.stringify({
-            after: "start_payment"
+            after: "start_payment",
+            return_to: window.location.origin + "/cart",
+            fallback_to: window.location.origin + "/gallery"
           }));
         } catch (e) { warn("silent catch: auth.intent.store", e); }
         window.location.href = AUTH_LOGIN_URL;
