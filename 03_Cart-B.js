@@ -176,7 +176,7 @@ document.addEventListener("DOMContentLoaded", function() {
       packageLabelText.textContent = hasPackage ? PACKAGE_LABEL_TEXT : "";
     }
   }
-  const TOSS_CLIENT_KEY = "test_gck_Z61JOxRQVEbNXYJv1q4grW0X9bAq";
+  const TOSS_CLIENT_KEY = "live_gck_GePWvyJnrKJE7jdbB9L1VgLzN97E";
   const SUCCESS_URL = window.location.origin + "/payments-results/success";
   const FAIL_URL = window.location.origin + "/payments-results/fail";
   const CHECKOUT_PAGE_URL = window.location.origin + "/checkout";
