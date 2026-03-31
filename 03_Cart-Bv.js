@@ -66,24 +66,31 @@ document.addEventListener("DOMContentLoaded", function() {
     return Number(n).toLocaleString("ko-KR") + "원";
   }
 
+  function getEventCodeValue(it) {
+    const direct = String((it && (it.event_code || it.eventCode)) || "").trim();
+    if (direct) return direct;
+
+    const fallback = String((it && (it.event_id || it.eventId)) || "").trim();
+    if (fallback) return fallback;
+
+    const fileName = String((it && (it.fileName || it.filename || it.file_name)) || "").trim();
+    if (fileName) {
+      const parts = fileName.split("/").filter(Boolean);
+      if (parts.length >= 3) return String(parts[2] || "").trim();
+    }
+
+    return "";
+  }
+
   function buildCheckoutContext(items, extra) {
     const list = Array.isArray(items) ? items : [];
-    const groupsMap = new Map();
-    list.forEach((it) => {
-      const eventId = String((it && (it.event_id || it.eventId || it.event_code)) || "").trim();
-      const eventDisplayName = String((it && (it.event_display_name || it.eventName || it.event_name)) || "").trim();
-      const bib = String((it && (it.bib ?? it.bib_no ?? it.bibNumber ?? it.bib_number)) || "").trim();
-      const key = `${eventId}__${bib}`;
-      if (!groupsMap.has(key)) {
-        groupsMap.set(key, {
-          event_id: eventId,
-          event_display_name: eventDisplayName,
-          bib: bib,
-          count: 0
-        });
-      }
-      groupsMap.get(key).count += 1;
-    });
+    const bibMeta = buildBibMeta(list);
+    const groups = bibMeta.map((row) => ({
+      event_code: String(row.event_code || "").trim(),
+      event_display_name: String(row.event_display_name || "").trim(),
+      bib: String(row.bib || "").trim(),
+      count: Number(row.count || 0) || 0
+    }));
     return {
       saved_at: Date.now(),
       order_id: String((extra && (extra.order_id || extra.orderId)) || "").trim(),
@@ -93,8 +100,8 @@ document.addEventListener("DOMContentLoaded", function() {
       primary_bib: String((extra && extra.primary_bib) || "").trim(),
       selected_count: list.length,
       photo_ids: Array.isArray(extra && extra.photo_ids) ? extra.photo_ids : [],
-      bib_meta: Array.isArray(extra && extra.bib_meta) ? extra.bib_meta : [],
-      groups: Array.from(groupsMap.values())
+      bib_meta: Array.isArray(extra && extra.bib_meta) ? extra.bib_meta : bibMeta,
+      groups: groups
     };
   }
 
@@ -107,9 +114,9 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function getGroupKey(it) {
-    const eventId = String(it && (it.event_id || it.event_code || it.eventId) || "").trim();
-    const bib = String(it && it.bib || "").trim();
-    return `${eventId}__${bib}`;
+    const eventCode = getEventCodeValue(it);
+    const bib = String((it && (it.bib ?? it.bib_no ?? it.bibNumber ?? it.bib_number)) || "").trim();
+    return `${eventCode}__${bib}`;
   }
 
   function groupItemsByEventBib(items) {
@@ -138,17 +145,24 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function buildBibMeta(items) {
-    const groups = groupItemsByEventBib(items);
-    const out = [];
-    for (const [k, arr] of groups.entries()) {
-      const [eventId, bib] = k.split("__");
-      out.push({
-        event_id: eventId,
-        bib: bib,
-        count: arr.length
-      });
-    }
-    return out;
+    const map = new Map();
+    (items || []).forEach((it) => {
+      const eventCode = getEventCodeValue(it);
+      const eventDisplayName = String(it && (it.event_display_name || it.eventName || it.event_name) || "").trim();
+      const bib = String((it && (it.bib ?? it.bib_no ?? it.bibNumber ?? it.bib_number)) || "").trim();
+      if (!eventCode || !bib) return;
+      const key = eventCode + "__" + bib;
+      if (!map.has(key)) {
+        map.set(key, {
+          event_code: eventCode,
+          event_display_name: eventDisplayName,
+          bib: bib,
+          count: 0
+        });
+      }
+      map.get(key).count += 1;
+    });
+    return Array.from(map.values());
   }
 
   function getPrimaryBib(items) {
@@ -593,6 +607,14 @@ document.addEventListener("DOMContentLoaded", function() {
         alert("장바구니가 비어있습니다.");
         return;
       }
+
+      const bib = String((cartData && cartData.bib) || getPrimaryBib(items) || "").trim();
+      const bibMeta = buildBibMeta(items);
+      if (!bib) {
+        alert("참가번호(bib)가 없어 결제를 진행할 수 없습니다. 다시 담아주세요.");
+        return;
+      }
+
       const seen = new Set();
       const photoIds = [];
       for (const it of items) {
@@ -602,34 +624,55 @@ document.addEventListener("DOMContentLoaded", function() {
         seen.add(id);
         photoIds.push(id);
       }
-      const bibMeta = buildBibMeta(items);
-      const __bibToSend = String((cartData && cartData.bib) || getPrimaryBib(items) || "").trim();
-      if (!__bibToSend) {
-        alert("참가번호(bib)가 없어 결제를 진행할 수 없습니다. 다시 담아주세요.");
+
+      if (photoIds.length === 0) {
+        alert("결제 가능한 사진이 없습니다.");
         return;
       }
+
       let amount = calcTotalAmountByGroups(items);
       const orderName = `사진 ${photoIds.length}장`;
       let orderId = `shout_${Date.now()}_${Math.random().toString(16).slice(2,8)}`;
-      try {
-        const url = BUBBLE_API_ORIGIN.replace(/\/$/, "") + WF_CREATE_ORDER;
+
+      const url = BUBBLE_API_ORIGIN.replace(/\/$/, "") + WF_CREATE_ORDER;
+
+      const groupMap = {};
+      (items || []).forEach((it) => {
+        const eventCode = getEventCodeValue(it);
+        const bibValue = String((it && (it.bib ?? it.bib_no ?? it.bibNumber ?? it.bib_number)) || "").trim();
+        const photoId = String((it && (it._id || it.photo_id || it.photoId || it.id)) || "").trim();
+        if (!eventCode || !bibValue || !photoId) return;
+
+        const key = `${eventCode}_${bibValue}`;
+        if (!groupMap[key]) {
+          groupMap[key] = {
+            event_code: eventCode,
+            bib: bibValue,
+            photo_ids: []
+          };
+        }
+        groupMap[key].photo_ids.push(photoId);
+      });
+      const groups = Object.values(groupMap);
+
+      let totalAmount = 0;
+
+      for (const group of groups) {
         const body = new URLSearchParams();
         body.set("users_id", userId);
         body.set("orderId", orderId);
-        body.set("bib", __bibToSend);
-        const bibMetaJson = JSON.stringify(bibMeta || []);
-        body.set("bib_meta", bibMetaJson);
-        body.set("bib_meta_json", bibMetaJson);
-        // paymentKey is not available yet; Bubble parameter is required, so send a placeholder.
+        body.set("event_code", group.event_code || "");
+        body.set("bib", group.bib || "");
         body.set("paymentKey", "__PENDING__");
-        /* [CHECK 5] 기존 Bubble 파라미터(users_id, bib, photo_ids_json 등) 유지 */
-        // Bubble workflow historically used photo_ids_json (JSON string). Some versions use photo_ids.
-        // For maximum backward-compatibility, send BOTH as the same JSON array string.
-        const photoIdsJson = JSON.stringify(photoIds);
-        body.set("photo_ids", photoIdsJson);
-        body.set("photo_ids_json", photoIdsJson);
 
-const res = await fetch(url, {
+        (group.photo_ids || []).forEach((pid) => {
+          body.append("photo_ids", pid);
+        });
+
+        const groupPhotoIdsJson = JSON.stringify(group.photo_ids || []);
+        body.set("photo_ids_json", groupPhotoIdsJson);
+
+        const res = await fetch(url, {
           method: "POST",
           headers: {
             "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
@@ -637,42 +680,38 @@ const res = await fetch(url, {
           body: body.toString()
         });
 
-        // --- Debug visibility: Bubble often returns useful error text on 400 ---
         let rawText = "";
         let j = null;
-        try { rawText = await res.text(); } catch (e) { warn("silent catch: createOrder.readText", e); }
-        try { j = rawText ? JSON.parse(rawText) : null; } catch (e) { /* not JSON */ }
+        try { rawText = await res.text(); } catch (e) { warn("createOrder.readText", e); }
+        try { j = rawText ? JSON.parse(rawText) : null; } catch (e) {}
 
         if (!res.ok) {
-          // Expose the real reason when debug_cart=1, and STOP the payment flow to prevent data mismatch.
           warn("createOrder.httpError", new Error(`HTTP ${res.status}`), {
             url,
             status: res.status,
             statusText: res.statusText,
             response: (j || rawText || "").toString().slice(0, 2000),
-            payloadKeys: Array.from(body.keys()),
+            group,
             users_id: userId,
-            orderId,
-            photo_count: photoIds.length,
-            amount
+            orderId
           });
-          alert("주문 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
-          return;
+          throw new Error(rawText || `create-order failed for group ${group.event_code}_${group.bib}`);
         }
 
         const bubble = j && (j.response || j);
-        if (bubble && (bubble.order_id || bubble.orderId)) {
-          orderId = bubble.order_id || bubble.orderId;
+        let amt = 0;
+        if (bubble && bubble.amount != null) {
+          amt = Number(bubble.amount);
+          if (!Number.isFinite(amt)) amt = 0;
         }
-        if (bubble && Number.isFinite(Number(bubble.amount))) {
-          amount = Number(bubble.amount);
-        }
-      } catch (e) { warn("silent catch: createOrder.parseResponse", e); }
+        totalAmount += amt;
+      }
+
+      amount = totalAmount;
       if (typeof TossPayments !== "function") {
         alert("결제 모듈을 불러오지 못했습니다. (TossPayments)");
         return;
       }
-      /* [CHECK 3] 장바구니 버튼은 모달 오픈, 모달 내부 버튼만 실제 결제 실행 */
       await initPaymentWidget(false);
       if (!paymentWidgets || !paymentWidgetReady) {
         alert("결제 위젯을 준비하지 못했습니다. 새로고침 후 다시 시도해주세요.");
@@ -685,7 +724,6 @@ const res = await fetch(url, {
         });
         paymentWidgetLastAmount = amount;
       }
-      /* [CHECK 4] create-order 응답 amount/orderId를 최종 결제 기준값으로 사용 */
       if (paymentModalConfirmBtnEl) {
         paymentModalConfirmBtnEl.disabled = true;
         paymentModalConfirmBtnEl.textContent = "결제 요청 중...";
@@ -695,7 +733,7 @@ const res = await fetch(url, {
         order_id: orderId,
         order_name: orderName,
         amount: amount,
-        primary_bib: __bibToSend,
+        primary_bib: bib,
         photo_ids: photoIds,
         bib_meta: bibMeta
       });
@@ -1047,11 +1085,7 @@ const res = await fetch(url, {
   }
 
   function getEventCodeFromItem(item) {
-    if (item && item.event_code) return String(item.event_code);
-    const fn = item && item.fileName ? String(item.fileName) : "";
-    const parts = fn.split("/").filter(Boolean);
-    if (parts.length >= 3) return parts[2];
-    return "UNKNOWN";
+    return getEventCodeValue(item) || "UNKNOWN";
   }
 
   function getBibFromItem(item) {
