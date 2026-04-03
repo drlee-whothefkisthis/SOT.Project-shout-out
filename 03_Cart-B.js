@@ -91,12 +91,17 @@ document.addEventListener("DOMContentLoaded", function() {
       bib: String(row.bib || "").trim(),
       count: Number(row.count || 0) || 0
     }));
+    
+    // user_id / users_id 호환성 유지하면서 user_id 중심으로 재정의
+    const userId = String((extra && (extra.user_id || extra.users_id)) || "").trim();
+    
     return {
       saved_at: Date.now(),
       order_id: String((extra && (extra.order_id || extra.orderId)) || "").trim(),
       order_name: String((extra && (extra.order_name || extra.orderName)) || "").trim(),
       amount: Number((extra && extra.amount) || 0) || 0,
-      users_id: String((extra && extra.users_id) || "").trim(),
+      user_id: userId,
+      users_id: userId,
       primary_bib: String((extra && extra.primary_bib) || "").trim(),
       selected_count: list.length,
       photo_ids: Array.isArray(extra && extra.photo_ids) ? extra.photo_ids : [],
@@ -196,7 +201,7 @@ document.addEventListener("DOMContentLoaded", function() {
   const CHECKOUT_PAGE_URL = window.location.origin + "/checkout";
   const MOBILE_CHECKOUT_MAX_WIDTH = 767.98;
   const THUMB_SCROLL_STEP = 280;
-  const BUBBLE_API_ORIGIN = "https://plp-62309.bubbleapps.io/version-test";
+  const BUBBLE_API_ORIGIN = "https://plp-62309.bubbleapps.io";
   const WF_CREATE_ORDER = "/api/1.1/wf/create-order";
   let container = document.getElementById("cart-list-container");
   let priceText = document.getElementById("cart-total-price");
@@ -422,8 +427,10 @@ document.addEventListener("DOMContentLoaded", function() {
     const photoIds = list.map(getItemId).filter(Boolean);
     const bibMeta = buildBibMeta(list);
     const primaryBib = String((cartData && cartData.bib) || getPrimaryBib(list) || "").trim();
+    
+    // user_id 명시적으로 삽입
     return buildCheckoutContext(list, {
-      users_id: userId,
+      user_id: userId,
       amount: amount,
       primary_bib: primaryBib,
       photo_ids: photoIds,
@@ -579,6 +586,7 @@ document.addEventListener("DOMContentLoaded", function() {
       agreeCheckbox.classList.add("is-attn");
     } catch (e) { warn("silent catch: agreeCheckbox.attn", e); }
   }
+  
   async function startPayment() {
     try {
       if (agreeCheckbox && !agreeCheckbox.checked) {
@@ -653,61 +661,51 @@ document.addEventListener("DOMContentLoaded", function() {
         }
         groupMap[key].photo_ids.push(photoId);
       });
+      
       const groups = Object.values(groupMap);
+      const orderListJson = JSON.stringify(groups);
 
-      let totalAmount = 0;
+      const body = new URLSearchParams();
+      body.set("user_id", String(userId || "").trim());
+      body.set("order_id", String(orderId || "").trim());
+      body.set("order_list_json", orderListJson);
 
-      for (const group of groups) {
-        const body = new URLSearchParams();
-        body.set("users_id", userId);
-        body.set("orderId", orderId);
-        body.set("event_code", group.event_code || "");
-        body.set("bib", group.bib || "");
-        body.set("paymentKey", "__PENDING__");
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+        },
+        body: body.toString()
+      });
 
-        (group.photo_ids || []).forEach((pid) => {
-          body.append("photo_ids", pid);
+      let rawText = "";
+      let j = null;
+      try { rawText = await res.text(); } catch (e) { warn("createOrder.readText", e); }
+      try { j = rawText ? JSON.parse(rawText) : null; } catch (e) {}
+
+      if (!res.ok) {
+        warn("createOrder.httpError", new Error(`HTTP ${res.status}`), {
+          url,
+          status: res.status,
+          statusText: res.statusText,
+          response: (j || rawText || "").toString().slice(0, 2000),
+          order_list_json: orderListJson,
+          user_id: userId,
+          order_id: orderId
         });
-
-        const groupPhotoIdsJson = JSON.stringify(group.photo_ids || []);
-        body.set("photo_ids_json", groupPhotoIdsJson);
-
-        const res = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
-          },
-          body: body.toString()
-        });
-
-        let rawText = "";
-        let j = null;
-        try { rawText = await res.text(); } catch (e) { warn("createOrder.readText", e); }
-        try { j = rawText ? JSON.parse(rawText) : null; } catch (e) {}
-
-        if (!res.ok) {
-          warn("createOrder.httpError", new Error(`HTTP ${res.status}`), {
-            url,
-            status: res.status,
-            statusText: res.statusText,
-            response: (j || rawText || "").toString().slice(0, 2000),
-            group,
-            users_id: userId,
-            orderId
-          });
-          throw new Error(rawText || `create-order failed for group ${group.event_code}_${group.bib}`);
-        }
-
-        const bubble = j && (j.response || j);
-        let amt = 0;
-        if (bubble && bubble.amount != null) {
-          amt = Number(bubble.amount);
-          if (!Number.isFinite(amt)) amt = 0;
-        }
-        totalAmount += amt;
+        throw new Error(rawText || `create-order failed`);
       }
 
-      amount = totalAmount;
+      const bubble = j && (j.response || j);
+      let amt = 0;
+      if (bubble && bubble.amount != null) {
+        amt = Number(bubble.amount);
+        if (!Number.isFinite(amt)) amt = 0;
+      }
+      if (amt > 0) {
+        amount = amt;
+      }
+
       if (typeof TossPayments !== "function") {
         alert("결제 모듈을 불러오지 못했습니다. (TossPayments)");
         return;
@@ -728,8 +726,9 @@ document.addEventListener("DOMContentLoaded", function() {
         paymentModalConfirmBtnEl.disabled = true;
         paymentModalConfirmBtnEl.textContent = "결제 요청 중...";
       }
+      
       const checkoutContext = buildCheckoutContext(items, {
-        users_id: userId,
+        user_id: userId,
         order_id: orderId,
         order_name: orderName,
         amount: amount,
@@ -738,12 +737,14 @@ document.addEventListener("DOMContentLoaded", function() {
         bib_meta: bibMeta
       });
       persistCheckoutContext(checkoutContext);
+      
       const successUrlObj = new URL(SUCCESS_URL, window.location.origin);
       successUrlObj.searchParams.set("ctx", orderId);
       successUrlObj.searchParams.set("from", "cart");
       const failUrlObj = new URL(FAIL_URL, window.location.origin);
       failUrlObj.searchParams.set("ctx", orderId);
       failUrlObj.searchParams.set("from", "cart");
+      
       await paymentWidgets.requestPayment({
         orderId: orderId,
         orderName: orderName,
