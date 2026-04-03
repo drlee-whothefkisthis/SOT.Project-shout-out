@@ -176,13 +176,13 @@ document.addEventListener("DOMContentLoaded", function() {
       packageLabelText.textContent = hasPackage ? PACKAGE_LABEL_TEXT : "";
     }
   }
-  const TOSS_CLIENT_KEY = "test_gck_Z61JOxRQVEbNXYJv1q4grW0X9bAq";
+  const TOSS_CLIENT_KEY = "live_gck_GePWvyJnrKJE7jdbB9L1VgLzN97E";
   const SUCCESS_URL = window.location.origin + "/payments-results/success";
   const FAIL_URL = window.location.origin + "/payments-results/fail";
   const CHECKOUT_PAGE_URL = window.location.origin + "/checkout";
   const MOBILE_CHECKOUT_MAX_WIDTH = 767.98;
   const THUMB_SCROLL_STEP = 280;
-  const BUBBLE_API_ORIGIN = "https://plp-62309.bubbleapps.io/version-test";
+  const BUBBLE_API_ORIGIN = "https://plp-62309.bubbleapps.io";
   const WF_CREATE_ORDER = "/api/1.1/wf/create-order";
   let container = document.getElementById("cart-list-container");
   let priceText = document.getElementById("cart-total-price");
@@ -611,63 +611,92 @@ document.addEventListener("DOMContentLoaded", function() {
       let amount = calcTotalAmountByGroups(items);
       const orderName = `사진 ${photoIds.length}장`;
       let orderId = `shout_${Date.now()}_${Math.random().toString(16).slice(2,8)}`;
-      try {
+     try {
         const url = BUBBLE_API_ORIGIN.replace(/\/$/, "") + WF_CREATE_ORDER;
-        const body = new URLSearchParams();
-        body.set("users_id", userId);
-        body.set("orderId", orderId);
-        body.set("bib", __bibToSend);
-        const bibMetaJson = JSON.stringify(bibMeta || []);
-        body.set("bib_meta", bibMetaJson);
-        body.set("bib_meta_json", bibMetaJson);
-        // paymentKey is not available yet; Bubble parameter is required, so send a placeholder.
-        body.set("paymentKey", "__PENDING__");
-        /* [CHECK 5] 기존 Bubble 파라미터(users_id, bib, photo_ids_json 등) 유지 */
-        // Bubble workflow historically used photo_ids_json (JSON string). Some versions use photo_ids.
-        // For maximum backward-compatibility, send BOTH as the same JSON array string.
-        const photoIdsJson = JSON.stringify(photoIds);
-        body.set("photo_ids", photoIdsJson);
-        body.set("photo_ids_json", photoIdsJson);
 
-const res = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
-          },
-          body: body.toString()
+        // [STEP 1] 프론트엔드 그룹핑: event_code + bib 기준
+        const groupMap = {};
+        (items || []).forEach((it) => {
+          const key = `${it.event_code}_${it.bib}`;
+          if (!groupMap[key]) {
+            groupMap[key] = {
+              event_code: it.event_code,
+              bib: it.bib,
+              photo_ids: []
+            };
+          }
+          groupMap[key].photo_ids.push(it._id);
         });
+        const groups = Object.values(groupMap);
 
-        // --- Debug visibility: Bubble often returns useful error text on 400 ---
-        let rawText = "";
-        let j = null;
-        try { rawText = await res.text(); } catch (e) { warn("silent catch: createOrder.readText", e); }
-        try { j = rawText ? JSON.parse(rawText) : null; } catch (e) { /* not JSON */ }
+        let totalAmount = 0;
 
-        if (!res.ok) {
-          // Expose the real reason when debug_cart=1, and STOP the payment flow to prevent data mismatch.
-          warn("createOrder.httpError", new Error(`HTTP ${res.status}`), {
-            url,
-            status: res.status,
-            statusText: res.statusText,
-            response: (j || rawText || "").toString().slice(0, 2000),
-            payloadKeys: Array.from(body.keys()),
-            users_id: userId,
-            orderId,
-            photo_count: photoIds.length,
-            amount
+        // [STEP 2] API 호출: 그룹별 개별 요청
+        for (const group of groups) {
+          const body = new URLSearchParams();
+
+          body.set("users_id", userId);
+          body.set("orderId", orderId);
+          body.set("event_code", group.event_code || "");
+          body.set("bib", group.bib || "");
+          
+          // (옵션) 혹시 모를 버블 서버 400 에러 방지용 호환 키
+          body.set("paymentKey", "__PENDING__"); 
+
+          // photo_ids append (기본 스펙)
+          (group.photo_ids || []).forEach((pid) => {
+            body.append("photo_ids", pid);
           });
-          alert("주문 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
-          return;
+          
+          // (옵션) 버블의 List 파싱 오류 대비용 직렬화 데이터
+          const groupPhotoIdsJson = JSON.stringify(group.photo_ids || []);
+          body.set("photo_ids_json", groupPhotoIdsJson);
+
+          const res = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+            },
+            body: body.toString()
+          });
+
+          let rawText = "";
+          let j = null;
+
+          try { rawText = await res.text(); } catch (e) { warn("createOrder.readText", e); }
+          try { j = rawText ? JSON.parse(rawText) : null; } catch (e) {}
+
+          // 개별 그룹 API 에러 발생 시 전체 플로우 중단
+          if (!res.ok) {
+            console.error("create-order 실패:", rawText);
+            warn("createOrder.httpError", new Error(`HTTP ${res.status}`), {
+              url,
+              status: res.status,
+              response: (j || rawText || "").toString().slice(0, 2000),
+              group: group
+            });
+            throw new Error(rawText || `create-order failed for group ${group.event_code}_${group.bib}`);
+          }
+
+          // [STEP 3] 금액 처리: Bubble의 응답(문자열 대비)을 안전하게 캐스팅하여 누적
+          const bubble = j && (j.response || j);
+          let amt = 0;
+          if (bubble && bubble.amount != null) {
+            amt = Number(bubble.amount);
+            if (!Number.isFinite(amt)) amt = 0;
+          }
+          
+          totalAmount += amt;
         }
 
-        const bubble = j && (j.response || j);
-        if (bubble && (bubble.order_id || bubble.orderId)) {
-          orderId = bubble.order_id || bubble.orderId;
-        }
-        if (bubble && Number.isFinite(Number(bubble.amount))) {
-          amount = Number(bubble.amount);
-        }
-      } catch (e) { warn("silent catch: createOrder.parseResponse", e); }
+        // [STEP 4] 최종 결제 금액 세팅 (서버에서 개별 계산 후 합산된 총액)
+        amount = totalAmount;
+
+      } catch (e) { 
+        warn("silent catch: createOrder.parseResponse", e); 
+        alert("주문 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        return; // 에러 시 결제 위젯 실행 방지
+      }
       if (typeof TossPayments !== "function") {
         alert("결제 모듈을 불러오지 못했습니다. (TossPayments)");
         return;
