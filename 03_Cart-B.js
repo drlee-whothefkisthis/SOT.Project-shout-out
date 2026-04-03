@@ -66,47 +66,35 @@ document.addEventListener("DOMContentLoaded", function() {
     return Number(n).toLocaleString("ko-KR") + "원";
   }
 
-  function getEventCodeValue(it) {
-    const direct = String((it && (it.event_code || it.eventCode)) || "").trim();
-    if (direct) return direct;
-
-    const fallback = String((it && (it.event_id || it.eventId)) || "").trim();
-    if (fallback) return fallback;
-
-    const fileName = String((it && (it.fileName || it.filename || it.file_name)) || "").trim();
-    if (fileName) {
-      const parts = fileName.split("/").filter(Boolean);
-      if (parts.length >= 3) return String(parts[2] || "").trim();
-    }
-
-    return "";
-  }
-
   function buildCheckoutContext(items, extra) {
     const list = Array.isArray(items) ? items : [];
-    const bibMeta = buildBibMeta(list);
-    const groups = bibMeta.map((row) => ({
-      event_code: String(row.event_code || "").trim(),
-      event_display_name: String(row.event_display_name || "").trim(),
-      bib: String(row.bib || "").trim(),
-      count: Number(row.count || 0) || 0
-    }));
-    
-    // user_id / users_id 호환성 유지하면서 user_id 중심으로 재정의
-    const userId = String((extra && (extra.user_id || extra.users_id)) || "").trim();
-    
+    const groupsMap = new Map();
+    list.forEach((it) => {
+      const eventId = String((it && (it.event_id || it.eventId || it.event_code)) || "").trim();
+      const eventDisplayName = String((it && (it.event_display_name || it.eventName || it.event_name)) || "").trim();
+      const bib = String((it && (it.bib ?? it.bib_no ?? it.bibNumber ?? it.bib_number)) || "").trim();
+      const key = `${eventId}__${bib}`;
+      if (!groupsMap.has(key)) {
+        groupsMap.set(key, {
+          event_id: eventId,
+          event_display_name: eventDisplayName,
+          bib: bib,
+          count: 0
+        });
+      }
+      groupsMap.get(key).count += 1;
+    });
     return {
       saved_at: Date.now(),
       order_id: String((extra && (extra.order_id || extra.orderId)) || "").trim(),
       order_name: String((extra && (extra.order_name || extra.orderName)) || "").trim(),
       amount: Number((extra && extra.amount) || 0) || 0,
-      user_id: userId,
-      users_id: userId,
+      users_id: String((extra && extra.users_id) || "").trim(),
       primary_bib: String((extra && extra.primary_bib) || "").trim(),
       selected_count: list.length,
       photo_ids: Array.isArray(extra && extra.photo_ids) ? extra.photo_ids : [],
-      bib_meta: Array.isArray(extra && extra.bib_meta) ? extra.bib_meta : bibMeta,
-      groups: groups
+      bib_meta: Array.isArray(extra && extra.bib_meta) ? extra.bib_meta : [],
+      groups: Array.from(groupsMap.values())
     };
   }
 
@@ -119,9 +107,9 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function getGroupKey(it) {
-    const eventCode = getEventCodeValue(it);
-    const bib = String((it && (it.bib ?? it.bib_no ?? it.bibNumber ?? it.bib_number)) || "").trim();
-    return `${eventCode}__${bib}`;
+    const eventId = String(it && (it.event_id || it.event_code || it.eventId) || "").trim();
+    const bib = String(it && it.bib || "").trim();
+    return `${eventId}__${bib}`;
   }
 
   function groupItemsByEventBib(items) {
@@ -150,24 +138,17 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function buildBibMeta(items) {
-    const map = new Map();
-    (items || []).forEach((it) => {
-      const eventCode = getEventCodeValue(it);
-      const eventDisplayName = String(it && (it.event_display_name || it.eventName || it.event_name) || "").trim();
-      const bib = String((it && (it.bib ?? it.bib_no ?? it.bibNumber ?? it.bib_number)) || "").trim();
-      if (!eventCode || !bib) return;
-      const key = eventCode + "__" + bib;
-      if (!map.has(key)) {
-        map.set(key, {
-          event_code: eventCode,
-          event_display_name: eventDisplayName,
-          bib: bib,
-          count: 0
-        });
-      }
-      map.get(key).count += 1;
-    });
-    return Array.from(map.values());
+    const groups = groupItemsByEventBib(items);
+    const out = [];
+    for (const [k, arr] of groups.entries()) {
+      const [eventId, bib] = k.split("__");
+      out.push({
+        event_id: eventId,
+        bib: bib,
+        count: arr.length
+      });
+    }
+    return out;
   }
 
   function getPrimaryBib(items) {
@@ -427,10 +408,8 @@ document.addEventListener("DOMContentLoaded", function() {
     const photoIds = list.map(getItemId).filter(Boolean);
     const bibMeta = buildBibMeta(list);
     const primaryBib = String((cartData && cartData.bib) || getPrimaryBib(list) || "").trim();
-    
-    // user_id 명시적으로 삽입
     return buildCheckoutContext(list, {
-      user_id: userId,
+      users_id: userId,
       amount: amount,
       primary_bib: primaryBib,
       photo_ids: photoIds,
@@ -586,7 +565,6 @@ document.addEventListener("DOMContentLoaded", function() {
       agreeCheckbox.classList.add("is-attn");
     } catch (e) { warn("silent catch: agreeCheckbox.attn", e); }
   }
-  
   async function startPayment() {
     try {
       if (agreeCheckbox && !agreeCheckbox.checked) {
@@ -615,14 +593,6 @@ document.addEventListener("DOMContentLoaded", function() {
         alert("장바구니가 비어있습니다.");
         return;
       }
-
-      const bib = String((cartData && cartData.bib) || getPrimaryBib(items) || "").trim();
-      const bibMeta = buildBibMeta(items);
-      if (!bib) {
-        alert("참가번호(bib)가 없어 결제를 진행할 수 없습니다. 다시 담아주세요.");
-        return;
-      }
-
       const seen = new Set();
       const photoIds = [];
       for (const it of items) {
@@ -632,84 +602,106 @@ document.addEventListener("DOMContentLoaded", function() {
         seen.add(id);
         photoIds.push(id);
       }
-
-      if (photoIds.length === 0) {
-        alert("결제 가능한 사진이 없습니다.");
+      const bibMeta = buildBibMeta(items);
+      const __bibToSend = String((cartData && cartData.bib) || getPrimaryBib(items) || "").trim();
+      if (!__bibToSend) {
+        alert("참가번호(bib)가 없어 결제를 진행할 수 없습니다. 다시 담아주세요.");
         return;
       }
-
       let amount = calcTotalAmountByGroups(items);
       const orderName = `사진 ${photoIds.length}장`;
       let orderId = `shout_${Date.now()}_${Math.random().toString(16).slice(2,8)}`;
+     try {
+        const url = BUBBLE_API_ORIGIN.replace(/\/$/, "") + WF_CREATE_ORDER;
 
-      const url = BUBBLE_API_ORIGIN.replace(/\/$/, "") + WF_CREATE_ORDER;
-
-      const groupMap = {};
-      (items || []).forEach((it) => {
-        const eventCode = getEventCodeValue(it);
-        const bibValue = String((it && (it.bib ?? it.bib_no ?? it.bibNumber ?? it.bib_number)) || "").trim();
-        const photoId = String((it && (it._id || it.photo_id || it.photoId || it.id)) || "").trim();
-        if (!eventCode || !bibValue || !photoId) return;
-
-        const key = `${eventCode}_${bibValue}`;
-        if (!groupMap[key]) {
-          groupMap[key] = {
-            event_code: eventCode,
-            bib: bibValue,
-            photo_ids: []
-          };
-        }
-        groupMap[key].photo_ids.push(photoId);
-      });
-      
-      const groups = Object.values(groupMap);
-      const orderListJson = JSON.stringify(groups);
-
-      const body = new URLSearchParams();
-      body.set("user_id", String(userId || "").trim());
-      body.set("order_id", String(orderId || "").trim());
-      body.set("order_list_json", orderListJson);
-
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
-        },
-        body: body.toString()
-      });
-
-      let rawText = "";
-      let j = null;
-      try { rawText = await res.text(); } catch (e) { warn("createOrder.readText", e); }
-      try { j = rawText ? JSON.parse(rawText) : null; } catch (e) {}
-
-      if (!res.ok) {
-        warn("createOrder.httpError", new Error(`HTTP ${res.status}`), {
-          url,
-          status: res.status,
-          statusText: res.statusText,
-          response: (j || rawText || "").toString().slice(0, 2000),
-          order_list_json: orderListJson,
-          user_id: userId,
-          order_id: orderId
+        // [STEP 1] 프론트엔드 그룹핑: event_code + bib 기준
+        const groupMap = {};
+        (items || []).forEach((it) => {
+          const key = `${it.event_code}_${it.bib}`;
+          if (!groupMap[key]) {
+            groupMap[key] = {
+              event_code: it.event_code,
+              bib: it.bib,
+              photo_ids: []
+            };
+          }
+          groupMap[key].photo_ids.push(it._id);
         });
-        throw new Error(rawText || `create-order failed`);
-      }
+        const groups = Object.values(groupMap);
 
-      const bubble = j && (j.response || j);
-      let amt = 0;
-      if (bubble && bubble.amount != null) {
-        amt = Number(bubble.amount);
-        if (!Number.isFinite(amt)) amt = 0;
-      }
-      if (amt > 0) {
-        amount = amt;
-      }
+        let totalAmount = 0;
 
+        // [STEP 2] API 호출: 그룹별 개별 요청
+        for (const group of groups) {
+          const body = new URLSearchParams();
+
+          body.set("users_id", userId);
+          body.set("orderId", orderId);
+          body.set("event_code", group.event_code || "");
+          body.set("bib", group.bib || "");
+          
+          // (옵션) 혹시 모를 버블 서버 400 에러 방지용 호환 키
+          body.set("paymentKey", "__PENDING__"); 
+
+          // photo_ids append (기본 스펙)
+          (group.photo_ids || []).forEach((pid) => {
+            body.append("photo_ids", pid);
+          });
+          
+          // (옵션) 버블의 List 파싱 오류 대비용 직렬화 데이터
+          const groupPhotoIdsJson = JSON.stringify(group.photo_ids || []);
+          body.set("photo_ids_json", groupPhotoIdsJson);
+
+          const res = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+            },
+            body: body.toString()
+          });
+
+          let rawText = "";
+          let j = null;
+
+          try { rawText = await res.text(); } catch (e) { warn("createOrder.readText", e); }
+          try { j = rawText ? JSON.parse(rawText) : null; } catch (e) {}
+
+          // 개별 그룹 API 에러 발생 시 전체 플로우 중단
+          if (!res.ok) {
+            console.error("create-order 실패:", rawText);
+            warn("createOrder.httpError", new Error(`HTTP ${res.status}`), {
+              url,
+              status: res.status,
+              response: (j || rawText || "").toString().slice(0, 2000),
+              group: group
+            });
+            throw new Error(rawText || `create-order failed for group ${group.event_code}_${group.bib}`);
+          }
+
+          // [STEP 3] 금액 처리: Bubble의 응답(문자열 대비)을 안전하게 캐스팅하여 누적
+          const bubble = j && (j.response || j);
+          let amt = 0;
+          if (bubble && bubble.amount != null) {
+            amt = Number(bubble.amount);
+            if (!Number.isFinite(amt)) amt = 0;
+          }
+          
+          totalAmount += amt;
+        }
+
+        // [STEP 4] 최종 결제 금액 세팅 (서버에서 개별 계산 후 합산된 총액)
+        amount = totalAmount;
+
+      } catch (e) { 
+        warn("silent catch: createOrder.parseResponse", e); 
+        alert("주문 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        return; // 에러 시 결제 위젯 실행 방지
+      }
       if (typeof TossPayments !== "function") {
         alert("결제 모듈을 불러오지 못했습니다. (TossPayments)");
         return;
       }
+      /* [CHECK 3] 장바구니 버튼은 모달 오픈, 모달 내부 버튼만 실제 결제 실행 */
       await initPaymentWidget(false);
       if (!paymentWidgets || !paymentWidgetReady) {
         alert("결제 위젯을 준비하지 못했습니다. 새로고침 후 다시 시도해주세요.");
@@ -722,29 +714,27 @@ document.addEventListener("DOMContentLoaded", function() {
         });
         paymentWidgetLastAmount = amount;
       }
+      /* [CHECK 4] create-order 응답 amount/orderId를 최종 결제 기준값으로 사용 */
       if (paymentModalConfirmBtnEl) {
         paymentModalConfirmBtnEl.disabled = true;
         paymentModalConfirmBtnEl.textContent = "결제 요청 중...";
       }
-      
       const checkoutContext = buildCheckoutContext(items, {
-        user_id: userId,
+        users_id: userId,
         order_id: orderId,
         order_name: orderName,
         amount: amount,
-        primary_bib: bib,
+        primary_bib: __bibToSend,
         photo_ids: photoIds,
         bib_meta: bibMeta
       });
       persistCheckoutContext(checkoutContext);
-      
       const successUrlObj = new URL(SUCCESS_URL, window.location.origin);
       successUrlObj.searchParams.set("ctx", orderId);
       successUrlObj.searchParams.set("from", "cart");
       const failUrlObj = new URL(FAIL_URL, window.location.origin);
       failUrlObj.searchParams.set("ctx", orderId);
       failUrlObj.searchParams.set("from", "cart");
-      
       await paymentWidgets.requestPayment({
         orderId: orderId,
         orderName: orderName,
@@ -1086,7 +1076,11 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function getEventCodeFromItem(item) {
-    return getEventCodeValue(item) || "UNKNOWN";
+    if (item && item.event_code) return String(item.event_code);
+    const fn = item && item.fileName ? String(item.fileName) : "";
+    const parts = fn.split("/").filter(Boolean);
+    if (parts.length >= 3) return parts[2];
+    return "UNKNOWN";
   }
 
   function getBibFromItem(item) {
