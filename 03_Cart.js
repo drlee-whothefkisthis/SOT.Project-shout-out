@@ -718,6 +718,7 @@ document.addEventListener("DOMContentLoaded", function() {
       const successUrlObj = new URL(SUCCESS_URL, window.location.origin);
       successUrlObj.searchParams.set("ctx", orderId);
       successUrlObj.searchParams.set("from", "cart");
+      successUrlObj.searchParams.set("session_id", sessionStorage.getItem("sot_session_id") || "");
       const failUrlObj = new URL(FAIL_URL, window.location.origin);
       failUrlObj.searchParams.set("ctx", orderId);
       failUrlObj.searchParams.set("from", "cart");
