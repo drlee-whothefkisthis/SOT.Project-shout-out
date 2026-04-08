@@ -7,7 +7,6 @@ document.addEventListener("DOMContentLoaded", function() {
   const PACKAGE_PRICE = 24900;
   const PACKAGE_LABEL_TEXT = "무제한 패키지";
 
-  // Debug toggles: add ?debug_cart=1 to enable verbose warnings
   const DEBUG_CART = (new URLSearchParams(location.search).get("debug_cart") === "1");
   function warn(tag, err, extra) {
     if (!DEBUG_CART) return;
@@ -18,7 +17,6 @@ document.addEventListener("DOMContentLoaded", function() {
     try { console.log(`[Cart Debug] ${tag}`, extra || ""); } catch (_) {}
   }
 
-  // Prevent double init (multiple DOMContentLoaded listeners / script duplicates)
   if (window.__SHOUT_CART_INIT_DONE__) return;
   window.__SHOUT_CART_INIT_DONE__ = true;
 
@@ -86,6 +84,7 @@ document.addEventListener("DOMContentLoaded", function() {
     });
     return {
       saved_at: Date.now(),
+      session_id: String((extra && extra.session_id) || sessionStorage.getItem("sot_session_id") || "").trim(),
       order_id: String((extra && (extra.order_id || extra.orderId)) || "").trim(),
       order_name: String((extra && (extra.order_name || extra.orderName)) || "").trim(),
       amount: Number((extra && extra.amount) || 0) || 0,
@@ -190,7 +189,6 @@ document.addEventListener("DOMContentLoaded", function() {
   let checkoutLocked = true;
   let agreeCheckbox = document.getElementById("checkout-agree");
 
-  /* [CHECK 1] 결제위젯 상태 전역 관리 + mount point는 모달 내부에서만 사용 */
   let paymentMethodEl = document.getElementById("payment-method");
   let agreementEl = document.getElementById("agreement");
   let widgetSectionEl = document.getElementById("sh-payment-widget-section");
@@ -357,7 +355,6 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function canOpenPaymentModalWithPrecheck() {
-    /* [CHECK 2] 장바구니 약관 체크는 모달 오픈 전에 선검사한다. */
     if (agreeCheckbox && !agreeCheckbox.checked) {
       nudgeAgreeCheckbox();
       return false;
@@ -410,6 +407,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const primaryBib = String((cartData && cartData.bib) || getPrimaryBib(list) || "").trim();
     return buildCheckoutContext(list, {
       users_id: userId,
+      session_id: sessionStorage.getItem("sot_session_id") || "",
       amount: amount,
       primary_bib: primaryBib,
       photo_ids: photoIds,
@@ -440,7 +438,6 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function openPaymentModal() {
-    /* [CHECK 2] 결제위젯은 장바구니 안 고정배치가 아니라 모달 내부에 선렌더 */
     const amountValue = getSelectedCheckoutAmount();
     if (amountValue <= 0) {
       alert("장바구니가 비어있습니다.");
@@ -484,7 +481,6 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   async function initPaymentWidget(forceRerender) {
-    /* [CHECK 2] 장바구니 UI 렌더 완료 후 결제위젯을 1회만 렌더 */
     if (paymentWidgetRenderPending) return;
     const amountValue = getSelectedCheckoutAmount();
     const hasItems = amountValue > 0;
@@ -614,7 +610,6 @@ document.addEventListener("DOMContentLoaded", function() {
      try {
         const url = BUBBLE_API_ORIGIN.replace(/\/$/, "") + WF_CREATE_ORDER;
 
-        // [STEP 1] 프론트엔드 그룹핑: event_code + bib 기준
         const groupMap = {};
         (items || []).forEach((it) => {
           const key = `${it.event_code}_${it.bib}`;
@@ -631,7 +626,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
         let totalAmount = 0;
 
-        // [STEP 2] API 호출: 그룹별 개별 요청
         for (const group of groups) {
           const body = new URLSearchParams();
 
@@ -639,16 +633,12 @@ document.addEventListener("DOMContentLoaded", function() {
           body.set("orderId", orderId);
           body.set("event_code", group.event_code || "");
           body.set("bib", group.bib || "");
-          
-          // (옵션) 혹시 모를 버블 서버 400 에러 방지용 호환 키
           body.set("paymentKey", "__PENDING__"); 
 
-          // photo_ids append (기본 스펙)
           (group.photo_ids || []).forEach((pid) => {
             body.append("photo_ids", pid);
           });
           
-          // (옵션) 버블의 List 파싱 오류 대비용 직렬화 데이터
           const groupPhotoIdsJson = JSON.stringify(group.photo_ids || []);
           body.set("photo_ids_json", groupPhotoIdsJson);
 
@@ -666,7 +656,6 @@ document.addEventListener("DOMContentLoaded", function() {
           try { rawText = await res.text(); } catch (e) { warn("createOrder.readText", e); }
           try { j = rawText ? JSON.parse(rawText) : null; } catch (e) {}
 
-          // 개별 그룹 API 에러 발생 시 전체 플로우 중단
           if (!res.ok) {
             console.error("create-order 실패:", rawText);
             warn("createOrder.httpError", new Error(`HTTP ${res.status}`), {
@@ -678,7 +667,6 @@ document.addEventListener("DOMContentLoaded", function() {
             throw new Error(rawText || `create-order failed for group ${group.event_code}_${group.bib}`);
           }
 
-          // [STEP 3] 금액 처리: Bubble의 응답(문자열 대비)을 안전하게 캐스팅하여 누적
           const bubble = j && (j.response || j);
           let amt = 0;
           if (bubble && bubble.amount != null) {
@@ -689,19 +677,17 @@ document.addEventListener("DOMContentLoaded", function() {
           totalAmount += amt;
         }
 
-        // [STEP 4] 최종 결제 금액 세팅 (서버에서 개별 계산 후 합산된 총액)
         amount = totalAmount;
 
       } catch (e) { 
         warn("silent catch: createOrder.parseResponse", e); 
         alert("주문 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
-        return; // 에러 시 결제 위젯 실행 방지
+        return; 
       }
       if (typeof TossPayments !== "function") {
         alert("결제 모듈을 불러오지 못했습니다. (TossPayments)");
         return;
       }
-      /* [CHECK 3] 장바구니 버튼은 모달 오픈, 모달 내부 버튼만 실제 결제 실행 */
       await initPaymentWidget(false);
       if (!paymentWidgets || !paymentWidgetReady) {
         alert("결제 위젯을 준비하지 못했습니다. 새로고침 후 다시 시도해주세요.");
@@ -714,13 +700,13 @@ document.addEventListener("DOMContentLoaded", function() {
         });
         paymentWidgetLastAmount = amount;
       }
-      /* [CHECK 4] create-order 응답 amount/orderId를 최종 결제 기준값으로 사용 */
       if (paymentModalConfirmBtnEl) {
         paymentModalConfirmBtnEl.disabled = true;
         paymentModalConfirmBtnEl.textContent = "결제 요청 중...";
       }
       const checkoutContext = buildCheckoutContext(items, {
         users_id: userId,
+        session_id: sessionStorage.getItem("sot_session_id") || "",
         order_id: orderId,
         order_name: orderName,
         amount: amount,
@@ -782,11 +768,7 @@ document.addEventListener("DOMContentLoaded", function() {
   let thumbLeftBtn = null;
   let thumbRightBtn = null;
 
-  // ------------------------------------------
-  // CartData normalization (root bib sync)
-  // - legacy cart stored bib on each item: item.bib
-  // - Bubble create-order currently requires root-level "bib"
-  // ------------------------------------------
+  
   function __shout_getUniqueBib(items) {
     const set = new Set();
     (items || []).forEach((it) => {
@@ -1019,9 +1001,6 @@ document.addEventListener("DOMContentLoaded", function() {
       agreeText.className = "sh-cart-agree-text";
       agreeWrap.appendChild(agreeCheckbox);
       agreeWrap.appendChild(agreeText);
-      /* [CHECK 1-1] 결제위젯 mount point는 모달 내부에서만 생성한다.
-         - 장바구니 푸터에는 #payment-method / #agreement 를 만들지 않는다.
-         - 중복 DOM ID 방지 목적 */
       widgetSectionEl = null;
       checkoutBtn = document.createElement("button");
       checkoutBtn.id = "btn-checkout";
@@ -1834,7 +1813,6 @@ function renderThumbs() {
         }, true);
 
         thumbRowEl.addEventListener("click", (e) => {
-          // If grab-scroll marked this interaction as a drag, ignore
           if (thumbRowEl.dataset.grabDragged === "1") return;
 
           let ni = -1;
@@ -2156,7 +2134,6 @@ rerenderCartUI();
       if (!isMobileCheckoutMode()) ensurePaymentWidgetDom();
       if (checkoutBtn) checkoutBtn.onclick = function(e) {
         if (e && typeof e.preventDefault === "function") e.preventDefault();
-        /* [CHECK 3] 결제 버튼은 공통으로 약관 선검사 후 진행한다. 모바일은 체크아웃 페이지로 이동, 데스크톱은 모달을 연다. */
         if (!canOpenPaymentModalWithPrecheck()) return;
         if (isMobileCheckoutMode()) {
           goToCheckoutPage();
@@ -2173,7 +2150,6 @@ rerenderCartUI();
             "shout_users_id")) {
             sessionStorage.removeItem(AUTH_INTENT_KEY);
             setTimeout(function() {
-              /* [CHECK 4] 로그인 복귀 후에도 동일하게 약관 선검사 후 진행한다. 모바일은 체크아웃 페이지로 이동, 데스크톱은 모달을 연다. */
               if (!canOpenPaymentModalWithPrecheck()) return;
               if (isMobileCheckoutMode()) {
                 goToCheckoutPage();
