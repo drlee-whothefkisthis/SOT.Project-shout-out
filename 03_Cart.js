@@ -2036,8 +2036,7 @@ function renderThumbs() {
     cartItems.forEach((item, index) => {
       const itemDiv = document.createElement("div");
       itemDiv.className = "sh-cart-event-row";
-      const safeSrc = item.preview_url.startsWith("http") ? item.preview_url : "https:" +
-        item.preview_url;
+      const safeSrc = normalizeUrl(item && item.preview_url) || "https://via.placeholder.com/80?text=No+Image";
       itemDiv.innerHTML =
         `<div style="display:flex; alignItems:center; gap:15px;"><img src="${safeSrc}" style="width:80px; height:80px; object-fit:cover; border-radius:4px; background:#f0f0f0;"><div><div style="font-weight:bold; font-size:14px;">${item.fileName || "사진"}</div><div style="font-size:12px; color:#666;">5,000원</div></div></div><button class="remove-btn" data-index="${index}" style="background:none; border:1px solid #ddd; padding:5px 10px; border-radius:4px; font-size:12px; cursor:pointer; color:#555;">삭제</button>`;
       container.appendChild(itemDiv);
