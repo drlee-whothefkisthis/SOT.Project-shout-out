@@ -607,7 +607,7 @@ document.addEventListener("DOMContentLoaded", function() {
       let amount = calcTotalAmountByGroups(items);
       const orderName = `사진 ${photoIds.length}장`;
       let orderId = `shout_${Date.now()}_${Math.random().toString(16).slice(2,8)}`;
-     try {
+      try {
         const url = BUBBLE_API_ORIGIN.replace(/\/$/, "") + WF_CREATE_ORDER;
 
         const groupMap = {};
@@ -631,9 +631,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
           body.set("users_id", userId);
           body.set("orderId", orderId);
+          body.set("session_id", sessionStorage.getItem("sot_session_id") || "");
           body.set("event_code", group.event_code || "");
           body.set("bib", group.bib || "");
-          body.set("paymentKey", "__PENDING__"); 
 
           (group.photo_ids || []).forEach((pid) => {
             body.append("photo_ids", pid);
