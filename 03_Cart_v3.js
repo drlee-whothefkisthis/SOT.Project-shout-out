@@ -1414,7 +1414,11 @@ document.addEventListener("DOMContentLoaded", function() {
         setDragging(false);
         try { scroller.releasePointerCapture(activePointerId); } catch (_) {}
         activePointerId = null;
-        setTimeout(() => { dragged = false; }, 0);
+
+        setTimeout(() => {
+          dragged = false;
+          try { scroller.dataset.grabDragged = "0"; } catch (_) {}
+        }, 0);
       }
 
       scroller.addEventListener("pointerdown", onPointerDown, { passive: true });
