@@ -2052,7 +2052,7 @@ function renderThumbs() {
       const idxEl = section.querySelector(".cart-event-index");
       const titleEl = section.querySelector(".cart-event-title");
       const bibEl = section.querySelector(".cart-list-bib");
-      const bibSuffixEl = section.querySelector(".div-block-99");
+      const bibSuffixEl = section.querySelector(".cart-list-bib-suffix");
       const subtotalEl = section.querySelector(".cart-event-subtotal");
       if (idxEl) {
         idxEl.id = `cart-event-index-${idx2}`;
