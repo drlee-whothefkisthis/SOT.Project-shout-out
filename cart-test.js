@@ -2052,6 +2052,7 @@ function renderThumbs() {
       const idxEl = section.querySelector(".cart-event-index");
       const titleEl = section.querySelector(".cart-event-title");
       const bibEl = section.querySelector(".cart-list-bib");
+      const bibSuffixEl = section.querySelector(".div-block-99");
       const subtotalEl = section.querySelector(".cart-event-subtotal");
       if (idxEl) {
         idxEl.id = `cart-event-index-${idx2}`;
@@ -2064,6 +2065,9 @@ function renderThumbs() {
       if (bibEl) {
         bibEl.id = `cart-list-bib-${idx2}`;
         bibEl.textContent = `${g.bib || "-"}`;
+      }
+      if (bibSuffixEl) {
+        bibSuffixEl.style.display = (g.identifier_type === "name") ? "none" : "";
       }
       const __allItems = Array.isArray(g.items) ? g.items : [];
       const count = __allItems.reduce((n, it) => n + (__selectedSet.has(getItemId(it)) ?
