@@ -20,6 +20,56 @@ document.addEventListener("DOMContentLoaded", function() {
   if (window.__SHOUT_CART_INIT_DONE__) return;
   window.__SHOUT_CART_INIT_DONE__ = true;
 
+  function getShoutTrackingContext() {
+    if (!window.ShoutTracking || typeof window.ShoutTracking.getTrackingContext !== "function") return null;
+    try {
+      return window.ShoutTracking.getTrackingContext();
+    } catch (e) {
+      warn("tracking.context", e);
+      return null;
+    }
+  }
+
+  async function callShoutTrackingInitOnce() {
+    const tracking = getShoutTrackingContext();
+    if (!tracking || !window.ShoutTracking || typeof window.ShoutTracking.callSotInitOnce !== "function") {
+      return tracking;
+    }
+
+    try {
+      return await window.ShoutTracking.callSotInitOnce(tracking);
+    } catch (e) {
+      warn("tracking.init", e);
+      return tracking;
+    }
+  }
+
+  function getTrackingSessionId(tracking) {
+    return String((tracking && tracking.session_id) || sessionStorage.getItem("sot_session_id") || "").trim();
+  }
+
+  function appendShoutTrackingToUrl(url) {
+    if (!window.ShoutTracking || typeof window.ShoutTracking.appendTrackingParamsToUrl !== "function") return url;
+
+    try {
+      return window.ShoutTracking.appendTrackingParamsToUrl(url, getShoutTrackingContext());
+    } catch (e) {
+      warn("tracking.url", e);
+      return url;
+    }
+  }
+
+  function addShoutTrackingParamsToUrlObj(urlObj, tracking) {
+    const ctx = tracking || getShoutTrackingContext();
+    if (!urlObj || !ctx) return;
+
+    if (ctx.local_user) urlObj.searchParams.set("lid", ctx.local_user);
+    if (ctx.session_id) urlObj.searchParams.set("sid", ctx.session_id);
+    if (ctx.ses_k) urlObj.searchParams.set("sk", ctx.ses_k);
+    if (ctx.utm_s) urlObj.searchParams.set("utm_s", ctx.utm_s);
+    if (ctx.utm_c) urlObj.searchParams.set("utm_c", ctx.utm_c);
+  }
+
   let cartLoadingMaskEl = null;
 
   function ensureCartLoadingMask() {
@@ -130,6 +180,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
   function buildCheckoutContext(items, extra) {
     const list = Array.isArray(items) ? items : [];
+    const tracking = (extra && extra.tracking) || getShoutTrackingContext();
     const groupsMap = new Map();
     list.forEach((it) => {
       const eventId = String((it && (it.event_id || it.eventId || it.event_code)) || "").trim();
@@ -151,7 +202,12 @@ document.addEventListener("DOMContentLoaded", function() {
     });
     return {
       saved_at: Date.now(),
-      session_id: String((extra && extra.session_id) || sessionStorage.getItem("sot_session_id") || "").trim(),
+      session_id: String((extra && extra.session_id) || (tracking && tracking.session_id) || sessionStorage.getItem("sot_session_id") || "").trim(),
+      local_user: String((extra && extra.local_user) || (tracking && tracking.local_user) || "").trim(),
+      ses_k: String((extra && extra.ses_k) || (tracking && tracking.ses_k) || "").trim(),
+      utm_s: String((extra && extra.utm_s) || (tracking && tracking.utm_s) || "").trim(),
+      utm_c: String((extra && extra.utm_c) || (extra && extra.utm_campaign) || (tracking && tracking.utm_c) || "").trim(),
+      utm_campaign: String((extra && extra.utm_campaign) || (extra && extra.utm_c) || (tracking && tracking.utm_campaign) || "").trim(),
       order_id: String((extra && (extra.order_id || extra.orderId)) || "").trim(),
       order_name: String((extra && (extra.order_name || extra.orderName)) || "").trim(),
       amount: Number((extra && extra.amount) || 0) || 0,
@@ -510,7 +566,7 @@ document.addEventListener("DOMContentLoaded", function() {
       }));
     } catch (e) { warn("silent catch: mobile.checkout.entry", e); }
     
-    window.location.href = CHECKOUT_PAGE_URL + "?from=cart&mobile=1";
+    window.location.href = appendShoutTrackingToUrl(CHECKOUT_PAGE_URL + "?from=cart&mobile=1");
   }
 
   function openPaymentModal() {
@@ -639,6 +695,8 @@ document.addEventListener("DOMContentLoaded", function() {
   }
   async function startPayment() {
     try {
+      const tracking = await callShoutTrackingInitOnce();
+
       if (agreeCheckbox && !agreeCheckbox.checked) {
         alert("약관에 동의해 주세요.");
         return;
@@ -716,7 +774,11 @@ document.addEventListener("DOMContentLoaded", function() {
 
           body.set("users_id", userId);
           body.set("orderId", orderId);
-          body.set("session_id", sessionStorage.getItem("sot_session_id") || "");
+          body.set("session_id", getTrackingSessionId(tracking));
+          body.set("local_user", (tracking && tracking.local_user) || "");
+          body.set("session_key", (tracking && tracking.ses_k) || "");
+          body.set("utm_source", (tracking && tracking.utm_s) || "");
+          body.set("utm_campaign", (tracking && tracking.utm_campaign) || "");
           body.set("event_code", group.event_code || "");
           body.set("searched_query", group.searched_query || group.identifier_value || group.bib || "");
           body.set("bib", group.bib || "");
@@ -792,7 +854,8 @@ document.addEventListener("DOMContentLoaded", function() {
       }
       const checkoutContext = buildCheckoutContext(items, {
         users_id: userId,
-        session_id: sessionStorage.getItem("sot_session_id") || "",
+        session_id: getTrackingSessionId(tracking),
+        tracking: tracking,
         order_id: orderId,
         order_name: orderName,
         amount: amount,
@@ -806,10 +869,13 @@ document.addEventListener("DOMContentLoaded", function() {
       const successUrlObj = new URL(SUCCESS_URL, window.location.origin);
       successUrlObj.searchParams.set("ctx", orderId);
       successUrlObj.searchParams.set("from", "cart");
-      successUrlObj.searchParams.set("session_id", sessionStorage.getItem("sot_session_id") || "");
+      successUrlObj.searchParams.set("session_id", getTrackingSessionId(tracking));
+      addShoutTrackingParamsToUrlObj(successUrlObj, tracking);
       const failUrlObj = new URL(FAIL_URL, window.location.origin);
       failUrlObj.searchParams.set("ctx", orderId);
       failUrlObj.searchParams.set("from", "cart");
+      failUrlObj.searchParams.set("session_id", getTrackingSessionId(tracking));
+      addShoutTrackingParamsToUrlObj(failUrlObj, tracking);
       await paymentWidgets.requestPayment({
         orderId: orderId,
         orderName: orderName,
