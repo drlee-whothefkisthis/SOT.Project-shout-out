@@ -183,23 +183,29 @@ document.addEventListener("DOMContentLoaded", function() {
     const tracking = (extra && extra.tracking) || getShoutTrackingContext();
     const groupsMap = new Map();
     list.forEach((it) => {
-      const eventId = String((it && (it.event_id || it.eventId || it.event_code)) || "").trim();
+      const eventCode = String((it && it.event_code) || "").trim();
       const eventDisplayName = String((it && (it.event_display_name || it.eventName || it.event_name)) || "").trim();
       const identifier = getCheckoutIdentifier(it);
-      const key = `${eventId}__${identifier.type}__${identifier.value}`;
+      const searchedQuery = identifier.value || identifier.bib || "";
+      const ocrBib = identifier.type === "bib" ? (identifier.bib || identifier.value) : "";
+      const key = `${eventCode}__${identifier.type}__${identifier.value}`;
       if (!groupsMap.has(key)) {
         groupsMap.set(key, {
-          event_id: eventId,
+          event_code: eventCode,
           event_display_name: eventDisplayName,
           identifier_type: identifier.type,
           identifier_value: identifier.value,
           bib: identifier.bib,
+          ocr_bib: ocrBib,
           ocr_name: identifier.ocr_name,
+          searched_query: searchedQuery,
           count: 0
         });
       }
       groupsMap.get(key).count += 1;
     });
+    const groups = Array.from(groupsMap.values());
+    const primaryGroup = groups[0] || {};
     return {
       saved_at: Date.now(),
       session_id: String((extra && extra.session_id) || (tracking && tracking.session_id) || sessionStorage.getItem("sot_session_id") || "").trim(),
@@ -212,13 +218,19 @@ document.addEventListener("DOMContentLoaded", function() {
       order_name: String((extra && (extra.order_name || extra.orderName)) || "").trim(),
       amount: Number((extra && extra.amount) || 0) || 0,
       users_id: String((extra && extra.users_id) || "").trim(),
+      event_code: String(primaryGroup.event_code || "").trim(),
+      identifier_type: String(primaryGroup.identifier_type || "").trim(),
+      identifier_value: String(primaryGroup.identifier_value || "").trim(),
+      ocr_bib: String(primaryGroup.ocr_bib || "").trim(),
+      ocr_name: String(primaryGroup.ocr_name || "").trim(),
+      searched_query: String(primaryGroup.searched_query || "").trim(),
       primary_bib: String((extra && extra.primary_bib) || "").trim(),
       primary_identifier_type: String((extra && extra.primary_identifier_type) || "").trim(),
       primary_identifier_value: String((extra && extra.primary_identifier_value) || "").trim(),
       selected_count: list.length,
       photo_ids: Array.isArray(extra && extra.photo_ids) ? extra.photo_ids : [],
       bib_meta: Array.isArray(extra && extra.bib_meta) ? extra.bib_meta : [],
-      groups: Array.from(groupsMap.values())
+      groups: groups
     };
   }
 
@@ -231,9 +243,9 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function getGroupKey(it) {
-    const eventId = String(it && (it.event_id || it.event_code || it.eventId) || "").trim();
+    const eventCode = String(it && it.event_code || "").trim();
     const identifier = getCheckoutIdentifier(it);
-    return `${eventId}__${identifier.type}__${identifier.value}`;
+    return `${eventCode}__${identifier.type}__${identifier.value}`;
   }
 
   function groupItemsByEventBib(items) {
@@ -265,13 +277,15 @@ document.addEventListener("DOMContentLoaded", function() {
     const groups = groupItemsByEventBib(items);
     const out = [];
     for (const [k, arr] of groups.entries()) {
-      const [eventId, identifierType, identifierValue] = k.split("__");
+      const [eventCode, identifierType, identifierValue] = k.split("__");
       const identifier = getCheckoutIdentifier(arr && arr[0]);
+      const ocrBib = identifier.type === "bib" ? (identifier.bib || identifier.value) : "";
       out.push({
-        event_id: eventId,
+        event_code: eventCode,
         identifier_type: identifierType || identifier.type,
         identifier_value: identifierValue || identifier.value,
         bib: identifier.bib,
+        ocr_bib: ocrBib,
         ocr_name: identifier.ocr_name,
         count: arr.length
       });
@@ -746,10 +760,12 @@ document.addEventListener("DOMContentLoaded", function() {
 
         const groupMap = {};
         (items || []).forEach((it) => {
-          const eventCode = String((it && (it.event_code || it.event_id || it.eventId)) || "").trim();
+          const eventCode = String((it && it.event_code) || "").trim();
           const identifier = getCheckoutIdentifier(it);
           const photoId = getItemId(it);
           if (!eventCode || !identifier.value || !photoId) return;
+          const ocrBib = identifier.type === "bib" ? (identifier.bib || identifier.value) : "";
+          const ocrName = identifier.type === "name" ? (identifier.ocr_name || identifier.value) : "";
 
           const key = `${eventCode}__${identifier.type}__${identifier.value}`;
           if (!groupMap[key]) {
@@ -759,7 +775,8 @@ document.addEventListener("DOMContentLoaded", function() {
               identifier_value: identifier.value,
               searched_query: identifier.value || identifier.bib || "",
               bib: identifier.bib,
-              ocr_name: identifier.ocr_name,
+              ocr_bib: ocrBib,
+              ocr_name: ocrName,
               photo_ids: []
             };
           }
@@ -780,6 +797,10 @@ document.addEventListener("DOMContentLoaded", function() {
           body.set("utm_source", (tracking && tracking.utm_s) || "");
           body.set("utm_campaign", (tracking && tracking.utm_campaign) || "");
           body.set("event_code", group.event_code || "");
+          body.set("identifier_type", group.identifier_type || "");
+          body.set("identifier_value", group.identifier_value || "");
+          body.set("ocr_bib", group.ocr_bib || "");
+          body.set("ocr_name", group.ocr_name || "");
           body.set("searched_query", group.searched_query || group.identifier_value || group.bib || "");
           body.set("bib", group.bib || "");
 
@@ -1239,20 +1260,21 @@ document.addEventListener("DOMContentLoaded", function() {
     const map = new Map();
     (items || []).forEach((it) => {
       const eventCode = getEventCodeFromItem(it);
-      const eventId = String((it && (it.event_id || it.eventId || it.event_code)) ||
-        eventCode || "UNKNOWN");
       const identifier = getCheckoutIdentifier(it);
       const bib = String(identifier.type === "name" ? identifier.value : (identifier.bib || getBibFromItem(it) || "UNKNOWN"));
       const name = getEventDisplayNameFromItem(it, eventCode);
-      const key = `${eventId}__${identifier.type || "unknown"}__${identifier.value || bib}`;
+      const ocrBib = identifier.type === "bib" ? (identifier.bib || identifier.value) : "";
+      const ocrName = identifier.type === "name" ? (identifier.ocr_name || identifier.value) : "";
+      const key = `${eventCode}__${identifier.type || "unknown"}__${identifier.value || bib}`;
       if (!map.has(key)) map.set(key, {
         key,
         event_code: eventCode,
-        event_id: eventId,
         identifier_type: identifier.type,
         identifier_value: identifier.value,
         bib,
-        ocr_name: identifier.ocr_name,
+        ocr_bib: ocrBib,
+        ocr_name: ocrName,
+        searched_query: identifier.value || bib || "",
         event_display_name: name,
         items: []
       });
@@ -1269,7 +1291,7 @@ document.addEventListener("DOMContentLoaded", function() {
     groups.forEach((g) => {
       const missing = !g.event_display_name || String(g.event_display_name).trim() ===
         "" || g.event_display_name === "UNKNOWN";
-      const eventId = g.event_id || g.event_code;
+      const eventId = g.event_code;
       if (!missing) return;
       if (!eventId) return;
       if (seen.has(eventId)) return;
@@ -1310,7 +1332,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const parsed = raw ? JSON.parse(raw) : null;
         if (parsed && Array.isArray(parsed.items)) {
           parsed.items.forEach((it) => {
-            const itEventId = it.event_id || it.eventId || it.event_code;
+            const itEventId = it.event_code;
             if (String(itEventId || "") === String(need[idx].eventId)) it
               .event_display_name = String(name);
           });
