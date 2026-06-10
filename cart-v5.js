@@ -1,5 +1,6 @@
 document.addEventListener("DOMContentLoaded", function() {
   const AUTH_INTENT_KEY = "shout_auth_intent";
+  const AUTH_INTENT_TTL_MS = 60 * 60 * 1000;
   const CHECKOUT_CONTEXT_KEY = "shout_checkout_context";
   const AUTH_LOGIN_URL = "/login";
   const UNIT_PRICE = 6000;
@@ -30,20 +31,6 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  async function callShoutTrackingInitOnce() {
-    const tracking = getShoutTrackingContext();
-    if (!tracking || !window.ShoutTracking || typeof window.ShoutTracking.callSotInitOnce !== "function") {
-      return tracking;
-    }
-
-    try {
-      return await window.ShoutTracking.callSotInitOnce(tracking);
-    } catch (e) {
-      warn("tracking.init", e);
-      return tracking;
-    }
-  }
-
   function getTrackingSessionId(tracking) {
     return String((tracking && tracking.session_id) || sessionStorage.getItem("sot_session_id") || "").trim();
   }
@@ -52,22 +39,11 @@ document.addEventListener("DOMContentLoaded", function() {
     if (!window.ShoutTracking || typeof window.ShoutTracking.appendTrackingParamsToUrl !== "function") return url;
 
     try {
-      return window.ShoutTracking.appendTrackingParamsToUrl(url, getShoutTrackingContext());
+      return window.ShoutTracking.appendTrackingParamsToUrl(url);
     } catch (e) {
       warn("tracking.url", e);
       return url;
     }
-  }
-
-  function addShoutTrackingParamsToUrlObj(urlObj, tracking) {
-    const ctx = tracking || getShoutTrackingContext();
-    if (!urlObj || !ctx) return;
-
-    if (ctx.local_user) urlObj.searchParams.set("lid", ctx.local_user);
-    if (ctx.session_id) urlObj.searchParams.set("sid", ctx.session_id);
-    if (ctx.ses_k) urlObj.searchParams.set("sk", ctx.ses_k);
-    if (ctx.utm_s) urlObj.searchParams.set("utm_s", ctx.utm_s);
-    if (ctx.utm_c) urlObj.searchParams.set("utm_c", ctx.utm_c);
   }
 
   let cartLoadingMaskEl = null;
@@ -519,7 +495,8 @@ document.addEventListener("DOMContentLoaded", function() {
         sessionStorage.setItem(AUTH_INTENT_KEY, JSON.stringify({
           after: "start_payment",
           return_to: returnTo,
-          fallback_to: window.location.origin + "/gallery"
+          fallback_to: window.location.origin + "/gallery",
+          created_at: Date.now()
         }));
         localStorage.setItem("shout_cart_sync_needed", "true");
       } catch (e) { warn("silent catch: auth.intent.precheck.store", e); }
@@ -709,7 +686,7 @@ document.addEventListener("DOMContentLoaded", function() {
   }
   async function startPayment() {
     try {
-      const tracking = await callShoutTrackingInitOnce();
+      const tracking = getShoutTrackingContext();
 
       if (agreeCheckbox && !agreeCheckbox.checked) {
         alert("약관에 동의해 주세요.");
@@ -721,7 +698,8 @@ document.addEventListener("DOMContentLoaded", function() {
           sessionStorage.setItem(AUTH_INTENT_KEY, JSON.stringify({
             after: "start_payment",
             return_to: window.location.origin + "/cart",
-            fallback_to: window.location.origin + "/gallery"
+            fallback_to: window.location.origin + "/gallery",
+            created_at: Date.now()
           }));
         } catch (e) { warn("silent catch: auth.intent.store", e); }
         window.location.href = AUTH_LOGIN_URL;
@@ -891,17 +869,23 @@ document.addEventListener("DOMContentLoaded", function() {
       successUrlObj.searchParams.set("ctx", orderId);
       successUrlObj.searchParams.set("from", "cart");
       successUrlObj.searchParams.set("session_id", getTrackingSessionId(tracking));
-      addShoutTrackingParamsToUrlObj(successUrlObj, tracking);
       const failUrlObj = new URL(FAIL_URL, window.location.origin);
       failUrlObj.searchParams.set("ctx", orderId);
       failUrlObj.searchParams.set("from", "cart");
       failUrlObj.searchParams.set("session_id", getTrackingSessionId(tracking));
-      addShoutTrackingParamsToUrlObj(failUrlObj, tracking);
+      const successUrlWithTracking = new URL(
+        appendShoutTrackingToUrl(successUrlObj.toString()),
+        window.location.origin
+      ).toString();
+      const failUrlWithTracking = new URL(
+        appendShoutTrackingToUrl(failUrlObj.toString()),
+        window.location.origin
+      ).toString();
       await paymentWidgets.requestPayment({
         orderId: orderId,
         orderName: orderName,
-        successUrl: successUrlObj.toString(),
-        failUrl: failUrlObj.toString(),
+        successUrl: successUrlWithTracking,
+        failUrl: failUrlWithTracking,
         windowTarget: "self"
       });
     } catch (err) {
@@ -2334,7 +2318,9 @@ rerenderCartUI();
       if (intent) {
         try {
           const data = JSON.parse(intent);
-          if (data && data.after === "start_payment" && localStorage.getItem(
+          const createdAt = Number(data && data.created_at);
+          const isFreshIntent = !createdAt || (Number.isFinite(createdAt) && Date.now() - createdAt <= AUTH_INTENT_TTL_MS);
+          if (data && data.after === "start_payment" && isFreshIntent && localStorage.getItem(
             "shout_users_id")) {
             sessionStorage.removeItem(AUTH_INTENT_KEY);
             setTimeout(function() {
@@ -2345,6 +2331,8 @@ rerenderCartUI();
               }
               openPaymentModal();
             }, 300);
+          } else if (data && data.after === "start_payment" && !isFreshIntent) {
+            sessionStorage.removeItem(AUTH_INTENT_KEY);
           }
         } catch (e) {
           try {
