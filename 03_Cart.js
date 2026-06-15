@@ -1,5 +1,14 @@
-document.addEventListener("DOMContentLoaded", function() {
+function onShoutCartReady(fn) {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", fn, { once: true });
+  } else {
+    fn();
+  }
+}
+
+onShoutCartReady(function() {
   const AUTH_INTENT_KEY = "shout_auth_intent";
+  const AUTH_INTENT_TTL_MS = 60 * 60 * 1000;
   const CHECKOUT_CONTEXT_KEY = "shout_checkout_context";
   const AUTH_LOGIN_URL = "/login";
   const UNIT_PRICE = 6000;
@@ -19,6 +28,31 @@ document.addEventListener("DOMContentLoaded", function() {
 
   if (window.__SHOUT_CART_INIT_DONE__) return;
   window.__SHOUT_CART_INIT_DONE__ = true;
+
+  function getShoutTrackingContext() {
+    if (!window.ShoutTracking || typeof window.ShoutTracking.getTrackingContext !== "function") return null;
+    try {
+      return window.ShoutTracking.getTrackingContext();
+    } catch (e) {
+      warn("tracking.context", e);
+      return null;
+    }
+  }
+
+  function getTrackingSessionId(tracking) {
+    return String((tracking && tracking.session_id) || sessionStorage.getItem("sot_session_id") || "").trim();
+  }
+
+  function appendShoutTrackingToUrl(url) {
+    if (!window.ShoutTracking || typeof window.ShoutTracking.appendTrackingParamsToUrl !== "function") return url;
+
+    try {
+      return window.ShoutTracking.appendTrackingParamsToUrl(url);
+    } catch (e) {
+      warn("tracking.url", e);
+      return url;
+    }
+  }
 
   let cartLoadingMaskEl = null;
 
@@ -64,36 +98,123 @@ document.addEventListener("DOMContentLoaded", function() {
     return Number(n).toLocaleString("ko-KR") + "원";
   }
 
+  function getCheckoutIdentifier(it) {
+    const bib = String((it && (it.bib ?? it.bib_no ?? it.bibNumber ?? it.bib_number)) || "").trim();
+
+    if (bib) {
+      return {
+        type: "bib",
+        value: bib,
+        bib: bib,
+        ocr_name: ""
+      };
+    }
+
+    const directType = String((it && (it.identifier_type || it.search_type)) || "").trim();
+    const directValue = String((it && (it.identifier_value || it.search_value)) || "").trim();
+
+    if (directValue) {
+      const normalizedType = directType || "name";
+
+      return {
+        type: normalizedType,
+        value: directValue,
+        bib: normalizedType === "bib" ? directValue : "",
+        ocr_name: normalizedType === "name" ? directValue : ""
+      };
+    }
+
+    const name = String((it && (it.ocr_name || it.name || it.runner_name)) || "").trim();
+
+    if (name) {
+      return {
+        type: "name",
+        value: name,
+        bib: "",
+        ocr_name: name
+      };
+    }
+
+    return {
+      type: "",
+      value: "",
+      bib: "",
+      ocr_name: ""
+    };
+  }
+
+  function getPrimaryIdentifier(items) {
+    const list = Array.isArray(items) ? items : [];
+
+    for (const item of list) {
+      const identifier = getCheckoutIdentifier(item);
+
+      if (identifier.value) {
+        return identifier;
+      }
+    }
+
+    return {
+      type: "",
+      value: "",
+      bib: "",
+      ocr_name: ""
+    };
+  }
+
   function buildCheckoutContext(items, extra) {
     const list = Array.isArray(items) ? items : [];
+    const tracking = (extra && extra.tracking) || getShoutTrackingContext();
     const groupsMap = new Map();
     list.forEach((it) => {
-      const eventId = String((it && (it.event_id || it.eventId || it.event_code)) || "").trim();
+      const eventCode = String((it && it.event_code) || "").trim();
       const eventDisplayName = String((it && (it.event_display_name || it.eventName || it.event_name)) || "").trim();
-      const bib = String((it && (it.bib ?? it.bib_no ?? it.bibNumber ?? it.bib_number)) || "").trim();
-      const key = `${eventId}__${bib}`;
+      const identifier = getCheckoutIdentifier(it);
+      const searchedQuery = identifier.value || identifier.bib || "";
+      const ocrBib = identifier.type === "bib" ? (identifier.bib || identifier.value) : "";
+      const key = `${eventCode}__${identifier.type}__${identifier.value}`;
       if (!groupsMap.has(key)) {
         groupsMap.set(key, {
-          event_id: eventId,
+          event_code: eventCode,
           event_display_name: eventDisplayName,
-          bib: bib,
+          identifier_type: identifier.type,
+          identifier_value: identifier.value,
+          bib: identifier.bib,
+          ocr_bib: ocrBib,
+          ocr_name: identifier.ocr_name,
+          searched_query: searchedQuery,
           count: 0
         });
       }
       groupsMap.get(key).count += 1;
     });
+    const groups = Array.from(groupsMap.values());
+    const primaryGroup = groups[0] || {};
     return {
       saved_at: Date.now(),
-      session_id: String((extra && extra.session_id) || sessionStorage.getItem("sot_session_id") || "").trim(),
+      session_id: String((extra && extra.session_id) || (tracking && tracking.session_id) || sessionStorage.getItem("sot_session_id") || "").trim(),
+      local_user: String((extra && extra.local_user) || (tracking && tracking.local_user) || "").trim(),
+      ses_k: String((extra && extra.ses_k) || (tracking && tracking.ses_k) || "").trim(),
+      utm_s: String((extra && extra.utm_s) || (tracking && tracking.utm_s) || "").trim(),
+      utm_c: String((extra && extra.utm_c) || (extra && extra.utm_campaign) || (tracking && tracking.utm_c) || "").trim(),
+      utm_campaign: String((extra && extra.utm_campaign) || (extra && extra.utm_c) || (tracking && tracking.utm_campaign) || "").trim(),
       order_id: String((extra && (extra.order_id || extra.orderId)) || "").trim(),
       order_name: String((extra && (extra.order_name || extra.orderName)) || "").trim(),
       amount: Number((extra && extra.amount) || 0) || 0,
       users_id: String((extra && extra.users_id) || "").trim(),
+      event_code: String(primaryGroup.event_code || "").trim(),
+      identifier_type: String(primaryGroup.identifier_type || "").trim(),
+      identifier_value: String(primaryGroup.identifier_value || "").trim(),
+      ocr_bib: String(primaryGroup.ocr_bib || "").trim(),
+      ocr_name: String(primaryGroup.ocr_name || "").trim(),
+      searched_query: String(primaryGroup.searched_query || "").trim(),
       primary_bib: String((extra && extra.primary_bib) || "").trim(),
+      primary_identifier_type: String((extra && extra.primary_identifier_type) || "").trim(),
+      primary_identifier_value: String((extra && extra.primary_identifier_value) || "").trim(),
       selected_count: list.length,
       photo_ids: Array.isArray(extra && extra.photo_ids) ? extra.photo_ids : [],
       bib_meta: Array.isArray(extra && extra.bib_meta) ? extra.bib_meta : [],
-      groups: Array.from(groupsMap.values())
+      groups: groups
     };
   }
 
@@ -106,9 +227,9 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function getGroupKey(it) {
-    const eventId = String(it && (it.event_id || it.event_code || it.eventId) || "").trim();
-    const bib = String(it && it.bib || "").trim();
-    return `${eventId}__${bib}`;
+    const eventCode = String(it && it.event_code || "").trim();
+    const identifier = getCheckoutIdentifier(it);
+    return `${eventCode}__${identifier.type}__${identifier.value}`;
   }
 
   function groupItemsByEventBib(items) {
@@ -140,10 +261,16 @@ document.addEventListener("DOMContentLoaded", function() {
     const groups = groupItemsByEventBib(items);
     const out = [];
     for (const [k, arr] of groups.entries()) {
-      const [eventId, bib] = k.split("__");
+      const [eventCode, identifierType, identifierValue] = k.split("__");
+      const identifier = getCheckoutIdentifier(arr && arr[0]);
+      const ocrBib = identifier.type === "bib" ? (identifier.bib || identifier.value) : "";
       out.push({
-        event_id: eventId,
-        bib: bib,
+        event_code: eventCode,
+        identifier_type: identifierType || identifier.type,
+        identifier_value: identifierValue || identifier.value,
+        bib: identifier.bib,
+        ocr_bib: ocrBib,
+        ocr_name: identifier.ocr_name,
         count: arr.length
       });
     }
@@ -329,11 +456,12 @@ document.addEventListener("DOMContentLoaded", function() {
     const seen = new Set();
     const out = [];
     (Array.isArray(items) ? items : []).forEach((it) => {
-      const bib = String((it && (it.bib ?? it.bib_no ?? it.bibNumber ?? it.bib_number)) || "").trim();
-      if (!bib) return;
-      if (seen.has(bib)) return;
-      seen.add(bib);
-      out.push(bib);
+      const identifier = getCheckoutIdentifier(it);
+      if (!identifier.value) return;
+      const label = identifier.type === "name" ? identifier.value : identifier.bib || identifier.value;
+      if (seen.has(label)) return;
+      seen.add(label);
+      out.push(label);
     });
     return out;
   }
@@ -375,7 +503,8 @@ document.addEventListener("DOMContentLoaded", function() {
         sessionStorage.setItem(AUTH_INTENT_KEY, JSON.stringify({
           after: "start_payment",
           return_to: returnTo,
-          fallback_to: window.location.origin + "/gallery"
+          fallback_to: window.location.origin + "/gallery",
+          created_at: Date.now()
         }));
         localStorage.setItem("shout_cart_sync_needed", "true");
       } catch (e) { warn("silent catch: auth.intent.precheck.store", e); }
@@ -404,12 +533,14 @@ document.addEventListener("DOMContentLoaded", function() {
     const userId = String(localStorage.getItem("shout_users_id") || "").trim();
     const photoIds = list.map(getItemId).filter(Boolean);
     const bibMeta = buildBibMeta(list);
-    const primaryBib = String((cartData && cartData.bib) || getPrimaryBib(list) || "").trim();
+    const primaryIdentifier = getPrimaryIdentifier(list);
     return buildCheckoutContext(list, {
       users_id: userId,
       session_id: sessionStorage.getItem("sot_session_id") || "",
       amount: amount,
-      primary_bib: primaryBib,
+      primary_bib: primaryIdentifier.bib,
+      primary_identifier_type: primaryIdentifier.type,
+      primary_identifier_value: primaryIdentifier.value,
       photo_ids: photoIds,
       bib_meta: bibMeta
     });
@@ -434,7 +565,7 @@ document.addEventListener("DOMContentLoaded", function() {
       }));
     } catch (e) { warn("silent catch: mobile.checkout.entry", e); }
     
-    window.location.href = CHECKOUT_PAGE_URL + "?from=cart&mobile=1";
+    window.location.href = appendShoutTrackingToUrl(CHECKOUT_PAGE_URL + "?from=cart&mobile=1");
   }
 
   function openPaymentModal() {
@@ -563,6 +694,8 @@ document.addEventListener("DOMContentLoaded", function() {
   }
   async function startPayment() {
     try {
+      const tracking = getShoutTrackingContext();
+
       if (agreeCheckbox && !agreeCheckbox.checked) {
         alert("약관에 동의해 주세요.");
         return;
@@ -573,7 +706,8 @@ document.addEventListener("DOMContentLoaded", function() {
           sessionStorage.setItem(AUTH_INTENT_KEY, JSON.stringify({
             after: "start_payment",
             return_to: window.location.origin + "/cart",
-            fallback_to: window.location.origin + "/gallery"
+            fallback_to: window.location.origin + "/gallery",
+            created_at: Date.now()
           }));
         } catch (e) { warn("silent catch: auth.intent.store", e); }
         window.location.href = AUTH_LOGIN_URL;
@@ -599,9 +733,9 @@ document.addEventListener("DOMContentLoaded", function() {
         photoIds.push(id);
       }
       const bibMeta = buildBibMeta(items);
-      const __bibToSend = String((cartData && cartData.bib) || getPrimaryBib(items) || "").trim();
-      if (!__bibToSend) {
-        alert("참가번호(bib)가 없어 결제를 진행할 수 없습니다. 다시 담아주세요.");
+      const primaryIdentifier = getPrimaryIdentifier(items);
+      if (!primaryIdentifier.value) {
+        alert("검색 식별자가 없어 결제를 진행할 수 없습니다. 다시 담아주세요.");
         return;
       }
       let amount = calcTotalAmountByGroups(items);
@@ -612,15 +746,27 @@ document.addEventListener("DOMContentLoaded", function() {
 
         const groupMap = {};
         (items || []).forEach((it) => {
-          const key = `${it.event_code}_${it.bib}`;
+          const eventCode = String((it && it.event_code) || "").trim();
+          const identifier = getCheckoutIdentifier(it);
+          const photoId = getItemId(it);
+          if (!eventCode || !identifier.value || !photoId) return;
+          const ocrBib = identifier.type === "bib" ? (identifier.bib || identifier.value) : "";
+          const ocrName = identifier.type === "name" ? (identifier.ocr_name || identifier.value) : "";
+
+          const key = `${eventCode}__${identifier.type}__${identifier.value}`;
           if (!groupMap[key]) {
             groupMap[key] = {
-              event_code: it.event_code,
-              bib: it.bib,
+              event_code: eventCode,
+              identifier_type: identifier.type,
+              identifier_value: identifier.value,
+              searched_query: identifier.value || identifier.bib || "",
+              bib: identifier.bib,
+              ocr_bib: ocrBib,
+              ocr_name: ocrName,
               photo_ids: []
             };
           }
-          groupMap[key].photo_ids.push(it._id);
+          groupMap[key].photo_ids.push(photoId);
         });
         const groups = Object.values(groupMap);
 
@@ -631,8 +777,17 @@ document.addEventListener("DOMContentLoaded", function() {
 
           body.set("users_id", userId);
           body.set("orderId", orderId);
-          body.set("session_id", sessionStorage.getItem("sot_session_id") || "");
+          body.set("session_id", getTrackingSessionId(tracking));
+          body.set("local_user", (tracking && tracking.local_user) || "");
+          body.set("session_key", (tracking && tracking.ses_k) || "");
+          body.set("utm_source", (tracking && tracking.utm_s) || "");
+          body.set("utm_campaign", (tracking && tracking.utm_campaign) || "");
           body.set("event_code", group.event_code || "");
+          body.set("identifier_type", group.identifier_type || "");
+          body.set("identifier_value", group.identifier_value || "");
+          body.set("ocr_bib", group.ocr_bib || "");
+          body.set("ocr_name", group.ocr_name || "");
+          body.set("searched_query", group.searched_query || group.identifier_value || group.bib || "");
           body.set("bib", group.bib || "");
 
           (group.photo_ids || []).forEach((pid) => {
@@ -664,7 +819,7 @@ document.addEventListener("DOMContentLoaded", function() {
               response: (j || rawText || "").toString().slice(0, 2000),
               group: group
             });
-            throw new Error(rawText || `create-order failed for group ${group.event_code}_${group.bib}`);
+            throw new Error(rawText || `create-order failed for group ${group.event_code}_${group.identifier_type}_${group.identifier_value}`);
           }
 
           const bubble = j && (j.response || j);
@@ -706,11 +861,14 @@ document.addEventListener("DOMContentLoaded", function() {
       }
       const checkoutContext = buildCheckoutContext(items, {
         users_id: userId,
-        session_id: sessionStorage.getItem("sot_session_id") || "",
+        session_id: getTrackingSessionId(tracking),
+        tracking: tracking,
         order_id: orderId,
         order_name: orderName,
         amount: amount,
-        primary_bib: __bibToSend,
+        primary_bib: primaryIdentifier.bib,
+        primary_identifier_type: primaryIdentifier.type,
+        primary_identifier_value: primaryIdentifier.value,
         photo_ids: photoIds,
         bib_meta: bibMeta
       });
@@ -718,15 +876,24 @@ document.addEventListener("DOMContentLoaded", function() {
       const successUrlObj = new URL(SUCCESS_URL, window.location.origin);
       successUrlObj.searchParams.set("ctx", orderId);
       successUrlObj.searchParams.set("from", "cart");
-      successUrlObj.searchParams.set("session_id", sessionStorage.getItem("sot_session_id") || "");
+      successUrlObj.searchParams.set("session_id", getTrackingSessionId(tracking));
       const failUrlObj = new URL(FAIL_URL, window.location.origin);
       failUrlObj.searchParams.set("ctx", orderId);
       failUrlObj.searchParams.set("from", "cart");
+      failUrlObj.searchParams.set("session_id", getTrackingSessionId(tracking));
+      const successUrlWithTracking = new URL(
+        appendShoutTrackingToUrl(successUrlObj.toString()),
+        window.location.origin
+      ).toString();
+      const failUrlWithTracking = new URL(
+        appendShoutTrackingToUrl(failUrlObj.toString()),
+        window.location.origin
+      ).toString();
       await paymentWidgets.requestPayment({
         orderId: orderId,
         orderName: orderName,
-        successUrl: successUrlObj.toString(),
-        failUrl: failUrlObj.toString(),
+        successUrl: successUrlWithTracking,
+        failUrl: failUrlWithTracking,
         windowTarget: "self"
       });
     } catch (err) {
@@ -1085,16 +1252,21 @@ document.addEventListener("DOMContentLoaded", function() {
     const map = new Map();
     (items || []).forEach((it) => {
       const eventCode = getEventCodeFromItem(it);
-      const eventId = String((it && (it.event_id || it.eventId || it.event_code)) ||
-        eventCode || "UNKNOWN");
-      const bib = String(getBibFromItem(it) || "UNKNOWN");
+      const identifier = getCheckoutIdentifier(it);
+      const bib = String(identifier.type === "name" ? identifier.value : (identifier.bib || getBibFromItem(it) || "UNKNOWN"));
       const name = getEventDisplayNameFromItem(it, eventCode);
-      const key = `${eventId}__${bib}`;
+      const ocrBib = identifier.type === "bib" ? (identifier.bib || identifier.value) : "";
+      const ocrName = identifier.type === "name" ? (identifier.ocr_name || identifier.value) : "";
+      const key = `${eventCode}__${identifier.type || "unknown"}__${identifier.value || bib}`;
       if (!map.has(key)) map.set(key, {
         key,
         event_code: eventCode,
-        event_id: eventId,
+        identifier_type: identifier.type,
+        identifier_value: identifier.value,
         bib,
+        ocr_bib: ocrBib,
+        ocr_name: ocrName,
+        searched_query: identifier.value || bib || "",
         event_display_name: name,
         items: []
       });
@@ -1111,7 +1283,7 @@ document.addEventListener("DOMContentLoaded", function() {
     groups.forEach((g) => {
       const missing = !g.event_display_name || String(g.event_display_name).trim() ===
         "" || g.event_display_name === "UNKNOWN";
-      const eventId = g.event_id || g.event_code;
+      const eventId = g.event_code;
       if (!missing) return;
       if (!eventId) return;
       if (seen.has(eventId)) return;
@@ -1152,7 +1324,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const parsed = raw ? JSON.parse(raw) : null;
         if (parsed && Array.isArray(parsed.items)) {
           parsed.items.forEach((it) => {
-            const itEventId = it.event_id || it.eventId || it.event_code;
+            const itEventId = it.event_code;
             if (String(itEventId || "") === String(need[idx].eventId)) it
               .event_display_name = String(name);
           });
@@ -1960,6 +2132,7 @@ function renderThumbs() {
       const idxEl = section.querySelector(".cart-event-index");
       const titleEl = section.querySelector(".cart-event-title");
       const bibEl = section.querySelector(".cart-list-bib");
+      const bibSuffixEl = section.querySelector(".cart-list-bib-suffix");
       const subtotalEl = section.querySelector(".cart-event-subtotal");
       if (idxEl) {
         idxEl.id = `cart-event-index-${idx2}`;
@@ -1972,6 +2145,9 @@ function renderThumbs() {
       if (bibEl) {
         bibEl.id = `cart-list-bib-${idx2}`;
         bibEl.textContent = `${g.bib || "-"}`;
+      }
+      if (bibSuffixEl) {
+        bibSuffixEl.style.display = (g.identifier_type === "name") ? "none" : "";
       }
       const __allItems = Array.isArray(g.items) ? g.items : [];
       const count = __allItems.reduce((n, it) => n + (__selectedSet.has(getItemId(it)) ?
@@ -2150,7 +2326,9 @@ rerenderCartUI();
       if (intent) {
         try {
           const data = JSON.parse(intent);
-          if (data && data.after === "start_payment" && localStorage.getItem(
+          const createdAt = Number(data && data.created_at);
+          const isFreshIntent = !createdAt || (Number.isFinite(createdAt) && Date.now() - createdAt <= AUTH_INTENT_TTL_MS);
+          if (data && data.after === "start_payment" && isFreshIntent && localStorage.getItem(
             "shout_users_id")) {
             sessionStorage.removeItem(AUTH_INTENT_KEY);
             setTimeout(function() {
@@ -2161,6 +2339,8 @@ rerenderCartUI();
               }
               openPaymentModal();
             }, 300);
+          } else if (data && data.after === "start_payment" && !isFreshIntent) {
+            sessionStorage.removeItem(AUTH_INTENT_KEY);
           }
         } catch (e) {
           try {
@@ -2254,7 +2434,7 @@ function injectArrowZones(root) {
   }
 }
 
-document.addEventListener("DOMContentLoaded", function() {
+onShoutCartReady(function() {
   if (window.__SHOUT_CART_ZONES_DONE__) return;
   window.__SHOUT_CART_ZONES_DONE__ = true;
 
