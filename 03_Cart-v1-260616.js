@@ -39,6 +39,20 @@ onShoutCartReady(function() {
     }
   }
 
+  function normalizeUtmSource(source) {
+    if (window.ShoutTracking && typeof window.ShoutTracking.toUtmS === "function") {
+      return window.ShoutTracking.toUtmS(source);
+    }
+
+    const s = String(source || "").toLowerCase().trim();
+    if (!s || s === "d" || s === "direct") return "direct";
+    if (s === "n" || s === "naver" || s.includes("naver")) return "naver";
+    if (s === "k" || s === "kakao" || s.includes("kakao")) return "kakao";
+    if (s === "s" || s === "m" || s === "sms" || s.includes("message") || s.includes("sms")) return "sms";
+    if (s === "i" || s === "instagram" || s === "ig" || s.includes("instagram")) return "instagram";
+    return "unknown";
+  }
+
   function getTrackingSessionId(tracking) {
     return String((tracking && tracking.session_id) || sessionStorage.getItem("sot_session_id") || "").trim();
   }
@@ -195,7 +209,7 @@ onShoutCartReady(function() {
       session_id: String((extra && extra.session_id) || (tracking && tracking.session_id) || sessionStorage.getItem("sot_session_id") || "").trim(),
       local_user: String((extra && extra.local_user) || (tracking && tracking.local_user) || "").trim(),
       ses_k: String((extra && extra.ses_k) || (tracking && tracking.ses_k) || "").trim(),
-      utm_s: String((extra && extra.utm_s) || (tracking && tracking.utm_s) || "").trim(),
+      utm_s: normalizeUtmSource((extra && (extra.utm_s || extra.utm_source)) || (tracking && (tracking.utm_s || tracking.utm_source)) || ""),
       utm_c: String((extra && extra.utm_c) || (extra && extra.utm_campaign) || (tracking && tracking.utm_c) || "").trim(),
       utm_campaign: String((extra && extra.utm_campaign) || (extra && extra.utm_c) || (tracking && tracking.utm_campaign) || "").trim(),
       order_id: String((extra && (extra.order_id || extra.orderId)) || "").trim(),
@@ -780,7 +794,7 @@ onShoutCartReady(function() {
           body.set("session_id", getTrackingSessionId(tracking));
           body.set("local_user", (tracking && tracking.local_user) || "");
           body.set("session_key", (tracking && tracking.ses_k) || "");
-          body.set("utm_source", (tracking && tracking.utm_s) || "");
+          body.set("utm_source", normalizeUtmSource(tracking && (tracking.utm_s || tracking.utm_source)));
           body.set("utm_campaign", (tracking && tracking.utm_campaign) || "");
           body.set("event_code", group.event_code || "");
           body.set("identifier_type", group.identifier_type || "");
