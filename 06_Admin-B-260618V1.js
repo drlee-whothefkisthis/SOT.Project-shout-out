@@ -1,4 +1,3 @@
-<script>
 (function(){
 
   const $ = (s, root=document) => root.querySelector(s);
@@ -1314,4 +1313,3 @@
   else bootAdmin();
 
 })();
-</script>
