@@ -1,3 +1,4 @@
+<script>
 (function(){
 
   const $ = (s, root=document) => root.querySelector(s);
@@ -65,6 +66,30 @@
     return new Date(`${value}:00+09:00`).toISOString();
   }
 
+  function eventDateInputValue(value) {
+    return formatKSTDate(value);
+  }
+
+  function eventDateTimeInputValue(value) {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const parts = getKSTParts(date);
+    return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+  }
+
+  function parsePeopleInput(value) {
+    const text = String(value || "").replace(/,/g, "").trim();
+    if (!text) return null;
+    const n = Number(text);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  }
+
+  function applyPeoplePayload(payload, value) {
+    const people = parsePeopleInput(value);
+    if (people !== null) payload.people = people;
+  }
+
   function sortEventsByDate(list) {
     const todayKey = getTodayKSTKey();
 
@@ -110,6 +135,7 @@
   let allEvents = [];
   let activeAdminView = "events";
   let activeEventMonth = getKSTMonthKey(new Date());
+  let editingEventId = "";
   let sotDashActiveSection = "overview";
   let sotDashActiveTab = "summary";
   let sotDashDatasetFilter = "legacy";
@@ -169,10 +195,7 @@
           <div class="sh-divider"></div>
           <div class="sh-row">
             <div class="sh-col"><label class="sh-label">노출 시작</label><input class="sh-input" type="datetime-local" id="sh_publish_at"></div>
-            <div class="sh-col">
-              <label class="sh-label">노출 여부</label>
-              <select class="sh-select" id="sh_is_public"><option value="true">공개</option><option value="false">비공개</option></select>
-            </div>
+            <div class="sh-col"><label class="sh-label">참가자 수</label><input class="sh-input" type="text" id="sh_people" inputmode="numeric" placeholder="예: 3800"></div>
             <div class="sh-col">
               <label class="sh-label">배번호 타입</label>
               <select class="sh-select" id="sh_name_search_enabled">
@@ -196,6 +219,7 @@
             <tr>
               <th>날짜</th>
               <th>디스플레이 / 코드</th>
+              <th>참가자 수</th>
               <th>배번호 타입</th>
               <th>공개여부</th>
               <th>관리</th>
@@ -249,7 +273,7 @@
   }
 
   async function fetchData() {
-    $("#sh_tbody").innerHTML = "<tr><td colspan='5' style='text-align:center;'>로드 중...</td></tr>";
+    $("#sh_tbody").innerHTML = "<tr><td colspan='6' style='text-align:center;'>로드 중...</td></tr>";
     try {
       const res = await fetch(BUBBLE_API_BASE + API_DATA_EVENT);
       const data = await res.json();
@@ -261,7 +285,7 @@
         syncSotDashboardFilters();
         renderSotDashboard();
       }
-    } catch(e) { $("#sh_tbody").innerHTML = "<tr><td colspan='5' style='color:red;'>로드 실패</td></tr>"; }
+    } catch(e) { $("#sh_tbody").innerHTML = "<tr><td colspan='6' style='color:red;'>로드 실패</td></tr>"; }
   }
 
   function getKSTMonthKey(value) {
@@ -324,13 +348,18 @@
     const sortedList = sortEventsByDate(list);
 
     $("#sh_count").textContent = sortedList.length + "건";
-    $("#sh_tbody").innerHTML = sortedList.map(ev => `
+    $("#sh_tbody").innerHTML = sortedList.map(ev => editingEventId === ev._id ? eventEditRow(ev) : eventViewRow(ev)).join("");
+  }
+
+  function eventViewRow(ev) {
+    return `
       <tr>
         <td>${escapeHtml(formatKSTDate(ev.event_date))}</td>
         <td>
           <strong>${escapeHtml(ev.event_display_name || ev.display_name)}</strong><br>
           <small style="color:#999">${escapeHtml(ev.event_code)}</small>
         </td>
+        <td>${eventPeople(ev.event_code) ? formatNumber(eventPeople(ev.event_code)) : "미입력"}</td>
         <td>
           <button class="sh-btn-sm ${isNameSearchEnabled(ev) ? 'pub' : 'priv'}" onclick="toggleNameSearch('${ev._id}', ${isNameSearchEnabled(ev)})">
             ${isNameSearchEnabled(ev) ? "이름+넘버링" : "넘버링"}
@@ -342,10 +371,43 @@
           </button>
         </td>
         <td>
+          <button class="sh-btn-sm" type="button" onclick="editEvent('${ev._id}')">수정</button>
           <button class="sh-btn-sm danger" onclick="deleteEvent('${ev._id}')">삭제</button>
         </td>
       </tr>
-    `).join("");
+    `;
+  }
+
+  function eventEditRow(ev) {
+    return `
+      <tr>
+        <td><input class="sh-input" type="date" id="edit_event_date_${ev._id}" value="${escapeHtml(eventDateInputValue(ev.event_date))}"></td>
+        <td>
+          <input class="sh-input" type="text" id="edit_display_name_${ev._id}" value="${escapeHtml(ev.event_display_name || ev.display_name || "")}" placeholder="디스플레이 네임">
+          <div style="height:8px"></div>
+          <input class="sh-input" type="text" id="edit_event_code_${ev._id}" value="${escapeHtml(ev.event_code || "")}" placeholder="event_code">
+        </td>
+        <td><input class="sh-input" type="text" inputmode="numeric" id="edit_people_${ev._id}" value="${escapeHtml(ev.people ?? "")}" placeholder="미입력"></td>
+        <td>
+          <select class="sh-select" id="edit_name_search_enabled_${ev._id}">
+            <option value="false" ${isNameSearchEnabled(ev) ? "" : "selected"}>넘버링</option>
+            <option value="true" ${isNameSearchEnabled(ev) ? "selected" : ""}>이름+넘버링</option>
+          </select>
+        </td>
+        <td>
+          <select class="sh-select" id="edit_is_public_${ev._id}">
+            <option value="false" ${ev.is_public ? "" : "selected"}>비공개</option>
+            <option value="true" ${ev.is_public ? "selected" : ""}>공개</option>
+          </select>
+          <div style="height:8px"></div>
+          <input class="sh-input" type="datetime-local" id="edit_publish_at_${ev._id}" value="${escapeHtml(eventDateTimeInputValue(ev.publish_at))}">
+        </td>
+        <td>
+          <button class="sh-btn-sm pub" type="button" onclick="saveEventEdit('${ev._id}')">저장</button>
+          <button class="sh-btn-sm" type="button" onclick="cancelEventEdit()">취소</button>
+        </td>
+      </tr>
+    `;
   }
 
   function syncAdminView() {
@@ -1140,6 +1202,59 @@
     } catch(e) { alert("수정 실패"); }
   };
 
+  window.editEvent = function(id) {
+    editingEventId = id;
+    applyEventFilters();
+  };
+
+  window.cancelEventEdit = function() {
+    editingEventId = "";
+    applyEventFilters();
+  };
+
+  window.saveEventEdit = async function(id) {
+    const eventDate = document.getElementById(`edit_event_date_${id}`);
+    const displayName = document.getElementById(`edit_display_name_${id}`);
+    const eventCode = document.getElementById(`edit_event_code_${id}`);
+    const publishAt = document.getElementById(`edit_publish_at_${id}`);
+    const people = document.getElementById(`edit_people_${id}`);
+    const nameSearch = document.getElementById(`edit_name_search_enabled_${id}`);
+    const isPublic = document.getElementById(`edit_is_public_${id}`);
+
+    const payload = {
+      event_date: kstDateInputToISO(eventDate && eventDate.value),
+      event_display_name: (displayName && displayName.value.trim()) || "",
+      event_code: (eventCode && eventCode.value.trim()) || "",
+      publish_at: kstDateTimeInputToISO(publishAt && publishAt.value),
+      name_search_enabled: nameSearch && nameSearch.value === "true",
+      is_public: isPublic && isPublic.value === "true"
+    };
+    applyPeoplePayload(payload, people && people.value);
+
+    Object.keys(payload).forEach(key => {
+      if (payload[key] === null || payload[key] === undefined || payload[key] === "") delete payload[key];
+    });
+
+    try {
+      const res = await fetch(`${BUBBLE_API_BASE}${API_DATA_EVENT}/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        console.error("[Admin] event update failed", { status: res.status, body: text.slice(0, 500), payload });
+        alert("대회 수정 실패");
+        return;
+      }
+      editingEventId = "";
+      await fetchData();
+    } catch(e) {
+      console.error("[Admin] event update error", e);
+      alert("대회 수정 오류");
+    }
+  };
+
   function bindEvents(){
     document.querySelectorAll("[data-admin-view]").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -1226,14 +1341,18 @@
           event_code: $("#sh_event_code").value.trim(),
           event_date: kstDateInputToISO($("#sh_event_date").value),
           publish_at: kstDateTimeInputToISO($("#sh_publish_at").value),
-          is_public: $("#sh_is_public").value === "true",
           name_search_enabled: $("#sh_name_search_enabled").value === "true"
         };
+        applyPeoplePayload(payload, $("#sh_people").value);
         const res = await fetch(BUBBLE_API_BASE + API_CREATE_EVENT, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
-        if(res.ok) { alert("생성 성공"); fetchData(); }
+        if(res.ok) {
+          alert("생성 성공");
+          $("#sh_people").value = "";
+          fetchData();
+        }
       } catch(err){ alert("오류 발생"); }
       this.disabled = false;
     });
@@ -1313,3 +1432,4 @@
   else bootAdmin();
 
 })();
+</script>
