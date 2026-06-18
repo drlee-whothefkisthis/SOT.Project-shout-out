@@ -1340,6 +1340,7 @@
           event_code: $("#sh_event_code").value.trim(),
           event_date: kstDateInputToISO($("#sh_event_date").value),
           publish_at: kstDateTimeInputToISO($("#sh_publish_at").value),
+          is_public: "no",
           name_search_enabled: $("#sh_name_search_enabled").value === "true"
         };
         applyPeoplePayload(payload, $("#sh_people").value);
