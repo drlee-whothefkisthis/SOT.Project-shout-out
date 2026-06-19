@@ -255,6 +255,7 @@
                   <option value="all">전체</option>
                 </select>
                 <select class="sh-select" id="sot_dash_source_filter"></select>
+                <button class="sot-dash-btn" type="button" id="sot_dash_refresh_btn">데이터 새로고침</button>
               </div>
             </div>
             <div class="sot-dash-content" id="sot_dash_content"></div>
@@ -271,7 +272,9 @@
     initSotDashboard();
   }
 
-  async function fetchData() {
+  async function fetchData(options) {
+    const opts = options || {};
+    const refreshDashboard = opts.refreshDashboard === true;
     $("#sh_tbody").innerHTML = "<tr><td colspan='6' style='text-align:center;'>로드 중...</td></tr>";
     try {
       const res = await fetch(BUBBLE_API_BASE + API_DATA_EVENT);
@@ -279,10 +282,10 @@
       allEvents = data.response.results || [];
       syncMonthFilterOptions();
       applyEventFilters();
-      if (sotDashLoaded) {
+      if (refreshDashboard && sotDashLoaded) {
         rebuildSotDashboardData(selectedDashboardEventCode());
         syncSotDashboardFilters();
-        renderSotDashboard();
+        if (activeAdminView === "database") renderSotDashboard();
       }
     } catch(e) { $("#sh_tbody").innerHTML = "<tr><td colspan='6' style='color:red;'>로드 실패</td></tr>"; }
   }
@@ -427,7 +430,6 @@
     renderSotDashNav();
     syncSotDashboardFilters();
     renderSotDashboard();
-    loadDashboard();
   }
 
   async function loadDashboard() {
@@ -436,6 +438,7 @@
     sotDashLoading = true;
     sotDashLastError = "";
     setSotDashboardStatus("SOT:Dashboard 데이터를 불러오는 중입니다.");
+    syncSotDashboardFilters();
     renderSotDashboard();
 
     try {
@@ -451,6 +454,7 @@
       const selectedEventCode = selectedDashboardEventCode() || "all";
       const selectedEventHourRows = (sotDashboardByAggType.event_hour || []).filter(row => selectedEventCode === "all" || row.event_code === selectedEventCode);
       const selectedStateRow = (sotDashboardByAggType.state || []).find(row => selectedEventCode !== "all" && row.event_code === selectedEventCode) || (selectedEventCode === "all" ? sotDashData.state : null);
+      console.log("[SOT Dashboard] api_refetch", true);
       console.log("[SOT Dashboard] fetch count", sotDashFetchCount);
       console.log("[SOT Dashboard] fetched raw rows", rows.length);
       console.log("[SOT Dashboard] cached raw rows count", sotDashboardRawRows.length);
@@ -474,6 +478,7 @@
       sotDashData = SOT_HEAD.emptyDashboardData();
     } finally {
       sotDashLoading = false;
+      syncSotDashboardFilters();
       renderSotDashboard();
     }
   }
@@ -550,6 +555,9 @@
 
     const periodSelect = $("#sot_dash_period_filter");
     if (periodSelect) periodSelect.value = sotDashPeriodFilter;
+
+    const refreshButton = $("#sot_dash_refresh_btn");
+    if (refreshButton) refreshButton.disabled = Boolean(sotDashLoading);
 
     document.querySelectorAll("[data-sot-dataset]").forEach(btn => {
       const active = btn.dataset.sotDataset === sotDashDatasetFilter;
@@ -649,6 +657,11 @@
       return;
     }
 
+    if (!sotDashLoaded) {
+      target.innerHTML = renderSotDashboardNotLoaded();
+      return;
+    }
+
     if (sotDashDatasetFilter !== "legacy") {
       target.innerHTML = renderSotOperationalPlaceholder();
       return;
@@ -670,6 +683,13 @@
     return `
       <div class="sot-dash-callout">운영 집계는 후속 집계 연결이 필요합니다. 현재 화면은 레거시 집계 탭에서 검증된 data_source=legacy 데이터를 표시합니다.</div>
       ${sotKpis([["상태", "후속 집계 필요", "current / aggregator"], ["접속 수", "집계 데이터 없음", "visit_count"], ["유입/디바이스", "집계 데이터 없음", "source/device agg_type"], ["대상", "레거시 집계 탭", "data_source=legacy"]])}
+    `;
+  }
+
+  function renderSotDashboardNotLoaded() {
+    return `
+      <div class="sot-dash-callout">SOT:Dashboard 데이터를 아직 불러오지 않았습니다. 데이터 새로고침 버튼을 눌러 조회하세요.</div>
+      ${sotKpis([["상태", "대기 중", "manual refresh"], ["API 호출", "0회", "initial load disabled"], ["캐시", "비어 있음", "sotDashboardRawRows"], ["다음 동작", "데이터 새로고침", "button click"]])}
     `;
   }
 
@@ -1175,7 +1195,7 @@
     if(!confirm("정말 이 대회를 삭제하시겠습니까?")) return;
     try {
       const res = await fetch(`${BUBBLE_API_BASE}${API_DATA_EVENT}/${id}`, { method: "DELETE" });
-      if(res.ok) fetchData(); else alert("권한이 없습니다.");
+      if(res.ok) fetchData({ refreshDashboard: true }); else alert("권한이 없습니다.");
     } catch(e) { alert("삭제 오류"); }
   };
 
@@ -1186,7 +1206,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_public: !current })
       });
-      if(res.ok) fetchData();
+      if(res.ok) fetchData({ refreshDashboard: true });
     } catch(e) { alert("수정 실패"); }
   };
 
@@ -1197,7 +1217,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name_search_enabled: !current })
       });
-      if(res.ok) fetchData();
+      if(res.ok) fetchData({ refreshDashboard: true });
     } catch(e) { alert("수정 실패"); }
   };
 
@@ -1247,7 +1267,7 @@
         return;
       }
       editingEventId = "";
-      await fetchData();
+      await fetchData({ refreshDashboard: true });
     } catch(e) {
       console.error("[Admin] event update error", e);
       alert("대회 수정 오류");
@@ -1288,6 +1308,13 @@
         return;
       }
 
+      const refreshButton = e.target.closest("#sot_dash_refresh_btn");
+      if (refreshButton) {
+        console.log("[SOT Dashboard] refresh button clicked");
+        loadDashboard();
+        return;
+      }
+
       const dayButton = e.target.closest("[data-sot-day]");
       if (dayButton) {
         sotDashSelectedDateKey = dayButton.dataset.sotDay || "";
@@ -1310,27 +1337,35 @@
     const dashEventFilter = $("#sot_dash_event_filter");
     if (dashEventFilter) dashEventFilter.addEventListener("change", e => {
       sotDashEventFilter = e.target.value || "all";
-      rebuildSotDashboardData(selectedDashboardEventCode());
-      syncSotDashboardFilters();
+      if (sotDashLoaded) {
+        rebuildSotDashboardData(selectedDashboardEventCode());
+        syncSotDashboardFilters();
+      }
       renderSotDashboard();
       logDashboardCacheRebuild("event filter change");
     });
     const dashPeriodFilter = $("#sot_dash_period_filter");
     if (dashPeriodFilter) dashPeriodFilter.addEventListener("change", e => {
       sotDashPeriodFilter = e.target.value || "legacy_window";
-      rebuildSotDashboardData(sotDashEventFilter === "all" ? "" : sotDashEventFilter);
-      syncSotDashboardFilters();
+      if (sotDashLoaded) {
+        rebuildSotDashboardData(sotDashEventFilter === "all" ? "" : sotDashEventFilter);
+        syncSotDashboardFilters();
+      }
       renderSotDashboard();
       logDashboardCacheRebuild("period filter change");
     });
     const dashSourceFilter = $("#sot_dash_source_filter");
-    if (dashSourceFilter) dashSourceFilter.addEventListener("change", e => { sotDashSourceFilter = e.target.value || "all"; renderSotDashboard(); });
+    if (dashSourceFilter) dashSourceFilter.addEventListener("change", e => {
+      sotDashSourceFilter = e.target.value || "all";
+      renderSotDashboard();
+      logDashboardCacheRebuild("source filter change");
+    });
     $("#sh_month_filter").addEventListener("change", (e) => {
       activeEventMonth = e.target.value || "all";
       applyEventFilters();
     });
     $("#sh_search").addEventListener("input", applyEventFilters);
-    $("#sh_btn_refresh").addEventListener("click", fetchData);
+    $("#sh_btn_refresh").addEventListener("click", () => fetchData({ refreshDashboard: false }));
 
     $("#sh_btn_create_event").addEventListener("click", async function(){
       this.disabled = true;
@@ -1351,7 +1386,7 @@
         if(res.ok) {
           alert("생성 성공");
           $("#sh_people").value = "";
-          fetchData();
+          fetchData({ refreshDashboard: true });
         }
       } catch(err){ alert("오류 발생"); }
       this.disabled = false;
