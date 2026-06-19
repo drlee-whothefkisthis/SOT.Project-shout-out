@@ -138,7 +138,7 @@
   let sotDashActiveSection = "overview";
   let sotDashActiveTab = "summary";
   let sotDashEventFilter = "all";
-  let sotDashPeriodFilter = "legacy_window";
+  let sotDashPeriodFilter = "all";
   let sotDashSourceFilter = "all";
   let sotDashFetchCount = 0;
   let sotDashSelectedWeekStart = "";
@@ -261,11 +261,10 @@
               <div class="sot-dash-filters">
                 <label class="sot-dash-filter-item"><span>대회</span><select class="sh-select" id="sot_dash_event_filter"></select></label>
                 <label class="sot-dash-filter-item"><span>기간</span><select class="sh-select" id="sot_dash_period_filter">
-                    <option value="legacy_window" selected>Legacy 6/7~6/13</option>
+                    <option value="all" selected>전체</option>
                     <option value="today">오늘</option>
                     <option value="last_7_days">최근 7일</option>
                     <option value="this_month">이번 달</option>
-                    <option value="all">전체</option>
                   </select></label>
                 <label class="sot-dash-filter-item"><span>유입</span><select class="sh-select" id="sot_dash_source_filter"></select></label>
                 <button class="sot-dash-btn" type="button" id="sot_dash_refresh_btn">데이터 새로고침</button>
@@ -1481,7 +1480,7 @@
     });
     const dashPeriodFilter = $("#sot_dash_period_filter");
     if (dashPeriodFilter) dashPeriodFilter.addEventListener("change", e => {
-      sotDashPeriodFilter = e.target.value || "legacy_window";
+      sotDashPeriodFilter = e.target.value || "all";
       if (sotDashLoaded) {
         rebuildSotDashboardData(sotDashEventFilter === "all" ? "" : sotDashEventFilter);
         syncSotDashboardFilters();
