@@ -137,7 +137,6 @@
   let editingEventId = "";
   let sotDashActiveSection = "overview";
   let sotDashActiveTab = "summary";
-  let sotDashDatasetFilter = "legacy";
   let sotDashEventFilter = "all";
   let sotDashPeriodFilter = "legacy_window";
   let sotDashSourceFilter = "all";
@@ -178,14 +177,15 @@
         </div>
         <div class="sh-admin-status-card">
           <div><b id="sh_hero_status">상태: 대기 중</b></div>
-          <div>마지막 업데이트: <span id="sh_hero_updated">DB 탭에서 조회</span></div>
+          <div>마지막 업데이트: <span id="sh_hero_updated">레거시데이터에서 조회</span></div>
           <div>Data API: <span id="sh_hero_snapshot_key">SOT:Dashboard</span></div>
         </div>
       </header>
 
       <div class="sh-admin-tabs" role="tablist" aria-label="Admin views">
         <button class="sh-admin-tab is-active" type="button" data-admin-view="events" aria-selected="true">대회 관리</button>
-        <button class="sh-admin-tab" type="button" data-admin-view="database" aria-selected="false">레거시 분석</button>
+        <button class="sh-admin-tab" type="button" data-admin-view="database" aria-selected="false">DB분석</button>
+        <button class="sh-admin-tab" type="button" data-admin-view="legacy" aria-selected="false">레거시데이터</button>
       </div>
 
       <section class="sh-admin-panel" data-admin-panel="events">
@@ -233,6 +233,19 @@
       </section>
 
       <section class="sh-admin-panel is-hidden" data-admin-panel="database" hidden>
+        <div class="sot-dash-panel">
+          <h3>신규 분석</h3>
+          <div class="sot-dash-callout">신규 분석은 current / sot-dashboard-aggregator 데이터 연결 후 표시합니다. 현재 이 메뉴는 신규 데이터용 자리만 잡아둔 상태입니다.</div>
+          <div class="sot-dash-kpis">
+            <div class="sot-dash-card"><div class="sot-dash-label">상태</div><div class="sot-dash-value">후속 연결 필요</div><div class="sot-dash-note">current / aggregator</div></div>
+            <div class="sot-dash-card"><div class="sot-dash-label">접속 수</div><div class="sot-dash-value">집계 데이터 없음</div><div class="sot-dash-note">session_count / visit_count</div></div>
+            <div class="sot-dash-card"><div class="sot-dash-label">유입·디바이스</div><div class="sot-dash-value">집계 데이터 없음</div><div class="sot-dash-note">source / device / campaign</div></div>
+            <div class="sot-dash-card"><div class="sot-dash-label">대상</div><div class="sot-dash-value">신규 데이터</div><div class="sot-dash-note">data_source=current 예정</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="sh-admin-panel is-hidden" data-admin-panel="legacy" hidden>
         <div class="sot-admin-dashboard" id="sot_admin_dashboard">
           <aside class="sot-dash-sidebar" aria-label="SOT dashboard menu">
             <div class="sot-dash-logo">Shout-out Dashboard</div>
@@ -246,10 +259,6 @@
                 <p class="sot-dash-desc" id="sot_dash_desc">전체 KPI, 퍼널, 검색/노출을 탭으로 확인합니다.</p>
               </div>
               <div class="sot-dash-filters">
-                <div class="sot-dash-tabs compact" role="tablist" aria-label="dashboard source">
-                  <button class="sot-dash-tab is-active" type="button" data-sot-dataset="legacy">레거시 분석</button>
-                  <button class="sot-dash-tab" type="button" data-sot-dataset="operational">신규 분석</button>
-                </div>
                 <label class="sot-dash-filter-item"><span>대회</span><select class="sh-select" id="sot_dash_event_filter"></select></label>
                 <label class="sot-dash-filter-item"><span>기간</span><select class="sh-select" id="sot_dash_period_filter">
                     <option value="legacy_window" selected>Legacy 6/7~6/13</option>
@@ -289,7 +298,7 @@
       if (refreshDashboard && sotDashLoaded) {
         rebuildSotDashboardData(selectedDashboardEventCode());
         syncSotDashboardFilters();
-        if (activeAdminView === "database") renderSotDashboard();
+        if (activeAdminView === "legacy") renderSotDashboard();
       }
     } catch(e) { $("#sh_tbody").innerHTML = "<tr><td colspan='6' style='color:red;'>로드 실패</td></tr>"; }
   }
@@ -563,11 +572,6 @@
     const refreshButton = $("#sot_dash_refresh_btn");
     if (refreshButton) refreshButton.disabled = Boolean(sotDashLoading);
 
-    document.querySelectorAll("[data-sot-dataset]").forEach(btn => {
-      const active = btn.dataset.sotDataset === sotDashDatasetFilter;
-      btn.classList.toggle("is-active", active);
-      btn.setAttribute("aria-selected", active ? "true" : "false");
-    });
   }
 
   function currentDashEvent() {
@@ -650,11 +654,6 @@
       btn.setAttribute("aria-current", active ? "page" : "false");
     });
 
-    document.querySelectorAll("[data-sot-dataset]").forEach(btn => {
-      const active = btn.dataset.sotDataset === sotDashDatasetFilter;
-      btn.classList.toggle("is-active", active);
-      btn.setAttribute("aria-selected", active ? "true" : "false");
-    });
   }
 
   function renderSotDashboard() {
@@ -669,11 +668,6 @@
 
     if (sotDashLastError) {
       target.innerHTML = `<div class="sot-dash-callout warn">SOT:Dashboard API 데이터를 불러오지 못했습니다. 콘솔의 [SOT Dashboard] 로그를 확인하세요.</div>${sotKpis([["검색", "0", "fallback"], ["장바구니", "0", "fallback"], ["구매", "0", "fallback"], ["매출", "0원", "fallback"]])}`;
-      return;
-    }
-
-    if (sotDashDatasetFilter !== "legacy") {
-      target.innerHTML = renderSotOperationalPlaceholder();
       return;
     }
 
@@ -692,13 +686,6 @@
     else if (sotDashActiveSection === "course") target.innerHTML = renderSotCourse();
     else if (sotDashActiveSection === "quality") target.innerHTML = renderSotQuality();
     else target.innerHTML = renderSotPayment();
-  }
-
-  function renderSotOperationalPlaceholder() {
-    return `
-      <div class="sot-dash-callout">신규 분석은 current / sot-dashboard-aggregator 데이터 연결이 필요합니다. 현재 운영 화면은 레거시 분석 탭의 data_source=legacy 데이터를 기준으로 검증합니다.</div>
-      ${sotKpis([["상태", "후속 연결 필요", "current / aggregator"], ["접속 수", "집계 데이터 없음", "session_count / visit_count"], ["유입/디바이스", "집계 데이터 없음", "source/device agg_type"], ["대상", "레거시 분석 탭", "data_source=legacy"]])}
-    `;
   }
 
   function renderSotDashboardNotLoaded() {
@@ -1428,7 +1415,7 @@
       btn.addEventListener("click", () => {
         activeAdminView = btn.dataset.adminView;
         syncAdminView();
-        if (activeAdminView === "database") renderSotDashboard();
+        if (activeAdminView === "legacy") renderSotDashboard();
       });
     });
 
@@ -1445,15 +1432,6 @@
       if (tabButton) {
         sotDashActiveTab = tabButton.dataset.sotTab || "summary";
         renderSotDashboard();
-        return;
-      }
-
-      const datasetButton = e.target.closest("[data-sot-dataset]");
-      if (datasetButton) {
-        sotDashDatasetFilter = datasetButton.dataset.sotDataset || "legacy";
-        syncSotDashboardFilters();
-        renderSotDashboard();
-        logDashboardCacheRebuild("dataset tab change");
         return;
       }
 
