@@ -142,6 +142,7 @@
   let sotDashPeriodFilter = "legacy_window";
   let sotDashSourceFilter = "all";
   let sotDashFetchCount = 0;
+  let sotDashSelectedWeekStart = "";
   let sotDashSelectedDateKey = "";
   let sotDashboardRawRows = [];
   let sotDashboardRows = [];
@@ -160,6 +161,9 @@
   const formatNumber = SOT_HEAD.formatNumber;
   const formatWon = SOT_HEAD.formatWon;
   const formatPercent = SOT_HEAD.formatPercent;
+  const sessionIdsCount = SOT_HEAD.sessionIdsCount;
+  const saturdayWeekStart = SOT_HEAD.saturdayWeekStart;
+  const saturdayWeekLabel = SOT_HEAD.saturdayWeekLabel;
 
   function initUI(){
 
@@ -181,7 +185,7 @@
 
       <div class="sh-admin-tabs" role="tablist" aria-label="Admin views">
         <button class="sh-admin-tab is-active" type="button" data-admin-view="events" aria-selected="true">대회 관리</button>
-        <button class="sh-admin-tab" type="button" data-admin-view="database" aria-selected="false">DB 분석</button>
+        <button class="sh-admin-tab" type="button" data-admin-view="database" aria-selected="false">레거시 분석</button>
       </div>
 
       <section class="sh-admin-panel" data-admin-panel="events">
@@ -239,22 +243,22 @@
             <div class="sot-dash-topbar">
               <div>
                 <h2 class="sot-dash-title" id="sot_dash_title">전체 현황</h2>
-                <p class="sot-dash-desc" id="sot_dash_desc">전체 KPI, 퍼널, 검색/노출과 주의 항목을 탭으로 확인합니다.</p>
+                <p class="sot-dash-desc" id="sot_dash_desc">전체 KPI, 퍼널, 검색/노출을 탭으로 확인합니다.</p>
               </div>
               <div class="sot-dash-filters">
                 <div class="sot-dash-tabs compact" role="tablist" aria-label="dashboard source">
-                  <button class="sot-dash-tab is-active" type="button" data-sot-dataset="legacy">레거시 집계</button>
-                  <button class="sot-dash-tab" type="button" data-sot-dataset="operational">운영 집계</button>
+                  <button class="sot-dash-tab is-active" type="button" data-sot-dataset="legacy">레거시 분석</button>
+                  <button class="sot-dash-tab" type="button" data-sot-dataset="operational">신규 분석</button>
                 </div>
-                <select class="sh-select" id="sot_dash_event_filter"></select>
-                <select class="sh-select" id="sot_dash_period_filter">
-                  <option value="legacy_window" selected>Legacy 6/7~6/13</option>
-                  <option value="today">오늘</option>
-                  <option value="last_7_days">최근 7일</option>
-                  <option value="this_month">이번 달</option>
-                  <option value="all">전체</option>
-                </select>
-                <select class="sh-select" id="sot_dash_source_filter"></select>
+                <label class="sot-dash-filter-item"><span>대회</span><select class="sh-select" id="sot_dash_event_filter"></select></label>
+                <label class="sot-dash-filter-item"><span>기간</span><select class="sh-select" id="sot_dash_period_filter">
+                    <option value="legacy_window" selected>Legacy 6/7~6/13</option>
+                    <option value="today">오늘</option>
+                    <option value="last_7_days">최근 7일</option>
+                    <option value="this_month">이번 달</option>
+                    <option value="all">전체</option>
+                  </select></label>
+                <label class="sot-dash-filter-item"><span>유입</span><select class="sh-select" id="sot_dash_source_filter"></select></label>
                 <button class="sot-dash-btn" type="button" id="sot_dash_refresh_btn">데이터 새로고침</button>
               </div>
             </div>
@@ -575,7 +579,8 @@
       event_code: "all",
       event_name: "전체 대회",
       people: dashboardPeopleForSelection("all"),
-      sessions: numberValue(state, ["visit_count", "session_count"]),
+      sessions: dashboardSessionCount(state),
+      search_users: dashboardSearchUserCount(state),
       searches: numberValue(state, ["search_count"]),
       carts: numberValue(state, ["cart_count"]),
       cart_photo_count: numberValue(state, ["cart_photo_count"]),
@@ -593,7 +598,8 @@
       event_code: sotDashEventFilter,
       event_name: option.event_name || selected.event_name || sotDashEventFilter,
       people: dashboardPeopleForSelection(sotDashEventFilter),
-      sessions: numberValue(selected, ["visit_count", "session_count"]),
+      sessions: dashboardSessionCount(selected),
+      search_users: dashboardSearchUserCount(selected),
       searches: numberValue(selected, ["search_count"]),
       carts: numberValue(selected, ["cart_count"]),
       cart_photo_count: numberValue(selected, ["cart_photo_count"]),
@@ -604,6 +610,15 @@
       zero_exposure_count: numberValue(selected, ["zero_exposure_count"]),
       revenue: numberValue(selected, ["revenue"])
     };
+  }
+
+  function dashboardSessionCount(row) {
+    const parsed = sessionIdsCount(row);
+    return parsed || numberValue(row, ["session_count", "visit_count"]);
+  }
+
+  function dashboardSearchUserCount(row) {
+    return numberValue(row, ["search_user_count", "search_session_count"]);
   }
 
   function dashboardPeopleForSelection(eventCode) {
@@ -657,13 +672,13 @@
       return;
     }
 
-    if (!sotDashLoaded) {
-      target.innerHTML = renderSotDashboardNotLoaded();
+    if (sotDashDatasetFilter !== "legacy") {
+      target.innerHTML = renderSotOperationalPlaceholder();
       return;
     }
 
-    if (sotDashDatasetFilter !== "legacy") {
-      target.innerHTML = renderSotOperationalPlaceholder();
+    if (!sotDashLoaded) {
+      target.innerHTML = renderSotDashboardNotLoaded();
       return;
     }
 
@@ -681,8 +696,8 @@
 
   function renderSotOperationalPlaceholder() {
     return `
-      <div class="sot-dash-callout">운영 집계는 후속 집계 연결이 필요합니다. 현재 화면은 레거시 집계 탭에서 검증된 data_source=legacy 데이터를 표시합니다.</div>
-      ${sotKpis([["상태", "후속 집계 필요", "current / aggregator"], ["접속 수", "집계 데이터 없음", "visit_count"], ["유입/디바이스", "집계 데이터 없음", "source/device agg_type"], ["대상", "레거시 집계 탭", "data_source=legacy"]])}
+      <div class="sot-dash-callout">신규 분석은 current / sot-dashboard-aggregator 데이터 연결이 필요합니다. 현재 운영 화면은 레거시 분석 탭의 data_source=legacy 데이터를 기준으로 검증합니다.</div>
+      ${sotKpis([["상태", "후속 연결 필요", "current / aggregator"], ["접속 수", "집계 데이터 없음", "session_count / visit_count"], ["유입/디바이스", "집계 데이터 없음", "source/device agg_type"], ["대상", "레거시 분석 탭", "data_source=legacy"]])}
     `;
   }
 
@@ -694,33 +709,34 @@
   }
 
   function defaultSotDashboardTab(section) {
-    if (section === "period") return "periodDay";
+    if (section === "period") return "periodWeek";
     return "summary";
   }
 
   function renderSotOverview() {
     const ev = currentDashEvent();
+    ensureSelectedRevenueWeek();
     const tabs = [
       ["summary", "요약"],
       ["funnel", "전환율 / 퍼널"],
-      ["search", "검색 / 노출"],
-      ["attention", "주의 항목"]
+      ["search", "검색 / 노출"]
     ];
     return `
       ${sotTabs(tabs)}
       ${sotDashActiveTab === "summary" ? `
         ${sotKpis([
           ["접속 수", formatNumber(ev.sessions), "세션 기준"],
-          ["검색 수", formatNumber(ev.searches), "배번호+이름 검색"],
+          ["검색자 수", formatNumber(ev.search_users), "검색 세션/사용자 기준"],
+          ["검색 수", formatNumber(ev.searches), "실제 search_count"],
           ["구매 수", formatNumber(ev.purchases), "purchase_count"],
           ["매출", formatWon(ev.revenue), "revenue"]
         ])}
-        <div class="sot-dash-callout">접속 수/세션 수는 현재 legacy Dashboard에 visit_count/session_count 집계가 없어 0으로 표시됩니다. 유입/디바이스는 후속 source/device 집계 연결 후 표시됩니다.</div>
+        <div class="sot-dash-callout">접속 수는 session_ids 파싱값을 우선 사용하고, 없으면 session_count/visit_count를 사용합니다. 검색자 수는 search_user_count/search_session_count가 없으면 0으로 표시됩니다. 유입/디바이스는 후속 source/device 집계 연결 후 표시됩니다.</div>
         <div class="sot-dash-grid two">
-          ${sotPanel("일자별 매출 추이", sotChart((sotDashData.daily || []).map(row => [row.date_key || row.period_key || row.label, row.revenue / 1000])))}
+          ${sotPanel("주차별 매출 추이", renderWeeklyRevenuePanel())}
           ${sotPanel("참가자 대비 성과", sotKpis([
             ["참가자 수", ev.people ? formatNumber(ev.people) : "미입력", "Event.people"],
-            ["참가자당 매출", formatWon(Math.round(ev.revenue / Math.max(1, ev.people))), "revenue / participants"],
+            ["객단가", formatWon(Math.round(ev.revenue / Math.max(1, ev.purchases))), "revenue / purchase_count"],
             ["참가자 대비 구매율", formatPercent(safeRate(ev.purchases, ev.people)), "purchase / participants"],
             ["참가자 대비 구매사진", formatPercent(safeRate(ev.purchase_photo_count, ev.people)), "purchase_photo_count / participants"]
           ], "mini"))}
@@ -740,27 +756,26 @@
           ${sotPanel("검색 타입별 성과", sotTable(["검색 타입", "검색 수", "구매 수", "전환율", "평균노출"], searchTypeRows(ev)))}
           ${sotPanel("노출 상태", sotTable(["상태", "건수", "비율"], exposureRows(ev)))}
         </div>
-        ${sotPanel("검색어 Top / 문제 검색어", sotTable(["검색어", "타입", "검색 수", "결과", "구매 연결"], []))}
-      ` : ""}
-      ${sotDashActiveTab === "attention" ? `
-        <div class="sot-dash-callout warn">데이터 품질 항목은 클릭하면 실제 문제 row 목록을 여는 방식으로 설계합니다. 아래 목록은 더미 예시입니다.</div>
-        ${sotPanel("품질 경고", qualityTable())}
       ` : ""}
     `;
   }
 
   function renderSotPeriod() {
+    ensureSelectedRevenueWeek();
+    ensureSelectedDateKey();
     return `
-      ${sotTabs([["periodDay", "일별"], ["periodWeek", "주간"], ["periodMonth", "월별"]])}
-      ${sotDashActiveTab === "summary" || sotDashActiveTab === "periodDay" ? sotPanel("일별 핵심 지표", sotTable(["날짜", "검색", "장바구니", "카트사진", "구매", "구매사진", "매출", "노출", "노출 0건"], dailyRows())) : ""}
-      ${sotDashActiveTab === "summary" || sotDashActiveTab === "periodDay" ? sotPanel(`${sotDashSelectedDateKey || "선택 날짜"} 시간대별 정보`, sotTable(["시간", "검색", "장바구니", "카트사진", "구매", "구매사진", "매출", "노출", "노출 0건"], selectedDayHourlyRows())) : ""}
-      ${sotDashActiveTab === "periodWeek" ? sotPanel("주간 핵심 지표", `<div class="sot-dash-callout">주간 집계는 후속 집계 필요 항목입니다. 현재 레거시 탭은 일별/선택일 시간대별 검산을 우선 표시합니다.</div>`) : ""}
-      ${sotDashActiveTab === "periodMonth" ? sotPanel("월별 핵심 지표", `<div class="sot-dash-callout">월별 집계는 후속 집계 필요 항목입니다. 현재 레거시 탭은 6/7~6/13 window 기준입니다.</div>`) : ""}
+      ${sotTabs([["periodWeek", "주차별"], ["periodMonth", "월별"]])}
+      ${sotDashActiveTab === "summary" || sotDashActiveTab === "periodWeek" ? sotPanel("주차별 요약", sotTable(["주차", "검색", "장바구니", "카트사진", "구매", "구매사진", "매출", "노출", "노출 0건"], weeklyRows())) : ""}
+      ${sotDashActiveTab === "summary" || sotDashActiveTab === "periodWeek" ? sotPanel(`${saturdayWeekLabel(sotDashSelectedWeekStart)} 일자별 상세`, sotTable(["날짜", "검색", "장바구니", "카트사진", "구매", "구매사진", "매출", "노출", "노출 0건"], selectedWeekDailyRows())) : ""}
+      ${sotDashActiveTab === "summary" || sotDashActiveTab === "periodWeek" ? sotPanel(`${sotDashSelectedDateKey || "선택 날짜"} 시간대별 상세`, sotTable(["시간", "검색", "장바구니", "카트사진", "구매", "구매사진", "매출", "노출", "노출 0건"], selectedDayHourlyRows())) : ""}
+      ${sotDashActiveTab === "periodMonth" ? sotPanel("월별 핵심 지표", sotTable(["월", "검색", "장바구니", "카트사진", "구매", "구매사진", "매출", "노출", "노출 0건"], monthlyRows())) : ""}
     `;
   }
 
   function ensureSelectedDateKey() {
-    const dates = (sotDashData.daily || []).map(row => row.date_key || row.period_key).filter(Boolean);
+    const weekRows = selectedWeekDailyMetricRows();
+    const source = weekRows.length ? weekRows : (sotDashData.daily || []);
+    const dates = source.map(row => row.date_key || row.period_key).filter(Boolean);
     if (!dates.length) {
       sotDashSelectedDateKey = "";
       return;
@@ -768,23 +783,83 @@
     if (!dates.includes(sotDashSelectedDateKey)) sotDashSelectedDateKey = dates[0];
   }
 
+  function ensureSelectedRevenueWeek() {
+    const weeks = weeklyMetricRows();
+    if (!weeks.length) {
+      sotDashSelectedWeekStart = "";
+      return;
+    }
+    if (!weeks.some(row => row.week_start === sotDashSelectedWeekStart)) {
+      sotDashSelectedWeekStart = weeks[0].week_start;
+    }
+  }
+
+  function weeklyMetricRows() {
+    return groupDashboardRowsByKey(sotDashData.daily || [], row => saturdayWeekStart(row.date_key || row.period_key || row.label), key => ({
+      week_start: key,
+      label: saturdayWeekLabel(key),
+      period_key: key,
+      date_key: key
+    }));
+  }
+
+  function monthlyMetricRows() {
+    return groupDashboardRowsByKey(sotDashData.daily || [], row => String(row.date_key || row.period_key || "").slice(0, 7), key => ({
+      label: key || "월 미지정",
+      period_key: key,
+      date_key: key
+    }));
+  }
+
+  function selectedWeekDailyMetricRows() {
+    if (!sotDashSelectedWeekStart) return sotDashData.daily || [];
+    return (sotDashData.daily || []).filter(row => saturdayWeekStart(row.date_key || row.period_key || row.label) === sotDashSelectedWeekStart);
+  }
+
+  function groupDashboardRowsByKey(rows, keyFn, baseFn) {
+    const fields = ["search_count", "cart_count", "cart_photo_count", "purchase_count", "purchase_photo_count", "revenue", "exposure_count", "exposure_sum", "zero_exposure_count"];
+    const groups = new Map();
+    (rows || []).forEach(row => {
+      const key = keyFn(row);
+      if (!key) return;
+      if (!groups.has(key)) groups.set(key, { ...(baseFn ? baseFn(key) : { label:key }) });
+      const group = groups.get(key);
+      fields.forEach(field => {
+        group[field] = Number(group[field] || 0) + Number(row[field] || 0);
+      });
+    });
+    return Array.from(groups.values()).sort((a, b) => String(a.period_key || a.label).localeCompare(String(b.period_key || b.label)));
+  }
+
+  function renderWeeklyRevenuePanel() {
+    const weeks = weeklyMetricRows();
+    if (!weeks.length) return `<div class="sot-dash-callout">매출 추이 데이터가 없습니다.</div>`;
+    const selected = sotDashSelectedWeekStart || weeks[0].week_start;
+    const options = weeks.map(row => `<option value="${escapeHtml(row.week_start)}" ${row.week_start === selected ? "selected" : ""}>${escapeHtml(row.label)}</option>`).join("");
+    const chartRows = selectedWeekDailyMetricRows().map(row => [row.date_key || row.period_key || row.label, row.revenue / 1000]);
+    return `
+      <label class="sot-dash-filter-item inline"><span>주차</span><select class="sh-select" id="sot_dash_revenue_week_filter">${options}</select></label>
+      ${sotChart(chartRows)}
+    `;
+  }
+
   function renderSotEvent() {
     return `
-      ${sotKpis([["선택 대회", currentDashEvent().event_name || currentDashEvent().event_code || "전체 대회", currentDashEvent().event_code || "all"], ["참가자 수", currentDashEvent().people ? formatNumber(currentDashEvent().people) : "미입력", "Event.people"], ["대회 매출", formatWon(currentDashEvent().revenue), "선택 기간 기준"], ["참가자당 매출", formatWon(Math.round(currentDashEvent().revenue / Math.max(1, currentDashEvent().people))), "revenue / Event.people"]])}
-      ${sotPanel("대회별 요약", sotTable(["event_code", "검색", "장바구니", "카트사진", "구매", "구매사진", "매출"], eventSummaryRows()))}
-      ${sotPanel("대회별 참가자 대비 매출", sotTable(["대회", "참가자당 매출", "참가자 대비 구매율", "참가자 대비 구매사진"], [[currentDashEvent().event_name || currentDashEvent().event_code || "전체 대회", formatWon(Math.round(currentDashEvent().revenue / Math.max(1, currentDashEvent().people))), formatPercent(safeRate(currentDashEvent().purchases, currentDashEvent().people)), formatPercent(safeRate(currentDashEvent().purchase_photo_count, currentDashEvent().people))]]))}
+      ${sotKpis([["선택 대회", currentDashEvent().event_name || currentDashEvent().event_code || "전체 대회", currentDashEvent().event_code || "all"], ["참가자 수", currentDashEvent().people ? formatNumber(currentDashEvent().people) : "미입력", "Event.people"], ["대회 매출", formatWon(currentDashEvent().revenue), "선택 기간 기준"], ["구매자 객단가", formatWon(Math.round(currentDashEvent().revenue / Math.max(1, currentDashEvent().purchases))), "revenue / purchase_count"]])}
+      ${sotPanel("대회별 요약", sotTable(["event_code", "검색", "장바구니", "카트사진", "구매", "구매사진", "매출", "구매자 객단가"], eventSummaryRows()))}
+      ${sotPanel("대회별 참가자 대비 성과", sotTable(["대회", "구매자 객단가", "참가자 대비 구매율", "참가자 대비 구매사진"], [[currentDashEvent().event_name || currentDashEvent().event_code || "전체 대회", formatWon(Math.round(currentDashEvent().revenue / Math.max(1, currentDashEvent().purchases))), formatPercent(safeRate(currentDashEvent().purchases, currentDashEvent().people)), formatPercent(safeRate(currentDashEvent().purchase_photo_count, currentDashEvent().people))]]))}
       ${sotPanel("대회별 시간/유입/전환 요약", sotTable(["대회", "주요 유입", "최고 시간대", "검색→구매", "노출 0건"], []))}
     `;
   }
 
   function renderSotSource() {
     return `
-      <div class="sot-dash-callout">source/device agg row가 아직 없어 유입/디바이스 분석은 후속 집계 연결이 필요합니다.</div>
+      <div class="sot-dash-callout">유입/디바이스는 날짜·대회별 원본 agg row를 화면에서 다시 합산해 표시합니다. 구매 유입은 현재 Purchase row의 attribution 한계로 unknown에 몰릴 수 있습니다.</div>
       <div class="sot-dash-grid two">
-        ${sotPanel("유입별 성과", sotTable(["유입", "접속", "검색", "장바구니", "구매", "매출", "판매사진", "방문→구매"], filteredSources().map(row => [sourceLabel(row.utm_source || row.label), formatNumber(row.visit_count || row.session_count), formatNumber(row.search_count), formatNumber(row.cart_count), formatNumber(row.purchase_count), formatWon(row.revenue), formatNumber(row.purchase_count), formatPercent(safeRate(row.purchase_count, row.visit_count || row.session_count))])))}
-        ${sotPanel("디바이스 + 브라우저 성과", sotTable(["디바이스/브라우저", "접속", "구매", "매출", "방문→구매"], sotDashData.devices.map(row => [row.device || row.label, formatNumber(row.visit_count || row.session_count), formatNumber(row.purchase_count), formatWon(row.revenue), formatPercent(safeRate(row.purchase_count, row.visit_count || row.session_count))])))}
+        ${sotPanel("유입별 성과", sotTable(["유입", "접속", "검색", "장바구니", "구매", "매출", "구매사진", "검색→구매"], filteredSources().map(sourceSummaryRow)))}
+        ${sotPanel("디바이스별 성과", sotTable(["디바이스", "접속", "검색", "장바구니", "구매", "매출", "구매사진", "검색→구매"], deviceSummaryRows()))}
       </div>
-      ${sotPanel("유입 × 디바이스 교차", sotTable(["유입", "1위 디바이스", "2위 디바이스", "구매율 메모"], []))}
+      ${sotPanel("캠페인별 성과", sotTable(["캠페인", "접속", "검색", "장바구니", "구매", "매출", "구매사진", "검색→구매"], campaignSummaryRows()))}
     `;
   }
 
@@ -1069,6 +1144,28 @@
     return (sotDashData.daily || []).map(dailyTableRow);
   }
 
+  function selectedWeekDailyRows() {
+    return selectedWeekDailyMetricRows().map(dailyTableRow);
+  }
+
+  function weeklyRows() {
+    return weeklyMetricRows().map(row => [
+      sotHtml(`<button class="sot-dash-btn ${row.week_start === sotDashSelectedWeekStart ? 'primary' : ''}" type="button" data-sot-week="${escapeHtml(row.week_start)}">${escapeHtml(row.label)}</button>`),
+      formatNumber(row.search_count),
+      formatNumber(row.cart_count),
+      formatNumber(row.cart_photo_count),
+      formatNumber(row.purchase_count),
+      formatNumber(row.purchase_photo_count),
+      formatWon(row.revenue),
+      formatNumber(row.exposure_count),
+      formatNumber(row.zero_exposure_count)
+    ]);
+  }
+
+  function monthlyRows() {
+    return monthlyMetricRows().map(metricTableRow);
+  }
+
   function selectedDayHourlyRows() {
     const byHour = new Map();
     for (let h = 0; h < 24; h += 1) {
@@ -1147,7 +1244,8 @@
       formatNumber(row.cart_photo_count),
       formatNumber(row.purchase_count),
       formatNumber(row.purchase_photo_count),
-      formatWon(row.revenue)
+      formatWon(row.revenue),
+      formatWon(Math.round(row.revenue / Math.max(1, row.purchase_count)))
     ]);
   }
 
@@ -1187,8 +1285,59 @@
   }
 
   function sourceLabel(value) {
-    const map = { sms:"SMS", kakao:"카카오톡", qr:"현장 QR", instagram:"인스타그램", naver:"네이버", google:"구글", direct:"직접", unknown:"미분류" };
-    return map[value] || value || "-";
+    const key = String(value || "").trim();
+    const map = { sms:"SMS", kakao:"카카오톡", qr:"현장 QR", instagram:"인스타그램", naver:"네이버", google:"구글", direct:"직접", d:"direct", n:"naver", i:"instagram", u:"unknown", unknown:"미분류", unknown_source:"미분류" };
+    return map[key] || key || "-";
+  }
+
+  function deviceLabel(value) {
+    const key = String(value || "").trim();
+    const map = { mobile:"mobile", desktop:"desktop", tablet:"tablet", unknown_device:"미분류" };
+    return map[key] || key || "-";
+  }
+
+  function campaignLabel(value) {
+    const key = String(value || "").trim();
+    return key === "unknown_campaign" ? "미분류" : key || "-";
+  }
+
+  function sourceSummaryRow(row) {
+    return [
+      sourceLabel(row.utm_source || row.label),
+      formatNumber(row.visit_count || row.session_count),
+      formatNumber(row.search_count),
+      formatNumber(row.cart_count),
+      formatNumber(row.purchase_count),
+      formatWon(row.revenue),
+      formatNumber(row.purchase_photo_count),
+      formatPercent(safeRate(row.purchase_count, row.search_count))
+    ];
+  }
+
+  function deviceSummaryRows() {
+    return (sotDashData.devices || []).map(row => [
+      deviceLabel(row.device_type || row.device || row.label),
+      formatNumber(row.visit_count || row.session_count),
+      formatNumber(row.search_count),
+      formatNumber(row.cart_count),
+      formatNumber(row.purchase_count),
+      formatWon(row.revenue),
+      formatNumber(row.purchase_photo_count),
+      formatPercent(safeRate(row.purchase_count, row.search_count))
+    ]);
+  }
+
+  function campaignSummaryRows() {
+    return (sotDashData.campaigns || []).map(row => [
+      campaignLabel(row.utm_campaign || row.label),
+      formatNumber(row.visit_count || row.session_count),
+      formatNumber(row.search_count),
+      formatNumber(row.cart_count),
+      formatNumber(row.purchase_count),
+      formatWon(row.revenue),
+      formatNumber(row.purchase_photo_count),
+      formatPercent(safeRate(row.purchase_count, row.search_count))
+    ]);
   }
 
   window.deleteEvent = async function(id) {
@@ -1322,6 +1471,14 @@
         return;
       }
 
+      const weekButton = e.target.closest("[data-sot-week]");
+      if (weekButton) {
+        sotDashSelectedWeekStart = weekButton.dataset.sotWeek || "";
+        ensureSelectedDateKey();
+        renderSotDashboard();
+        return;
+      }
+
       const addCourseButton = e.target.closest("[data-sot-course-add]");
       if (addCourseButton) {
         addSotCourseRange();
@@ -1359,6 +1516,14 @@
       sotDashSourceFilter = e.target.value || "all";
       renderSotDashboard();
       logDashboardCacheRebuild("source filter change");
+    });
+    document.addEventListener("change", e => {
+      if (e.target && e.target.id === "sot_dash_revenue_week_filter") {
+        sotDashSelectedWeekStart = e.target.value || "";
+        ensureSelectedDateKey();
+        renderSotDashboard();
+        logDashboardCacheRebuild("revenue week filter change");
+      }
     });
     $("#sh_month_filter").addEventListener("change", (e) => {
       activeEventMonth = e.target.value || "all";
