@@ -125,6 +125,7 @@
   const API_CREATE_EVENT = "/api/1.1/wf/auto-create-event";
   const API_DATA_EVENT = "/api/1.1/obj/event";
   const API_AUTH_LOGIN = "/api/1.1/wf/auth-kakao-login"; 
+  const BIB_MIN_DIGITS_DEFAULT = 4;
   const SOT_HEAD = window.SotAdminHead;
   if (!SOT_HEAD) {
     console.error("[SOT Dashboard] head helper not loaded");
@@ -163,6 +164,7 @@
   const sessionIdsCount = SOT_HEAD.sessionIdsCount;
   const saturdayWeekStart = SOT_HEAD.saturdayWeekStart;
   const saturdayWeekLabel = SOT_HEAD.saturdayWeekLabel;
+  const addDays = SOT_HEAD.addDays;
 
   function initUI(){
 
@@ -215,6 +217,16 @@
           <input class="sh-input" type="text" id="sh_search" placeholder="이름 또는 코드로 검색...">
           <button class="sh-btn-sm" id="sh_btn_refresh" type="button">새로고침</button>
           <span class="sh-chip" id="sh_count">0건</span>
+        </div>
+
+        <div class="sh-event-filter" aria-label="전 대회 배번호 검색 설정">
+          <label class="sh-label" for="sh_bib_min_digits">전 대회 배번호 최소 자리</label>
+          <select class="sh-select" id="sh_bib_min_digits">
+            <option value="4" selected>4자리 (기본값)</option>
+            <option value="3">3자리</option>
+          </select>
+          <button class="sh-btn-sm pub" id="sh_btn_apply_bib_min_digits" type="button">전 대회 적용</button>
+          <span class="sh-chip" id="sh_bib_min_digits_status">기본값: 4자리</span>
         </div>
 
         <table class="sh-table">
@@ -289,9 +301,10 @@
     const refreshDashboard = opts.refreshDashboard === true;
     $("#sh_tbody").innerHTML = "<tr><td colspan='6' style='text-align:center;'>로드 중...</td></tr>";
     try {
-      const res = await fetch(BUBBLE_API_BASE + API_DATA_EVENT);
+      const res = await fetch(BUBBLE_API_BASE + API_DATA_EVENT + "?limit=200");
       const data = await res.json();
       allEvents = data.response.results || [];
+      syncGlobalBibMinDigitsControl();
       syncMonthFilterOptions();
       applyEventFilters();
       if (refreshDashboard && sotDashLoaded) {
@@ -305,6 +318,60 @@
   function getKSTMonthKey(value) {
     const formatted = formatKSTDate(value);
     return formatted ? formatted.slice(0, 7) : "";
+  }
+
+  function normalizeBibMinDigits(value) {
+    return Number(value) === 3 ? 3 : BIB_MIN_DIGITS_DEFAULT;
+  }
+
+  function syncGlobalBibMinDigitsControl() {
+    const select = $("#sh_bib_min_digits");
+    const status = $("#sh_bib_min_digits_status");
+    if (!select || !status) return;
+
+    const values = Array.from(new Set(allEvents.map(event => normalizeBibMinDigits(event.bib_min_digits))));
+    const value = values.length === 1 ? values[0] : BIB_MIN_DIGITS_DEFAULT;
+    select.value = String(value);
+    status.textContent = values.length > 1
+      ? "대회별 값이 섞여 있습니다. 선택 후 전 대회 적용하세요."
+      : `현재 전 대회: ${value}자리`;
+  }
+
+  async function applyGlobalBibMinDigits() {
+    const select = $("#sh_bib_min_digits");
+    const button = $("#sh_btn_apply_bib_min_digits");
+    const digits = normalizeBibMinDigits(select && select.value);
+    const eventIds = allEvents.map(event => event && event._id).filter(Boolean);
+
+    if (!eventIds.length) {
+      alert("적용할 대회가 없습니다.");
+      return;
+    }
+    if (!confirm(`모든 대회의 배번호 최소 검색 자리를 ${digits}자리로 변경할까요?`)) return;
+
+    if (button) button.disabled = true;
+    try {
+      const results = await Promise.all(eventIds.map(async id => {
+        const res = await fetch(`${BUBBLE_API_BASE}${API_DATA_EVENT}/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bib_min_digits: digits })
+        });
+        return res.ok;
+      }));
+      const failed = results.filter(ok => !ok).length;
+      if (failed) {
+        alert(`${eventIds.length - failed}개 대회에 적용됐습니다. ${failed}개는 저장하지 못했습니다. Bubble event 데이터에 bib_min_digits(숫자) 필드가 있는지 확인해주세요.`);
+        return;
+      }
+      await fetchData({ refreshDashboard: false });
+      alert(`전 대회 배번호 최소 검색 자리를 ${digits}자리로 적용했습니다.`);
+    } catch (error) {
+      console.error("[Admin] global bib minimum update failed", error);
+      alert("저장하지 못했습니다. Bubble event 데이터에 bib_min_digits(숫자) 필드가 있는지 확인해주세요.");
+    } finally {
+      if (button) button.disabled = false;
+    }
   }
 
   function monthLabel(monthKey) {
@@ -799,7 +866,24 @@
 
   function selectedWeekDailyMetricRows() {
     if (!sotDashSelectedWeekStart) return sotDashData.daily || [];
-    return (sotDashData.daily || []).filter(row => saturdayWeekStart(row.date_key || row.period_key || row.label) === sotDashSelectedWeekStart);
+    const byDate = new Map((sotDashData.daily || []).map(row => [row.date_key || row.period_key || row.label, row]));
+    return Array.from({ length:7 }, (_, index) => {
+      const date = addDays(sotDashSelectedWeekStart, index);
+      return byDate.get(date) || {
+        label: date,
+        period_key: date,
+        date_key: date,
+        search_count: 0,
+        cart_count: 0,
+        cart_photo_count: 0,
+        purchase_count: 0,
+        purchase_photo_count: 0,
+        revenue: 0,
+        exposure_count: 0,
+        exposure_sum: 0,
+        zero_exposure_count: 0
+      };
+    });
   }
 
   function groupDashboardRowsByKey(rows, keyFn, baseFn) {
@@ -825,6 +909,7 @@
     const chartRows = selectedWeekDailyMetricRows().map(row => [row.date_key || row.period_key || row.label, row.revenue / 1000]);
     return `
       <label class="sot-dash-filter-item inline"><span>주차</span><select class="sh-select" id="sot_dash_revenue_week_filter">${options}</select></label>
+      <div class="sot-dash-note">단위: 천원</div>
       ${sotChart(chartRows)}
     `;
   }
@@ -1249,7 +1334,7 @@
 
   function sotChart(rows) {
     const max = Math.max(1, ...rows.map(row => Number(row[1]) || 0));
-    return `<div class="sot-dash-chart">${rows.map(row => `<div class="sot-dash-chart-col"><b>${number(row[1])}</b><div class="sot-dash-stick" style="height:${Math.max(8, (Number(row[1]) || 0) / max * 145)}px"></div><span>${escapeHtml(row[0])}</span></div>`).join("")}</div>`;
+    return `<div class="sot-dash-chart">${rows.map(row => `<div class="sot-dash-chart-col"><b>${number(row[1])}</b><div class="sot-dash-stick" style="height:${Math.max(8, (Number(row[1]) || 0) / max * 116)}px"></div><span>${escapeHtml(row[0])}</span></div>`).join("")}</div>`;
   }
 
   function sotFunnel(ev) {
@@ -1508,6 +1593,7 @@
     });
     $("#sh_search").addEventListener("input", applyEventFilters);
     $("#sh_btn_refresh").addEventListener("click", () => fetchData({ refreshDashboard: false }));
+    $("#sh_btn_apply_bib_min_digits").addEventListener("click", applyGlobalBibMinDigits);
 
     $("#sh_btn_create_event").addEventListener("click", async function(){
       this.disabled = true;
@@ -1518,7 +1604,8 @@
           event_date: kstDateInputToISO($("#sh_event_date").value),
           publish_at: kstDateTimeInputToISO($("#sh_publish_at").value),
           is_public: "no",
-          name_search_enabled: $("#sh_name_search_enabled").value === "true"
+          name_search_enabled: $("#sh_name_search_enabled").value === "true",
+          bib_min_digits: BIB_MIN_DIGITS_DEFAULT
         };
         applyPeoplePayload(payload, $("#sh_people").value);
         const res = await fetch(BUBBLE_API_BASE + API_CREATE_EVENT, {
