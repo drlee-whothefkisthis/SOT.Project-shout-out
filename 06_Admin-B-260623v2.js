@@ -219,16 +219,6 @@
           <span class="sh-chip" id="sh_count">0건</span>
         </div>
 
-        <div class="sh-event-filter" aria-label="전 대회 배번호 검색 설정">
-          <label class="sh-label" for="sh_bib_min_digits">전 대회 배번호 최소 자리</label>
-          <select class="sh-select" id="sh_bib_min_digits">
-            <option value="4" selected>4자리 (기본값)</option>
-            <option value="3">3자리</option>
-          </select>
-          <button class="sh-btn-sm pub" id="sh_btn_apply_bib_min_digits" type="button">전 대회 적용</button>
-          <span class="sh-chip" id="sh_bib_min_digits_status">기본값: 4자리</span>
-        </div>
-
         <table class="sh-table">
           <thead>
             <tr>
@@ -301,10 +291,9 @@
     const refreshDashboard = opts.refreshDashboard === true;
     $("#sh_tbody").innerHTML = "<tr><td colspan='6' style='text-align:center;'>로드 중...</td></tr>";
     try {
-      const res = await fetch(BUBBLE_API_BASE + API_DATA_EVENT + "?limit=200");
+      const res = await fetch(BUBBLE_API_BASE + API_DATA_EVENT);
       const data = await res.json();
       allEvents = data.response.results || [];
-      syncGlobalBibMinDigitsControl();
       syncMonthFilterOptions();
       applyEventFilters();
       if (refreshDashboard && sotDashLoaded) {
@@ -322,56 +311,6 @@
 
   function normalizeBibMinDigits(value) {
     return Number(value) === 3 ? 3 : BIB_MIN_DIGITS_DEFAULT;
-  }
-
-  function syncGlobalBibMinDigitsControl() {
-    const select = $("#sh_bib_min_digits");
-    const status = $("#sh_bib_min_digits_status");
-    if (!select || !status) return;
-
-    const values = Array.from(new Set(allEvents.map(event => normalizeBibMinDigits(event.bib_min_digits))));
-    const value = values.length === 1 ? values[0] : BIB_MIN_DIGITS_DEFAULT;
-    select.value = String(value);
-    status.textContent = values.length > 1
-      ? "대회별 값이 섞여 있습니다. 선택 후 전 대회 적용하세요."
-      : `현재 전 대회: ${value}자리`;
-  }
-
-  async function applyGlobalBibMinDigits() {
-    const select = $("#sh_bib_min_digits");
-    const button = $("#sh_btn_apply_bib_min_digits");
-    const digits = normalizeBibMinDigits(select && select.value);
-    const eventIds = allEvents.map(event => event && event._id).filter(Boolean);
-
-    if (!eventIds.length) {
-      alert("적용할 대회가 없습니다.");
-      return;
-    }
-    if (!confirm(`모든 대회의 배번호 최소 검색 자리를 ${digits}자리로 변경할까요?`)) return;
-
-    if (button) button.disabled = true;
-    try {
-      const results = await Promise.all(eventIds.map(async id => {
-        const res = await fetch(`${BUBBLE_API_BASE}${API_DATA_EVENT}/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ bib_min_digits: digits })
-        });
-        return res.ok;
-      }));
-      const failed = results.filter(ok => !ok).length;
-      if (failed) {
-        alert(`${eventIds.length - failed}개 대회에 적용됐습니다. ${failed}개는 저장하지 못했습니다. Bubble event 데이터에 bib_min_digits(숫자) 필드가 있는지 확인해주세요.`);
-        return;
-      }
-      await fetchData({ refreshDashboard: false });
-      alert(`전 대회 배번호 최소 검색 자리를 ${digits}자리로 적용했습니다.`);
-    } catch (error) {
-      console.error("[Admin] global bib minimum update failed", error);
-      alert("저장하지 못했습니다. Bubble event 데이터에 bib_min_digits(숫자) 필드가 있는지 확인해주세요.");
-    } finally {
-      if (button) button.disabled = false;
-    }
   }
 
   function monthLabel(monthKey) {
@@ -452,6 +391,9 @@
           </button>
         </td>
         <td>
+          <button class="sh-btn-sm ${normalizeBibMinDigits(ev.bib_min_digits) === 3 ? 'pub' : 'priv'}" type="button" onclick="toggleBibMinDigits('${ev._id}', ${normalizeBibMinDigits(ev.bib_min_digits)})">
+            ${normalizeBibMinDigits(ev.bib_min_digits)}자리
+          </button>
           <button class="sh-btn-sm" type="button" onclick="editEvent('${ev._id}')">수정</button>
           <button class="sh-btn-sm danger" onclick="deleteEvent('${ev._id}')">삭제</button>
         </td>
@@ -1441,6 +1383,25 @@
     } catch(e) { alert("수정 실패"); }
   };
 
+  window.toggleBibMinDigits = async function(id, current) {
+    const next = normalizeBibMinDigits(current) === 3 ? 4 : 3;
+    try {
+      const res = await fetch(`${BUBBLE_API_BASE}${API_DATA_EVENT}/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bib_min_digits: next })
+      });
+      if (!res.ok) {
+        alert("저장하지 못했습니다. Bubble event 데이터에 bib_min_digits(숫자) 필드가 있는지 확인해주세요.");
+        return;
+      }
+      fetchData({ refreshDashboard: true });
+    } catch(e) {
+      console.error("[Admin] bib minimum update failed", e);
+      alert("배번호 최소 자리 수정 실패");
+    }
+  };
+
   window.editEvent = function(id) {
     editingEventId = id;
     applyEventFilters();
@@ -1593,7 +1554,6 @@
     });
     $("#sh_search").addEventListener("input", applyEventFilters);
     $("#sh_btn_refresh").addEventListener("click", () => fetchData({ refreshDashboard: false }));
-    $("#sh_btn_apply_bib_min_digits").addEventListener("click", applyGlobalBibMinDigits);
 
     $("#sh_btn_create_event").addEventListener("click", async function(){
       this.disabled = true;
