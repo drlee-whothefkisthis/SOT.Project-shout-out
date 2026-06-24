@@ -108,6 +108,8 @@
       mode,
       data_source: config.data_source
     };
+    const usersId = localStorage.getItem("shout_users_id") || sessionStorage.getItem("shout_users_id") || "";
+    if (usersId) payload.users_id = usersId;
 
     ["period", "start_date", "end_date", "agg_type"].forEach(key => {
       if (opts[key] !== undefined && opts[key] !== null && opts[key] !== "") payload[key] = opts[key];
