@@ -151,6 +151,10 @@
   let sotDashLoading = false;
   let sotDashLoaded = false;
   let sotDashLastError = "";
+  let sotCurrentTestData = SOT_HEAD.emptyDashboardData();
+  let sotCurrentTestLoading = false;
+  let sotCurrentTestLoaded = false;
+  let sotCurrentTestLastError = "";
 
   const SOT_DASH_SECTIONS = SOT_HEAD.dashboardSections;
   const numberValue = SOT_HEAD.numberValue;
@@ -164,7 +168,20 @@
   const sessionIdsCount = SOT_HEAD.sessionIdsCount;
   const saturdayWeekStart = SOT_HEAD.saturdayWeekStart;
   const saturdayWeekLabel = SOT_HEAD.saturdayWeekLabel;
-  const addDays = SOT_HEAD.addDays;
+  const addDays = typeof SOT_HEAD.addDays === "function"
+    ? SOT_HEAD.addDays
+    : function(dateKey, days){
+        if (!dateKey) return "";
+        const [y, m, d] = String(dateKey).split("-").map(Number);
+        if (!y || !m || !d) return "";
+        const base = new Date(Date.UTC(y, m - 1, d));
+        base.setUTCDate(base.getUTCDate() + Number(days || 0));
+        const yy = base.getUTCFullYear();
+        const mm = String(base.getUTCMonth() + 1).padStart(2, "0");
+        const dd = String(base.getUTCDate()).padStart(2, "0");
+        console.warn("[SOT Admin] SotAdminHead.addDays missing, using local fallback");
+        return `${yy}-${mm}-${dd}`;
+      };
 
   function initUI(){
 
@@ -237,13 +254,9 @@
       <section class="sh-admin-panel is-hidden" data-admin-panel="database" hidden>
         <div class="sot-dash-panel">
           <h3>신규 분석</h3>
-          <div class="sot-dash-callout">신규 분석은 current / sot-dashboard-aggregator 데이터 연결 후 표시합니다. 현재 이 메뉴는 신규 데이터용 자리만 잡아둔 상태입니다.</div>
-          <div class="sot-dash-kpis">
-            <div class="sot-dash-card"><div class="sot-dash-label">상태</div><div class="sot-dash-value">후속 연결 필요</div><div class="sot-dash-note">current / aggregator</div></div>
-            <div class="sot-dash-card"><div class="sot-dash-label">접속 수</div><div class="sot-dash-value">집계 데이터 없음</div><div class="sot-dash-note">session_count / visit_count</div></div>
-            <div class="sot-dash-card"><div class="sot-dash-label">유입·디바이스</div><div class="sot-dash-value">집계 데이터 없음</div><div class="sot-dash-note">source / device / campaign</div></div>
-            <div class="sot-dash-card"><div class="sot-dash-label">대상</div><div class="sot-dash-value">신규 데이터</div><div class="sot-dash-note">data_source=current 예정</div></div>
-          </div>
+          <div class="sot-dash-callout">현재는 Cloud Run JSON API의 <code>current_test</code> 연결만 확인합니다. 토큰은 브라우저에 저장하지 않고 Bubble Admin 프록시가 서버에서 처리합니다.</div>
+          <button class="sot-dash-btn" type="button" id="sot_current_test_refresh_btn">current_test 데이터 새로고침</button>
+          <div class="sot-dash-content" id="sot_current_test_content"></div>
         </div>
       </section>
 
@@ -451,6 +464,76 @@
     renderSotDashNav();
     syncSotDashboardFilters();
     renderSotDashboard();
+    renderCurrentTestDashboard();
+  }
+
+  async function loadCurrentTestDashboard() {
+    if (sotCurrentTestLoading) return;
+
+    sotCurrentTestLoading = true;
+    sotCurrentTestLastError = "";
+    renderCurrentTestDashboard();
+
+    try {
+      const payload = await SOT_HEAD.fetchDashboardSummaryFromCloudRun({
+        data_source: "current_test",
+        period: "test-window",
+        start_date: "2026-06-20T00:00:00+09:00",
+        end_date: "2026-06-23T13:57:16.854371+09:00"
+      });
+      sotCurrentTestData = SOT_HEAD.normalizeCloudRunDashboardPayload(payload);
+      sotCurrentTestLoaded = true;
+      console.log("[SOT Current Test] API connected", {
+        data_source: payload.data_source,
+        generated_at: payload.generated_at,
+        summary: payload.summary,
+        event_count: (payload.events || []).length,
+        daily_count: (payload.daily || []).length,
+        hourly_count: (payload.hourly || []).length
+      });
+    } catch (error) {
+      sotCurrentTestLastError = error && error.message ? error.message : "current_test API 연결 실패";
+      console.error("[SOT Current Test] API failed", error);
+    } finally {
+      sotCurrentTestLoading = false;
+      renderCurrentTestDashboard();
+    }
+  }
+
+  function renderCurrentTestDashboard() {
+    const target = $("#sot_current_test_content");
+    if (!target) return;
+
+    if (sotCurrentTestLoading) {
+      target.innerHTML = `<div class="sot-dash-callout">Bubble Admin 프록시를 통해 current_test 데이터를 불러오는 중입니다.</div>`;
+      return;
+    }
+    if (sotCurrentTestLastError) {
+      target.innerHTML = `<div class="sot-dash-callout warn">current_test API 연결 실패: ${escapeHtml(sotCurrentTestLastError)}<br>레거시 데이터는 레거시데이터 메뉴의 기존 Bubble Data API 경로로 계속 조회할 수 있습니다.</div>`;
+      return;
+    }
+    if (!sotCurrentTestLoaded) {
+      target.innerHTML = `<div class="sot-dash-callout">current_test 데이터를 아직 불러오지 않았습니다. 위 버튼을 눌러 Bubble Admin 프록시 연결을 확인하세요.</div>`;
+      return;
+    }
+
+    const state = sotCurrentTestData.state || {};
+    const events = sotCurrentTestData.event_summaries || [];
+    const daily = sotCurrentTestData.daily || [];
+    target.innerHTML = `
+      <div class="sot-dash-callout">current_test API connected. Cloud Run JSON API를 Bubble Admin 프록시로 조회했으며, 브라우저에서 write mode는 호출하지 않았습니다.</div>
+      ${sotKpis([
+        ["검색", formatNumber(state.search_count), "search_count"],
+        ["장바구니", formatNumber(state.cart_count), "cart_count"],
+        ["구매", formatNumber(state.purchase_count), "purchase_count"],
+        ["매출", formatWon(state.revenue), "revenue"],
+        ["노출", formatNumber(state.exposure_sum), "exposure_sum"],
+        ["대회", formatNumber(events.length), "events" ]
+      ])}
+      <div class="sot-dash-grid two">
+        ${sotPanel("대회별 요약", sotTable(["대회", "검색", "장바구니", "구매", "매출"], events.slice(0, 12).map(row => [row.event_code || row.label || "unknown", formatNumber(row.search_count), formatNumber(row.cart_count), formatNumber(row.purchase_count), formatWon(row.revenue)])))}
+        ${sotPanel("일자별 요약", sotTable(["날짜", "검색", "구매", "매출"], daily.slice(0, 12).map(row => [row.date_key || row.period_key || row.label || "-", formatNumber(row.search_count), formatNumber(row.purchase_count), formatWon(row.revenue)])))}
+      </div>`;
   }
 
   async function loadDashboard() {
@@ -1461,6 +1544,7 @@
         activeAdminView = btn.dataset.adminView;
         syncAdminView();
         if (activeAdminView === "legacy") renderSotDashboard();
+        if (activeAdminView === "database") renderCurrentTestDashboard();
       });
     });
 
@@ -1484,6 +1568,13 @@
       if (refreshButton) {
         console.log("[SOT Dashboard] refresh button clicked");
         loadDashboard();
+        return;
+      }
+
+      const currentTestRefreshButton = e.target.closest("#sot_current_test_refresh_btn");
+      if (currentTestRefreshButton) {
+        console.log("[SOT Current Test] refresh button clicked");
+        loadCurrentTestDashboard();
         return;
       }
 
