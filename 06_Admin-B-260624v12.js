@@ -104,8 +104,14 @@
   async function fetchDashboardProxy(mode, options) {
     const opts = options || {};
     const config = getDashboardApiConfig(opts);
+    // Browser-facing aliases are translated to the Cloud Run mode contract.
+    const cloudRunMode = mode === "summary"
+      ? "dashboard_summary"
+      : mode === "detail"
+        ? "dashboard_detail"
+        : mode;
     const payload = {
-      mode,
+      mode: cloudRunMode,
       data_source: config.data_source
     };
     const usersId = localStorage.getItem("shout_users_id") || sessionStorage.getItem("shout_users_id") || "";
@@ -129,7 +135,12 @@
     }
 
     try {
-      return text ? JSON.parse(text) : {};
+      const parsed = text ? JSON.parse(text) : {};
+      const response = parsed && (parsed.response || parsed);
+      if (response && response.ok === false) {
+        throw new Error(response.error || "SOT Dashboard proxy returned ok=false");
+      }
+      return parsed;
     } catch (e) {
       console.error("[SOT Dashboard] proxy JSON parse failed", { status: res.status, body: text.slice(0, 500), payload });
       throw e;
