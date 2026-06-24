@@ -874,20 +874,66 @@
       </div>`;
   }
 
+  function currentDashFallbackTable(headers) {
+    return `<div class="ctdash-table-wrap"><table class="ctdash-table"><thead><tr>${headers.map(header => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead><tbody><tr><td colspan="${headers.length}">데이터가 없습니다.</td></tr></tbody></table></div>`;
+  }
+
+  function renderCurrentDashFallbackView(stateTitle, stateMessage) {
+    const stateCard = `<article class="ctdash-card ctdash-section section"><div class="ctdash-kicker">${escapeHtml(stateTitle)}</div><h3>데이터를 불러오지 못했습니다</h3><div class="ctdash-callout warn">${escapeHtml(stateMessage)}</div></article>`;
+    if (currentDashView === "diary") return `${stateCard}${renderCurrentDashDiaryView()}`;
+
+    const eventMode = currentDashView === "event-analysis";
+    const title = eventMode ? "대회별 분석" : "리포트";
+    const kicker = eventMode ? "Event Analysis" : "Report";
+    const metrics = eventMode
+      ? [["대회명", "비어있음", "대회 데이터를 기다리는 중"], ["참가자 수", "0명", "Bubble 이벤트 데이터"], ["대회매출", "₩0", "선택 기간 기준"], ["객단가", "₩0", "구매 1건당"]]
+      : [["접속수", "0회", "로컬 개수"], ["검색자", "0명", "로컬 개수"], ["검색수", "0건", "세션 수"], ["장바구니수", "0건", "카트 진입"], ["구매수", "0건", "결제 완료"]];
+    const trafficHeaders = eventMode ? ["대회", "캠페인", "소스", "검색", "구매", "매출"] : ["캠페인", "소스", "접속", "검색", "구매", "매출"];
+    return `
+      ${stateCard}
+      <section class="ctdash-screen ctdash-fallback-screen">
+        <article class="ctdash-card ctdash-section section">
+          <div class="ctdash-section-head">
+            <div><div class="ctdash-kicker">${kicker}</div><h3>${title}</h3><p>데이터 연결 전에도 동일한 리포트 구조를 먼저 표시합니다.</p></div>
+            <div class="ctdash-period-tabs"><button class="ctdash-chip is-active" type="button">${eventMode ? "전체" : "일별"}</button><button class="ctdash-chip" type="button">${eventMode ? "월별" : "주별"}</button><button class="ctdash-chip" type="button">${eventMode ? "주차별" : "월별"}</button></div>
+          </div>
+          <div class="${eventMode ? "ctdash-summary-grid" : "ctdash-metrics-grid"}">${metrics.map(row => metricCard(row[0], row[1], row[2])).join("")}</div>
+        </article>
+        <div class="ctdash-two-col">
+          <article class="ctdash-card ctdash-section section">
+            <div class="ctdash-section-head"><div><div class="ctdash-kicker">${eventMode ? "Graph" : "Hourly"}</div><h3>${eventMode ? "기간 그래프" : "시간대별 그래프"}</h3></div><span class="ctdash-tag">데이터 대기 중</span></div>
+            <div class="ctdash-chart-box"><div class="ctdash-chart-placeholder">${sotCurrentTestLoading ? "데이터 대기 중" : "표시할 데이터가 없습니다"}</div></div>
+          </article>
+          <article class="ctdash-card ctdash-section section">
+            <div class="ctdash-section-head"><div><div class="ctdash-kicker">Conversion</div><h3>${eventMode ? "스팟별 데이터" : "전환율"}</h3></div><span class="ctdash-tag">0%</span></div>
+            <div class="ctdash-conv-grid">${["접속 → 검색", "검색 → 카트", "카트 → 구매"].map(label => `<div class="ctdash-conv-card"><div class="ctdash-conv-top"><h4>${label}</h4><strong>0%</strong></div><div class="ctdash-bar"><span style="width:0%"></span></div><p>데이터 없음</p></div>`).join("")}</div>
+          </article>
+        </div>
+        <article class="ctdash-card ctdash-section section">
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Traffic</div><h3>${eventMode ? "유입경로별 분석" : "유입별"}</h3></div><span class="ctdash-tag">Campaign / Source</span></div>
+          ${currentDashFallbackTable(trafficHeaders)}
+        </article>
+        <article class="ctdash-card ctdash-section section">
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Sales</div><h3>매출</h3></div><span class="ctdash-tag">₩0</span></div>
+          <div class="ctdash-sales-grid">${[["참가자 수", "0명", "Bubble 이벤트 데이터"], ["객단가", "₩0", "구매 1건당"], ["일매출", "₩0", "선택 기간 합계"], ["참가자 대비 구매율", "0%", "로컬 기준"]].map(row => metricCard(row[0], row[1], row[2])).join("")}</div>
+        </article>
+      </section>`;
+  }
+
   function renderCurrentTestDashboard() {
     const target = $("#sot_current_test_content");
     if (!target) return;
 
     if (sotCurrentTestLoading) {
-      target.innerHTML = currentTestDashboardFrame(`<article class="ctdash-card ctdash-section section"><div class="ctdash-callout">Bubble Admin 프록시를 통해 current_test 데이터를 불러오는 중입니다.</div></article>`, "불러오는 중");
+      target.innerHTML = currentTestDashboardFrame(renderCurrentDashFallbackView("Loading", "Bubble Admin 프록시를 통해 current_test 데이터를 불러오는 중입니다."), "불러오는 중");
       return;
     }
     if (sotCurrentTestLastError) {
-      target.innerHTML = currentTestDashboardFrame(`<article class="ctdash-card ctdash-section section"><div class="ctdash-kicker">Connection Error</div><h3>데이터를 불러오지 못했습니다</h3><div class="ctdash-callout warn">current_test API 연결 실패: ${escapeHtml(sotCurrentTestLastError)}<br>레거시 데이터는 레거시데이터 메뉴의 기존 Bubble Data API 경로로 계속 조회할 수 있습니다.</div></article>`, "연결 실패");
+      target.innerHTML = currentTestDashboardFrame(renderCurrentDashFallbackView("Connection Error", `current_test API 연결 실패: ${sotCurrentTestLastError}`), "연결 실패");
       return;
     }
     if (!sotCurrentTestLoaded) {
-      target.innerHTML = currentTestDashboardFrame(`<article class="ctdash-card ctdash-section section"><div class="ctdash-callout">current_test 데이터를 아직 불러오지 않았습니다. DB분석 탭 진입 시 자동 조회되며, 상단 새로고침 버튼으로 다시 불러올 수 있습니다.</div></article>`, "대기 중");
+      target.innerHTML = currentTestDashboardFrame(renderCurrentDashFallbackView("Waiting", "current_test 데이터를 아직 불러오지 않았습니다. DB분석 탭 진입 시 자동 조회됩니다."), "대기 중");
       return;
     }
     syncCurrentDashSelections();
