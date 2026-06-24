@@ -533,29 +533,29 @@
   function initUI(){
 
     const mount = document.createElement("div");
-    mount.className = "sh-admin-wrap";
+    mount.className = "sh-admin-wrap shell";
     mount.innerHTML = `
-      <header class="sh-admin-hero">
-        <div>
+      <header class="sh-admin-hero hero">
+        <div class="sh-admin-hero-main hero-main card">
           <div class="sh-admin-eyebrow">SOT Data API Admin Console</div>
           <h1 class="sh-admin-title">Shout-out Admin Dashboard</h1>
           <p class="sh-admin-sub">대회 관리, 검색, 구매, 스팟, 코스, 노출 품질을 한 화면에서 확인합니다.</p>
         </div>
-        <div class="sh-admin-status-card">
+        <div class="sh-admin-status-card hero-side card">
           <div><b id="sh_hero_status">상태: 대기 중</b></div>
           <div>마지막 업데이트: <span id="sh_hero_updated">레거시데이터에서 조회</span></div>
           <div>Data API: <span id="sh_hero_snapshot_key">SOT:Dashboard</span></div>
         </div>
       </header>
 
-      <div class="sh-admin-tabs" role="tablist" aria-label="Admin views">
-        <button class="sh-admin-tab is-active" type="button" data-admin-view="events" aria-selected="true">대회 관리</button>
-        <button class="sh-admin-tab" type="button" data-admin-view="database" aria-selected="false">DB분석</button>
-        <button class="sh-admin-tab" type="button" data-admin-view="legacy" aria-selected="false">레거시데이터</button>
+      <div class="sh-admin-tabs main-tabs" role="tablist" aria-label="Admin views">
+        <button class="sh-admin-tab tab-btn is-active" type="button" data-admin-view="events" aria-selected="true">대회 관리</button>
+        <button class="sh-admin-tab tab-btn" type="button" data-admin-view="database" aria-selected="false">DB분석</button>
+        <button class="sh-admin-tab tab-btn" type="button" data-admin-view="legacy" aria-selected="false">레거시데이터</button>
       </div>
 
       <section class="sh-admin-panel" data-admin-panel="events">
-        <div class="sh-card">
+        <div class="sh-card card section">
           <div class="sh-row">
             <div class="sh-col"><label class="sh-label">대회 날짜</label><input class="sh-input" type="date" id="sh_event_date"></div>
             <div class="sh-col"><label class="sh-label">디스플레이 네임</label><input class="sh-input" type="text" id="sh_display_name"></div>
@@ -576,7 +576,7 @@
           <button class="sh-btn primary" id="sh_btn_create_event">신규 대회 생성</button>
         </div>
 
-        <div class="sh-event-filter">
+        <div class="sh-event-filter card">
           <select class="sh-select" id="sh_month_filter"></select>
           <input class="sh-input" type="text" id="sh_search" placeholder="이름 또는 코드로 검색...">
           <button class="sh-btn-sm" id="sh_btn_refresh" type="button">새로고침</button>
@@ -846,52 +846,55 @@
     }
   }
 
+  function currentTestDashboardFrame(contentMarkup, stateLabel) {
+    const data = sotCurrentTestData || {};
+    const activeView = currentDashView || "report";
+    return `
+      <div class="ctdash-shell shell">
+        <section class="ctdash-hero hero">
+          <div class="ctdash-hero-main ctdash-card hero-main card">
+            <div class="ctdash-eyebrow eyebrow">DB ANALYSIS</div>
+            <h2>Shout-out Admin Dashboard</h2>
+            <p>리포트, 대회별 분석, 일지 작성을 한 화면에서 확인합니다.</p>
+            <div class="ctdash-main-tabs main-tabs" role="tablist" aria-label="DB analysis views">
+              <button class="ctdash-tab tab-btn ${activeView === "report" ? "is-active" : ""}" type="button" data-ctdash-view="report">리포트</button>
+              <button class="ctdash-tab tab-btn ${activeView === "event-analysis" ? "is-active" : ""}" type="button" data-ctdash-view="event-analysis">대회별 분석</button>
+              <button class="ctdash-tab tab-btn ${activeView === "diary" ? "is-active" : ""}" type="button" data-ctdash-view="diary">일지 작성</button>
+            </div>
+          </div>
+          <aside class="ctdash-hero-side ctdash-card hero-side card">
+            <h3>연결 상태</h3>
+            <div class="ctdash-status-row"><span>데이터 소스</span><b>current_test</b></div>
+            <div class="ctdash-status-row"><span>상태</span><b>${escapeHtml(stateLabel || "준비")}</b></div>
+            <div class="ctdash-status-row"><span>대회 수</span><b>${formatNumber((data.event_summaries || []).length)}</b></div>
+            <button class="ctdash-refresh" type="button" id="sot_current_test_refresh_btn">DB분석 새로고침</button>
+          </aside>
+        </section>
+        ${contentMarkup || ""}
+      </div>`;
+  }
+
   function renderCurrentTestDashboard() {
     const target = $("#sot_current_test_content");
     if (!target) return;
 
     if (sotCurrentTestLoading) {
-      target.innerHTML = `<div class="ctdash-callout">Bubble Admin 프록시를 통해 current_test 데이터를 불러오는 중입니다.</div>`;
+      target.innerHTML = currentTestDashboardFrame(`<article class="ctdash-card ctdash-section section"><div class="ctdash-callout">Bubble Admin 프록시를 통해 current_test 데이터를 불러오는 중입니다.</div></article>`, "불러오는 중");
       return;
     }
     if (sotCurrentTestLastError) {
-      target.innerHTML = `<div class="ctdash-callout warn">current_test API 연결 실패: ${escapeHtml(sotCurrentTestLastError)}<br>레거시 데이터는 레거시데이터 메뉴의 기존 Bubble Data API 경로로 계속 조회할 수 있습니다.</div>`;
+      target.innerHTML = currentTestDashboardFrame(`<article class="ctdash-card ctdash-section section"><div class="ctdash-kicker">Connection Error</div><h3>데이터를 불러오지 못했습니다</h3><div class="ctdash-callout warn">current_test API 연결 실패: ${escapeHtml(sotCurrentTestLastError)}<br>레거시 데이터는 레거시데이터 메뉴의 기존 Bubble Data API 경로로 계속 조회할 수 있습니다.</div></article>`, "연결 실패");
       return;
     }
     if (!sotCurrentTestLoaded) {
-      target.innerHTML = `<div class="ctdash-callout">current_test 데이터를 아직 불러오지 않았습니다. DB분석 탭 진입 시 자동 조회되며, 상단 새로고침 버튼으로 다시 불러올 수 있습니다.</div>`;
+      target.innerHTML = currentTestDashboardFrame(`<article class="ctdash-card ctdash-section section"><div class="ctdash-callout">current_test 데이터를 아직 불러오지 않았습니다. DB분석 탭 진입 시 자동 조회되며, 상단 새로고침 버튼으로 다시 불러올 수 있습니다.</div></article>`, "대기 중");
       return;
     }
     syncCurrentDashSelections();
     const reportMarkup = currentDashView === "report" ? renderCurrentDashReportView() : "";
     const eventMarkup = currentDashView === "event-analysis" ? renderCurrentDashEventView() : "";
     const diaryMarkup = currentDashView === "diary" ? renderCurrentDashDiaryView() : "";
-    target.innerHTML = `
-      <div class="ctdash-shell">
-        <section class="ctdash-hero">
-          <div class="ctdash-hero-main ctdash-card">
-            <div class="ctdash-eyebrow">DB ANALYSIS</div>
-            <h2>Shout-out Admin Dashboard</h2>
-            <p>DB분석 탭만 리포트, 대회별 분석, 일지 작성으로 재구성했습니다. 데이터는 Bubble Admin 프록시를 통한 <code>current_test</code> 기준이고, 기존 레거시데이터 탭은 그대로 유지합니다.</p>
-            <div class="ctdash-main-tabs" role="tablist" aria-label="DB analysis views">
-              <button class="ctdash-tab ${currentDashView === "report" ? "is-active" : ""}" type="button" data-ctdash-view="report">리포트</button>
-              <button class="ctdash-tab ${currentDashView === "event-analysis" ? "is-active" : ""}" type="button" data-ctdash-view="event-analysis">대회별 분석</button>
-              <button class="ctdash-tab ${currentDashView === "diary" ? "is-active" : ""}" type="button" data-ctdash-view="diary">일지 작성</button>
-            </div>
-          </div>
-          <aside class="ctdash-hero-side ctdash-card">
-            <h3>연결 상태</h3>
-            <div class="ctdash-status-row"><span>데이터 소스</span><b>current_test</b></div>
-            <div class="ctdash-status-row"><span>마지막 생성</span><b>${escapeHtml(formatDate(sotCurrentTestData.generated_at) || "-")}</b></div>
-            <div class="ctdash-status-row"><span>대회 수</span><b>${formatNumber((sotCurrentTestData.event_summaries || []).length)}</b></div>
-            <button class="ctdash-refresh" type="button" id="sot_current_test_refresh_btn">DB분석 새로고침</button>
-          </aside>
-        </section>
-        ${currentDashEventDetailError && currentDashView === "event-analysis" ? `<div class="ctdash-callout warn">${escapeHtml(currentDashEventDetailError)}</div>` : ""}
-        ${reportMarkup}
-        ${eventMarkup}
-        ${diaryMarkup}
-      </div>`;
+    target.innerHTML = currentTestDashboardFrame(`${currentDashEventDetailError && currentDashView === "event-analysis" ? `<div class="ctdash-callout warn">${escapeHtml(currentDashEventDetailError)}</div>` : ""}${reportMarkup}${eventMarkup}${diaryMarkup}`, "연결됨");
     renderCurrentDashCharts();
   }
 
