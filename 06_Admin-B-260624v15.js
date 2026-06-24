@@ -1290,22 +1290,52 @@
     return [...(rows || [])].sort((a, b) => String(a.date_key || a.period_key || a.label || "").localeCompare(String(b.date_key || b.period_key || b.label || "")));
   }
 
+  function normalizeCurrentDashDateKey(value) {
+    if (!value) return "";
+
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return formatKSTDate(value);
+    }
+
+    const text = String(value);
+    const isoDate = text.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (isoDate) return isoDate[1];
+
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return formatKSTDate(date);
+    }
+
+    return text;
+  }
+
   function buildWeekRows(rows) {
     const map = new Map();
+
     (rows || []).forEach(row => {
       const dateKey = row.date_key || row.period_key || row.label;
       if (!dateKey) return;
-      const weekStart = saturdayWeekStart(dateKey);
+
+      const weekStartRaw = saturdayWeekStart(dateKey);
+      const weekStart = normalizeCurrentDashDateKey(weekStartRaw);
+      if (!weekStart) return;
+
       if (!map.has(weekStart)) {
         map.set(weekStart, []);
       }
       map.get(weekStart).push(row);
     });
-    return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([weekStart, group]) => ({
-      week_start: weekStart,
-      label: `${saturdayWeekLabel(weekStart)} (${String(weekStart).slice(5)} - ${String(addDays(weekStart, 6)).slice(5)})`,
-      rows: group
-    }));
+
+    return [...map.entries()]
+      .sort((a, b) => String(b[0]).localeCompare(String(a[0])))
+      .map(([weekStart, group]) => {
+        const weekEnd = normalizeCurrentDashDateKey(addDays(weekStart, 6));
+        return {
+          week_start: weekStart,
+          label: `${saturdayWeekLabel(weekStart)} (${String(weekStart).slice(5)} - ${String(weekEnd).slice(5)})`,
+          rows: group
+        };
+      });
   }
 
   function buildMonthRows(rows) {
