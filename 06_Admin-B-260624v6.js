@@ -1733,32 +1733,35 @@
     setSotDashHeader();
     const target = $("#sot_dash_content");
     if (!target) return;
+    const stateMarkup = renderSotDashboardState();
+    let sectionMarkup = "";
+    if (sotDashActiveSection === "overview") sectionMarkup = renderSotOverview();
+    else if (sotDashActiveSection === "period") sectionMarkup = renderSotPeriod();
+    else if (sotDashActiveSection === "event") sectionMarkup = renderSotEvent();
+    else if (sotDashActiveSection === "source") sectionMarkup = renderSotSource();
+    else if (sotDashActiveSection === "cart") sectionMarkup = renderSotCart();
+    else if (sotDashActiveSection === "purchase") sectionMarkup = renderSotPurchase();
+    else if (sotDashActiveSection === "spot") sectionMarkup = renderSotSpot();
+    else if (sotDashActiveSection === "course") sectionMarkup = renderSotCourse();
+    else if (sotDashActiveSection === "quality") sectionMarkup = renderSotQuality();
+    else sectionMarkup = renderSotPayment();
+    target.innerHTML = `${stateMarkup}${sectionMarkup}`;
+  }
 
+  function renderSotDashboardState() {
     if (sotDashLoading) {
-      target.innerHTML = `<div class="sot-dash-callout">SOT:Dashboard 데이터를 불러오는 중입니다.</div>${sotKpis([["검색", "-", "search_count"], ["장바구니", "-", "cart_count"], ["구매", "-", "purchase_count"], ["매출", "-", "revenue"]])}`;
-      return;
+      return `<div class="sot-dash-callout is-status"><b>불러오는 중</b><span>SOT:Dashboard 데이터를 불러오는 동안 기본값으로 화면을 표시합니다.</span></div>`;
     }
-
     if (sotDashLastError) {
-      target.innerHTML = `<div class="sot-dash-callout warn">SOT:Dashboard API 데이터를 불러오지 못했습니다. 콘솔의 [SOT Dashboard] 로그를 확인하세요.</div>${sotKpis([["검색", "0", "fallback"], ["장바구니", "0", "fallback"], ["구매", "0", "fallback"], ["매출", "0원", "fallback"]])}`;
-      return;
+      return `<div class="sot-dash-callout warn is-status"><b>데이터 없음</b><span>SOT:Dashboard API 데이터를 불러오지 못했습니다. 기본값과 빈 테이블을 표시합니다.</span></div>`;
     }
-
     if (!sotDashLoaded) {
-      target.innerHTML = renderSotDashboardNotLoaded();
-      return;
+      return `<div class="sot-dash-callout is-status"><b>대기 중</b><span>아직 데이터를 불러오지 않았습니다. 아래 화면은 데이터 수신 전 기본 레이아웃입니다.</span></div>`;
     }
-
-    if (sotDashActiveSection === "overview") target.innerHTML = renderSotOverview();
-    else if (sotDashActiveSection === "period") target.innerHTML = renderSotPeriod();
-    else if (sotDashActiveSection === "event") target.innerHTML = renderSotEvent();
-    else if (sotDashActiveSection === "source") target.innerHTML = renderSotSource();
-    else if (sotDashActiveSection === "cart") target.innerHTML = renderSotCart();
-    else if (sotDashActiveSection === "purchase") target.innerHTML = renderSotPurchase();
-    else if (sotDashActiveSection === "spot") target.innerHTML = renderSotSpot();
-    else if (sotDashActiveSection === "course") target.innerHTML = renderSotCourse();
-    else if (sotDashActiveSection === "quality") target.innerHTML = renderSotQuality();
-    else target.innerHTML = renderSotPayment();
+    if (!sotDashboardRows.length) {
+      return `<div class="sot-dash-callout is-status"><b>비어있음</b><span>선택한 조건에 표시할 데이터가 없습니다.</span></div>`;
+    }
+    return "";
   }
 
   function renderSotDashboardNotLoaded() {
@@ -1801,6 +1804,7 @@
             ["참가자 대비 구매사진", formatPercent(safeRate(ev.purchase_photo_count, ev.people)), "purchase_photo_count / participants"]
           ], "mini"))}
         </div>
+        ${sotPanel("일자별 집계", sotTable(["날짜", "검색", "장바구니", "구매", "매출"], dailyRows().map(row => [row[0], row[1], row[2], row[4], row[6]])))}
       ` : ""}
       ${sotDashActiveTab === "funnel" ? `
         ${sotPanel("전체 퍼널", sotFunnel(ev))}
@@ -1910,7 +1914,7 @@
 
   function renderWeeklyRevenuePanel() {
     const weeks = weeklyMetricRows();
-    if (!weeks.length) return `<div class="sot-dash-callout">매출 추이 데이터가 없습니다.</div>`;
+    if (!weeks.length) return sotChart([]);
     const selected = sotDashSelectedWeekStart || weeks[0].week_start;
     const options = weeks.map(row => `<option value="${escapeHtml(row.week_start)}" ${row.week_start === selected ? "selected" : ""}>${escapeHtml(row.label)}</option>`).join("");
     const chartRows = selectedWeekDailyMetricRows().map(row => [row.date_key || row.period_key || row.label, row.revenue / 1000]);
@@ -2340,6 +2344,9 @@
   }
 
   function sotChart(rows) {
+    if (!rows || !rows.length) {
+      return `<div class="sot-dash-chart-placeholder">${sotDashLoading ? "데이터 대기 중" : "표시할 데이터가 없습니다"}</div>`;
+    }
     const max = Math.max(1, ...rows.map(row => Number(row[1]) || 0));
     return `<div class="sot-dash-chart">${rows.map(row => `<div class="sot-dash-chart-col"><b>${number(row[1])}</b><div class="sot-dash-stick" style="height:${Math.max(8, (Number(row[1]) || 0) / max * 116)}px"></div><span>${escapeHtml(row[0])}</span></div>`).join("")}</div>`;
   }
