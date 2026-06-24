@@ -4,6 +4,7 @@
   const API_DASHBOARD_DATA_LIVE = "/api/1.1/obj/SOT:Dashboard";
   const API_DASHBOARD_DATA_TEST = "/version-test/api/1.1/obj/SOT:Dashboard";
   const DASHBOARD_PAGE_LIMIT = 500;
+  const SOT_BUBBLE_APP_BASE = "https://plp-62309.bubbleapps.io";
   const SOT_ADMIN_DASHBOARD_PROXY_PATH = "/api/1.1/wf/sot-admin-dashboard";
 
   const dashboardSections = [
@@ -94,9 +95,8 @@
 
   function getDashboardApiConfig(options) {
     const opts = options || {};
-    const testPrefix = String(window.location.pathname || "").indexOf("/version-test") === 0 ? "/version-test" : "";
     return {
-      url: opts.proxyUrl || testPrefix + SOT_ADMIN_DASHBOARD_PROXY_PATH,
+      url: opts.proxyUrl || SOT_BUBBLE_APP_BASE + SOT_ADMIN_DASHBOARD_PROXY_PATH,
       data_source: opts.data_source || "current_test"
     };
   }
