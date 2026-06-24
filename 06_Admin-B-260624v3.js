@@ -155,6 +155,18 @@
   let sotCurrentTestLoading = false;
   let sotCurrentTestLoaded = false;
   let sotCurrentTestLastError = "";
+  let currentDashView = "report";
+  let currentDashReportPeriod = "daily";
+  let currentDashEventPeriod = "all";
+  let currentDashSelectedEvent = "all";
+  let currentDashSelectedWeekStart = "";
+  let currentDashSelectedDateKey = "";
+  let currentDashSelectedMonthKey = "";
+  let currentDashEventDetailCode = "";
+  let currentDashEventDetailData = SOT_HEAD.emptyDashboardData();
+  let currentDashEventDetailLoading = false;
+  let currentDashEventDetailError = "";
+  const currentDashEventDetailCache = {};
 
   const SOT_DASH_SECTIONS = SOT_HEAD.dashboardSections;
   const numberValue = SOT_HEAD.numberValue;
@@ -252,12 +264,7 @@
       </section>
 
       <section class="sh-admin-panel is-hidden" data-admin-panel="database" hidden>
-        <div class="sot-dash-panel">
-          <h3>신규 분석</h3>
-          <div class="sot-dash-callout">현재는 Cloud Run JSON API의 <code>current_test</code> 연결만 확인합니다. 토큰은 브라우저에 저장하지 않고 Bubble Admin 프록시가 서버에서 처리합니다.</div>
-          <button class="sot-dash-btn" type="button" id="sot_current_test_refresh_btn">current_test 데이터 새로고침</button>
-          <div class="sot-dash-content" id="sot_current_test_content"></div>
-        </div>
+        <div id="sot_current_test_content"></div>
       </section>
 
       <section class="sh-admin-panel is-hidden" data-admin-panel="legacy" hidden>
@@ -482,6 +489,10 @@
         end_date: "2026-06-23T13:57:16.854371+09:00"
       });
       sotCurrentTestData = SOT_HEAD.normalizeCloudRunDashboardPayload(payload);
+      Object.keys(currentDashEventDetailCache).forEach(key => { delete currentDashEventDetailCache[key]; });
+      currentDashEventDetailCode = "";
+      currentDashEventDetailData = SOT_HEAD.emptyDashboardData();
+      currentDashEventDetailError = "";
       sotCurrentTestLoaded = true;
       console.log("[SOT Current Test] API connected", {
         data_source: payload.data_source,
@@ -505,35 +516,668 @@
     if (!target) return;
 
     if (sotCurrentTestLoading) {
-      target.innerHTML = `<div class="sot-dash-callout">Bubble Admin 프록시를 통해 current_test 데이터를 불러오는 중입니다.</div>`;
+      target.innerHTML = `<div class="ctdash-callout">Bubble Admin 프록시를 통해 current_test 데이터를 불러오는 중입니다.</div>`;
       return;
     }
     if (sotCurrentTestLastError) {
-      target.innerHTML = `<div class="sot-dash-callout warn">current_test API 연결 실패: ${escapeHtml(sotCurrentTestLastError)}<br>레거시 데이터는 레거시데이터 메뉴의 기존 Bubble Data API 경로로 계속 조회할 수 있습니다.</div>`;
+      target.innerHTML = `<div class="ctdash-callout warn">current_test API 연결 실패: ${escapeHtml(sotCurrentTestLastError)}<br>레거시 데이터는 레거시데이터 메뉴의 기존 Bubble Data API 경로로 계속 조회할 수 있습니다.</div>`;
       return;
     }
     if (!sotCurrentTestLoaded) {
-      target.innerHTML = `<div class="sot-dash-callout">current_test 데이터를 아직 불러오지 않았습니다. 위 버튼을 눌러 Bubble Admin 프록시 연결을 확인하세요.</div>`;
+      target.innerHTML = `<div class="ctdash-callout">current_test 데이터를 아직 불러오지 않았습니다. DB분석 탭 진입 시 자동 조회되며, 상단 새로고침 버튼으로 다시 불러올 수 있습니다.</div>`;
       return;
     }
-
-    const state = sotCurrentTestData.state || {};
-    const events = sotCurrentTestData.event_summaries || [];
-    const daily = sotCurrentTestData.daily || [];
+    syncCurrentDashSelections();
+    const reportMarkup = currentDashView === "report" ? renderCurrentDashReportView() : "";
+    const eventMarkup = currentDashView === "event-analysis" ? renderCurrentDashEventView() : "";
+    const diaryMarkup = currentDashView === "diary" ? renderCurrentDashDiaryView() : "";
     target.innerHTML = `
-      <div class="sot-dash-callout">current_test API connected. Cloud Run JSON API를 Bubble Admin 프록시로 조회했으며, 브라우저에서 write mode는 호출하지 않았습니다.</div>
-      ${sotKpis([
-        ["검색", formatNumber(state.search_count), "search_count"],
-        ["장바구니", formatNumber(state.cart_count), "cart_count"],
-        ["구매", formatNumber(state.purchase_count), "purchase_count"],
-        ["매출", formatWon(state.revenue), "revenue"],
-        ["노출", formatNumber(state.exposure_sum), "exposure_sum"],
-        ["대회", formatNumber(events.length), "events" ]
-      ])}
-      <div class="sot-dash-grid two">
-        ${sotPanel("대회별 요약", sotTable(["대회", "검색", "장바구니", "구매", "매출"], events.slice(0, 12).map(row => [row.event_code || row.label || "unknown", formatNumber(row.search_count), formatNumber(row.cart_count), formatNumber(row.purchase_count), formatWon(row.revenue)])))}
-        ${sotPanel("일자별 요약", sotTable(["날짜", "검색", "구매", "매출"], daily.slice(0, 12).map(row => [row.date_key || row.period_key || row.label || "-", formatNumber(row.search_count), formatNumber(row.purchase_count), formatWon(row.revenue)])))}
+      <div class="ctdash-shell">
+        <section class="ctdash-hero">
+          <div class="ctdash-hero-main ctdash-card">
+            <div class="ctdash-eyebrow">DB ANALYSIS</div>
+            <h2>Shout-out Admin Dashboard</h2>
+            <p>DB분석 탭만 리포트, 대회별 분석, 일지 작성으로 재구성했습니다. 데이터는 Bubble Admin 프록시를 통한 <code>current_test</code> 기준이고, 기존 레거시데이터 탭은 그대로 유지합니다.</p>
+            <div class="ctdash-main-tabs" role="tablist" aria-label="DB analysis views">
+              <button class="ctdash-tab ${currentDashView === "report" ? "is-active" : ""}" type="button" data-ctdash-view="report">리포트</button>
+              <button class="ctdash-tab ${currentDashView === "event-analysis" ? "is-active" : ""}" type="button" data-ctdash-view="event-analysis">대회별 분석</button>
+              <button class="ctdash-tab ${currentDashView === "diary" ? "is-active" : ""}" type="button" data-ctdash-view="diary">일지 작성</button>
+            </div>
+          </div>
+          <aside class="ctdash-hero-side ctdash-card">
+            <h3>연결 상태</h3>
+            <div class="ctdash-status-row"><span>데이터 소스</span><b>current_test</b></div>
+            <div class="ctdash-status-row"><span>마지막 생성</span><b>${escapeHtml(formatDate(sotCurrentTestData.generated_at) || "-")}</b></div>
+            <div class="ctdash-status-row"><span>대회 수</span><b>${formatNumber((sotCurrentTestData.event_summaries || []).length)}</b></div>
+            <button class="ctdash-refresh" type="button" id="sot_current_test_refresh_btn">DB분석 새로고침</button>
+          </aside>
+        </section>
+        ${currentDashEventDetailError && currentDashView === "event-analysis" ? `<div class="ctdash-callout warn">${escapeHtml(currentDashEventDetailError)}</div>` : ""}
+        ${reportMarkup}
+        ${eventMarkup}
+        ${diaryMarkup}
       </div>`;
+    renderCurrentDashCharts();
+  }
+
+  async function ensureCurrentDashEventDetail(eventCode) {
+    if (!eventCode || eventCode === "all") {
+      currentDashEventDetailCode = "";
+      currentDashEventDetailData = SOT_HEAD.emptyDashboardData();
+      currentDashEventDetailLoading = false;
+      currentDashEventDetailError = "";
+      return;
+    }
+    if (currentDashEventDetailCache[eventCode]) {
+      currentDashEventDetailCode = eventCode;
+      currentDashEventDetailData = currentDashEventDetailCache[eventCode];
+      currentDashEventDetailLoading = false;
+      currentDashEventDetailError = "";
+      return;
+    }
+    currentDashEventDetailLoading = true;
+    currentDashEventDetailError = "";
+    renderCurrentTestDashboard();
+    try {
+      const payload = await SOT_HEAD.fetchDashboardDetailFromCloudRun({
+        data_source: "current_test",
+        event_code: eventCode
+      });
+      const normalized = SOT_HEAD.normalizeCloudRunDashboardPayload(payload);
+      currentDashEventDetailCache[eventCode] = normalized;
+      currentDashEventDetailCode = eventCode;
+      currentDashEventDetailData = normalized;
+    } catch (error) {
+      currentDashEventDetailError = error && error.message ? error.message : "대회별 상세 데이터를 불러오지 못했습니다.";
+    } finally {
+      currentDashEventDetailLoading = false;
+      renderCurrentTestDashboard();
+    }
+  }
+
+  function syncCurrentDashSelections() {
+    const events = (sotCurrentTestData.events || []).filter(row => row.event_code);
+    if (!events.some(row => row.event_code === currentDashSelectedEvent)) {
+      currentDashSelectedEvent = events.find(row => row.event_code !== "all")?.event_code || "all";
+    }
+    const detail = currentDashSelectedEvent !== "all" && currentDashEventDetailCode === currentDashSelectedEvent
+      ? currentDashEventDetailData
+      : sotCurrentTestData;
+    const dailyRows = sortMetricRows(detail.daily || []);
+    const weeks = buildWeekRows(dailyRows);
+    const months = buildMonthRows(dailyRows);
+    if (!weeks.some(row => row.week_start === currentDashSelectedWeekStart)) currentDashSelectedWeekStart = weeks[0]?.week_start || "";
+    if (!months.some(row => row.month_key === currentDashSelectedMonthKey)) currentDashSelectedMonthKey = months[0]?.month_key || "";
+    const validDates = dailyRows.map(row => row.date_key || row.period_key || row.label).filter(Boolean);
+    if (!validDates.includes(currentDashSelectedDateKey)) currentDashSelectedDateKey = validDates[0] || "";
+  }
+
+  function currentDashEventDataset() {
+    if (currentDashSelectedEvent !== "all" && currentDashEventDetailCode === currentDashSelectedEvent && currentDashEventDetailData) {
+      return currentDashEventDetailData;
+    }
+    return sotCurrentTestData;
+  }
+
+  function currentDashSelectedEventSummary() {
+    if (currentDashSelectedEvent === "all") return sotCurrentTestData.state || {};
+    return (sotCurrentTestData.event_summaries || []).find(row => row.event_code === currentDashSelectedEvent) || {};
+  }
+
+  function renderCurrentDashReportView() {
+    const state = sotCurrentTestData.state || {};
+    const people = dashboardPeopleForSelection("all");
+    return `
+      <section class="ctdash-screen">
+        <article class="ctdash-card ctdash-section">
+          <div class="ctdash-section-head">
+            <div>
+              <div class="ctdash-kicker">Report</div>
+              <h3>리포트</h3>
+              <p>일별, 주별, 월별 리포트를 current_test 요약 데이터 기준으로 묶었습니다.</p>
+            </div>
+            <div class="ctdash-period-tabs">
+              ${["daily","weekly","monthly"].map(period => `<button class="ctdash-chip ${currentDashReportPeriod === period ? "is-active" : ""}" type="button" data-ctdash-report-period="${period}">${period === "daily" ? "일별" : period === "weekly" ? "주별" : "월별"}</button>`).join("")}
+            </div>
+          </div>
+          <div class="ctdash-metrics-grid">
+            ${metricCard("접속수", formatNumber(dashboardSessionCount(state)), "로컬 개수")}
+            ${metricCard("검색자", formatNumber(dashboardSearchUserCount(state)), "로컬 개수")}
+            ${metricCard("검색수", formatNumber(numberValue(state, ["search_count"])), "세션 수")}
+            ${metricCard("장바구니수", formatNumber(numberValue(state, ["cart_count"])), "카트 진입")}
+            ${metricCard("구매수", formatNumber(numberValue(state, ["purchase_count"])), "결제 완료")}
+          </div>
+        </article>
+        <div class="ctdash-two-col">
+          <article class="ctdash-card ctdash-section">
+            <div class="ctdash-section-head">
+              <div>
+                <div class="ctdash-kicker">Hourly</div>
+                <h3>시간대별 그래프</h3>
+                <p>마우스를 올리면 시간대별 검색, 카트, 구매, 평균전환율을 확인할 수 있습니다.</p>
+              </div>
+              <span class="ctdash-tag">Hover</span>
+            </div>
+            <div class="ctdash-chart-box">
+              <div class="ctdash-legend">
+                <span><i style="background:#c96b37"></i>검색</span>
+                <span><i style="background:#0c8b88"></i>카트</span>
+                <span><i style="background:#d8a23d"></i>구매</span>
+              </div>
+              <svg id="ctdashReportChart" viewBox="0 0 1100 360" aria-label="리포트 그래프"></svg>
+              <div class="ctdash-tooltip" id="ctdashReportTooltip"></div>
+            </div>
+          </article>
+          <article class="ctdash-card ctdash-section">
+            <div class="ctdash-section-head">
+              <div>
+                <div class="ctdash-kicker">Conversion</div>
+                <h3>전환율</h3>
+              </div>
+              <span class="ctdash-tag">Percent</span>
+            </div>
+            <div class="ctdash-conv-grid">
+              ${conversionCard("접속 → 검색", dashboardSearchUserCount(state), dashboardSessionCount(state))}
+              ${conversionCard("검색 → 카트", numberValue(state, ["cart_count"]), numberValue(state, ["search_count"]))}
+              ${conversionCard("카트 → 구매", numberValue(state, ["purchase_count"]), numberValue(state, ["cart_count"]))}
+            </div>
+          </article>
+        </div>
+        <div class="ctdash-two-col">
+          <article class="ctdash-card ctdash-section">
+            <div class="ctdash-section-head"><div><div class="ctdash-kicker">Traffic</div><h3>유입별</h3></div><span class="ctdash-tag">Campaign / Source</span></div>
+            <div class="ctdash-sub-grid">
+              ${rankSection("캠페인", topRankRows(sotCurrentTestData.campaigns || [], ["utm_campaign", "label"]))}
+              ${rankSection("소스", topRankRows(sotCurrentTestData.sources || [], ["utm_source", "label"]))}
+            </div>
+          </article>
+          <article class="ctdash-card ctdash-section">
+            <div class="ctdash-section-head"><div><div class="ctdash-kicker">Sales</div><h3>매출</h3></div><span class="ctdash-tag">Revenue</span></div>
+            <div class="ctdash-sales-grid">
+              ${metricCard("참가자 수", formatNumber(people), "Bubble 이벤트 데이터")}
+              ${metricCard("객단가", formatWon(avgOrderValue(state)), "구매 1건당")}
+              ${metricCard("일매출", formatWon(numberValue(state, ["revenue"])), "선택 기간 합계")}
+              ${metricCard("참가자 대비 사진 구매율", formatPercent(safeRate(numberValue(state, ["purchase_count"]), people)), "로컬 기준")}
+            </div>
+          </article>
+        </div>
+      </section>`;
+  }
+
+  function renderCurrentDashEventView() {
+    const detail = currentDashEventDataset();
+    const summary = currentDashSelectedEventSummary();
+    const eventName = currentDashSelectedEvent === "all"
+      ? "전체 대회"
+      : ((sotCurrentTestData.events || []).find(row => row.event_code === currentDashSelectedEvent)?.event_name || currentDashSelectedEvent);
+    const people = currentDashSelectedEvent === "all" ? dashboardPeopleForSelection("all") : eventPeople(currentDashSelectedEvent);
+    const rows = sortMetricRows(detail.daily || []);
+    const detailTable = renderEventDetailTable(rows);
+    return `
+      <section class="ctdash-screen">
+        <article class="ctdash-card ctdash-section">
+          <div class="ctdash-section-head">
+            <div>
+              <div class="ctdash-kicker">Event Analysis</div>
+              <h3>대회별 분석</h3>
+              <p>대회 선택 후 전체, 월별, 주차별, 일별로 전환합니다. 레거시데이터 탭과 분리된 current_test 전용 UI입니다.</p>
+            </div>
+          </div>
+          <div class="ctdash-event-toolbar">
+            <div class="ctdash-period-tabs">
+              ${[
+                ["all","전체"],["monthly","월별"],["weekly","주차별"],["daily","일별"]
+              ].map(([key,label]) => `<button class="ctdash-chip ${currentDashEventPeriod === key ? "is-active" : ""}" type="button" data-ctdash-event-period="${key}">${label}</button>`).join("")}
+            </div>
+            <div class="ctdash-inline-fields">
+              <label><span>대회 선택</span><select class="ctdash-select" id="ctdash_event_select">${(sotCurrentTestData.events || []).filter(row => row.event_code).map(row => `<option value="${escapeHtml(row.event_code)}" ${row.event_code === currentDashSelectedEvent ? "selected" : ""}>${escapeHtml(row.event_name || row.event_code)}</option>`).join("")}</select></label>
+              ${currentDashEventPeriod === "monthly" ? `<label><span>월 선택</span><select class="ctdash-select" id="ctdash_month_select">${buildMonthRows(rows).map(row => `<option value="${escapeHtml(row.month_key)}" ${row.month_key === currentDashSelectedMonthKey ? "selected" : ""}>${escapeHtml(row.label)}</option>`).join("")}</select></label>` : ""}
+              ${currentDashEventPeriod === "weekly" ? `<label><span>주차 선택</span><select class="ctdash-select" id="ctdash_week_select">${buildWeekRows(rows).map(row => `<option value="${escapeHtml(row.week_start)}" ${row.week_start === currentDashSelectedWeekStart ? "selected" : ""}>${escapeHtml(row.label)}</option>`).join("")}</select></label>` : ""}
+              ${currentDashEventPeriod === "daily" ? `<label><span>일자 선택</span><select class="ctdash-select" id="ctdash_date_select">${rows.map(row => { const key = row.date_key || row.period_key || row.label; return `<option value="${escapeHtml(key)}" ${key === currentDashSelectedDateKey ? "selected" : ""}>${escapeHtml(key)}</option>`; }).join("")}</select></label>` : ""}
+            </div>
+          </div>
+          ${currentDashEventDetailLoading ? `<div class="ctdash-callout">선택한 대회 상세를 불러오는 중입니다.</div>` : ""}
+        </article>
+        <div class="ctdash-two-col">
+          <article class="ctdash-card ctdash-section">
+            <div class="ctdash-section-head"><div><div class="ctdash-kicker">Overview</div><h3>기본 요약</h3></div><span class="ctdash-tag">Snapshot</span></div>
+            <div class="ctdash-summary-grid">
+              ${metricCard("대회명", escapeHtml(eventName), currentDashSelectedEvent === "all" ? "전체 합산" : currentDashSelectedEvent)}
+              ${metricCard("참가자 수", formatNumber(people), "Bubble 이벤트 데이터")}
+              ${metricCard("대회매출", formatWon(numberValue(summary, ["revenue"])), "선택 기간 기준")}
+              ${metricCard("객단가", formatWon(avgOrderValue(summary)), "구매 1건당")}
+            </div>
+          </article>
+          <article class="ctdash-card ctdash-section">
+            <div class="ctdash-section-head"><div><div class="ctdash-kicker">Spots</div><h3>스팟별 데이터</h3></div><span class="ctdash-tag">Pending Mapping</span></div>
+            <div class="ctdash-spot-grid">
+              ${["AM","BM","CM","DM"].map(prefix => spotPlaceholder(prefix, summary)).join("")}
+            </div>
+          </article>
+        </div>
+        <article class="ctdash-card ctdash-section">
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Graph</div><h3>${currentDashEventPeriod === "monthly" ? "월간 그래프" : currentDashEventPeriod === "weekly" ? "주간 그래프" : currentDashEventPeriod === "daily" ? "시간대별 그래프" : "기간 그래프"}</h3></div><span class="ctdash-tag">Revenue + Search/Cart/Order</span></div>
+          <div class="ctdash-chart-box">
+            <div class="ctdash-legend">
+              <span><i style="background:#d8a23d;border-radius:4px"></i>매출</span>
+              <span><i style="background:#c96b37"></i>검색</span>
+              <span><i style="background:#0c8b88"></i>카트</span>
+              <span><i style="background:#ad4e67"></i>오더</span>
+            </div>
+            <svg id="ctdashEventChart" viewBox="0 0 1080 360" aria-label="대회별 분석 그래프"></svg>
+            <div class="ctdash-tooltip" id="ctdashEventTooltip"></div>
+          </div>
+        </article>
+        ${detailTable}
+        <article class="ctdash-card ctdash-section">
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Traffic</div><h3>유입경로별 분석</h3></div><span class="ctdash-tag">Wide Section</span></div>
+          <div class="ctdash-sub-grid">
+            ${rankSection("캠페인", topRankRows(detail.campaigns || sotCurrentTestData.campaigns || [], ["utm_campaign", "label"]))}
+            ${rankSection("소스", topRankRows(detail.sources || sotCurrentTestData.sources || [], ["utm_source", "label"]))}
+          </div>
+        </article>
+        ${currentDashEventPeriod === "all" ? `
+        <article class="ctdash-card ctdash-section">
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Summary</div><h3>대회별 요약</h3></div><span class="ctdash-tag">Bottom Comparison</span></div>
+          ${summaryTable((sotCurrentTestData.event_summaries || []).slice(0, 8))}
+        </article>` : ""}
+      </section>`;
+  }
+
+  function renderCurrentDashDiaryView() {
+    return `
+      <section class="ctdash-screen">
+        <article class="ctdash-card ctdash-section">
+          <div class="ctdash-section-head">
+            <div>
+              <div class="ctdash-kicker">Diary</div>
+              <h3>일지 작성</h3>
+              <p>현재는 샤라웃 현장운영일지 베이스의 입력 와꾸만 넣었고, 저장 연동은 아직 연결하지 않았습니다.</p>
+            </div>
+            <span class="ctdash-tag">Layout Only</span>
+          </div>
+          <div class="ctdash-form-grid">
+            <label><span>대회명</span><input class="ctdash-input" type="text" placeholder="대회명"></label>
+            <label><span>운영일자</span><input class="ctdash-input" type="date"></label>
+            <label><span>현장 책임자</span><input class="ctdash-input" type="text" placeholder="이름"></label>
+            <label><span>날씨 / 특이사항</span><input class="ctdash-input" type="text" placeholder="맑음, 우천 등"></label>
+          </div>
+          <div class="ctdash-form-grid three">
+            <label><span>스탭 구성</span><textarea class="ctdash-textarea" placeholder="AM / BM / CM 담당자"></textarea></label>
+            <label><span>장비 / 세팅</span><textarea class="ctdash-textarea" placeholder="카메라, 프린터, 네트워크"></textarea></label>
+            <label><span>이슈 / 조치</span><textarea class="ctdash-textarea" placeholder="이슈 기록"></textarea></label>
+          </div>
+          <label><span>데일리 서머리</span><textarea class="ctdash-textarea tall" placeholder="운영 요약, 고객 반응, 개선 사항"></textarea></label>
+        </article>
+      </section>`;
+  }
+
+  function renderEventDetailTable(rows) {
+    if (currentDashEventPeriod === "daily") {
+      return detailTableSection("시간대별 상세", ["시간대", "검색", "카트", "오더", "매출"], eventDailyRows(currentDashEventDataset()));
+    }
+    if (currentDashEventPeriod === "weekly") {
+      return detailTableSection("일자별 상세", ["일자", "검색", "카트", "오더", "매출", "객단가"], weekDetailRows(rows));
+    }
+    if (currentDashEventPeriod === "monthly") {
+      return detailTableSection("주차별 상세", ["주차", "검색", "카트", "오더", "매출", "객단가"], monthDetailRows(rows));
+    }
+    return "";
+  }
+
+  function renderCurrentDashCharts() {
+    if (!sotCurrentTestLoaded) return;
+    renderCurrentDashReportChart();
+    renderCurrentDashEventChart();
+  }
+
+  function renderCurrentDashReportChart() {
+    const rows = reportChartRows();
+    initializeLineChart({
+      svgId: "ctdashReportChart",
+      tooltipId: "ctdashReportTooltip",
+      data: rows,
+      maxY: maxMetricValue(rows, ["search", "cart", "purchase"])
+    });
+  }
+
+  function renderCurrentDashEventChart() {
+    const rows = eventChartRows();
+    initializeComboChart({
+      svgId: "ctdashEventChart",
+      tooltipId: "ctdashEventTooltip",
+      points: rows,
+      maxMetric: maxMetricValue(rows, ["search", "cart", "order"]),
+      maxRevenue: maxRevenueValue(rows)
+    });
+  }
+
+  function sortMetricRows(rows) {
+    return [...(rows || [])].sort((a, b) => String(a.date_key || a.period_key || a.label || "").localeCompare(String(b.date_key || b.period_key || b.label || "")));
+  }
+
+  function buildWeekRows(rows) {
+    const map = new Map();
+    (rows || []).forEach(row => {
+      const dateKey = row.date_key || row.period_key || row.label;
+      if (!dateKey) return;
+      const weekStart = saturdayWeekStart(dateKey);
+      if (!map.has(weekStart)) {
+        map.set(weekStart, []);
+      }
+      map.get(weekStart).push(row);
+    });
+    return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([weekStart, group]) => ({
+      week_start: weekStart,
+      label: `${saturdayWeekLabel(weekStart)} (${String(weekStart).slice(5)} - ${String(addDays(weekStart, 6)).slice(5)})`,
+      rows: group
+    }));
+  }
+
+  function buildMonthRows(rows) {
+    const map = new Map();
+    (rows || []).forEach(row => {
+      const dateKey = row.date_key || row.period_key || row.label || "";
+      const monthKey = String(dateKey).slice(0, 7);
+      if (!monthKey) return;
+      if (!map.has(monthKey)) map.set(monthKey, []);
+      map.get(monthKey).push(row);
+    });
+    return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([monthKey, group]) => ({
+      month_key: monthKey,
+      label: `${monthKey.replace("-", "년 ")}월`,
+      rows: group
+    }));
+  }
+
+  function metricCard(label, value, note) {
+    return `<article class="ctdash-metric-card"><h4>${label}</h4><strong>${value}</strong><p>${note || ""}</p></article>`;
+  }
+
+  function conversionCard(label, numerator, denominator) {
+    const rate = safeRate(numerator, denominator);
+    return `<article class="ctdash-conv-card"><div class="ctdash-conv-top"><h4>${label}</h4><strong>${formatPercent(rate)}</strong></div><div class="ctdash-bar"><span style="width:${Math.min(100, rate)}%"></span></div><p>${formatNumber(numerator)} / ${formatNumber(denominator)}</p></article>`;
+  }
+
+  function topRankRows(rows, labelFields) {
+    return [...(rows || [])]
+      .map(row => ({
+        label: firstText(row, labelFields),
+        value: numberValue(row, ["search_count", "purchase_count", "count", "sessions", "value"])
+      }))
+      .filter(row => row.label)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+  }
+
+  function rankSection(title, rows) {
+    return `<article class="ctdash-sub-card"><h4>${title}</h4><div class="ctdash-rank-list">${rows.length ? rows.map((row, index) => `<div class="ctdash-rank-row"><span>${index + 1}</span><div>${escapeHtml(row.label)}</div><strong>${formatNumber(row.value)}</strong></div>`).join("") : `<div class="ctdash-empty">데이터가 없습니다.</div>`}</div></article>`;
+  }
+
+  function avgOrderValue(row) {
+    const revenue = numberValue(row, ["revenue"]);
+    const purchases = numberValue(row, ["purchase_count"]);
+    return purchases ? Math.round(revenue / purchases) : 0;
+  }
+
+  function spotPlaceholder(prefix, summary) {
+    const purchases = numberValue(summary, ["purchase_count"]);
+    const revenue = numberValue(summary, ["revenue"]);
+    const ratioMap = { AM: 0.34, BM: 0.27, CM: 0.22, DM: 0.17 };
+    const ratio = ratioMap[prefix] || 0.25;
+    return `<article class="ctdash-spot-card"><h4>${prefix}</h4><strong>${formatNumber(Math.round(purchases * ratio))}건 판매</strong><div class="ctdash-spot-row"><span>매출</span><b>${formatWon(Math.round(revenue * ratio))}</b></div><div class="ctdash-spot-row"><span>촬영 사진 수</span><b>일지 연동 예정</b></div></article>`;
+  }
+
+  function summaryTable(rows) {
+    return `<div class="ctdash-table-wrap"><table class="ctdash-table"><thead><tr><th>대회명</th><th>참가자 수</th><th>매출</th><th>객단가</th><th>검색→구매</th></tr></thead><tbody>${rows.map(row => `<tr><td>${escapeHtml(row.event_name || row.event_code || "-")}</td><td>${formatNumber(eventPeople(row.event_code))}</td><td>${formatWon(numberValue(row, ["revenue"]))}</td><td>${formatWon(avgOrderValue(row))}</td><td>${formatPercent(safeRate(numberValue(row, ["purchase_count"]), numberValue(row, ["search_count"])))}</td></tr>`).join("")}</tbody></table></div>`;
+  }
+
+  function detailTableSection(title, headers, rows) {
+    return `<article class="ctdash-card ctdash-section"><div class="ctdash-section-head"><div><div class="ctdash-kicker">Detail</div><h3>${title}</h3></div></div><div class="ctdash-table-wrap"><table class="ctdash-table"><thead><tr>${headers.map(header => `<th>${header}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${headers.length}">데이터가 없습니다.</td></tr>`}</tbody></table></div></article>`;
+  }
+
+  function eventDailyRows(detail) {
+    return reportChartRowsFromDataset(detail).map(row => [
+      escapeHtml(row.time),
+      formatNumber(row.search),
+      formatNumber(row.cart),
+      formatNumber(row.purchase),
+      formatWon(row.revenue || 0)
+    ]);
+  }
+
+  function weekDetailRows(rows) {
+    const selectedWeek = buildWeekRows(rows).find(row => row.week_start === currentDashSelectedWeekStart);
+    return (selectedWeek?.rows || []).map(row => [
+      escapeHtml(row.date_key || row.period_key || row.label || "-"),
+      formatNumber(numberValue(row, ["search_count"])),
+      formatNumber(numberValue(row, ["cart_count"])),
+      formatNumber(numberValue(row, ["purchase_count"])),
+      formatWon(numberValue(row, ["revenue"])),
+      formatWon(avgOrderValue(row))
+    ]);
+  }
+
+  function monthDetailRows(rows) {
+    const selectedMonth = buildMonthRows(rows).find(row => row.month_key === currentDashSelectedMonthKey);
+    return buildWeekRows(selectedMonth?.rows || []).map(row => {
+      const aggregate = (row.rows || []).reduce((acc, item) => {
+        acc.search += numberValue(item, ["search_count"]);
+        acc.cart += numberValue(item, ["cart_count"]);
+        acc.order += numberValue(item, ["purchase_count"]);
+        acc.revenue += numberValue(item, ["revenue"]);
+        return acc;
+      }, { search: 0, cart: 0, order: 0, revenue: 0 });
+      return [
+        escapeHtml(row.label),
+        formatNumber(aggregate.search),
+        formatNumber(aggregate.cart),
+        formatNumber(aggregate.order),
+        formatWon(aggregate.revenue),
+        formatWon(aggregate.order ? Math.round(aggregate.revenue / aggregate.order) : 0)
+      ];
+    });
+  }
+
+  function reportChartRowsFromDataset(dataset) {
+    const hourly = [...(dataset.hourly || [])].sort((a, b) => String(a.hour_key || a.period_key || a.label || "").localeCompare(String(b.hour_key || b.period_key || b.label || "")));
+    return hourly.map(row => ({
+      time: String(row.hour_key || row.period_key || row.label || row.hour || "00").replace(":00", ""),
+      search: numberValue(row, ["search_count"]),
+      cart: numberValue(row, ["cart_count"]),
+      purchase: numberValue(row, ["purchase_count"]),
+      revenue: numberValue(row, ["revenue"]),
+      conversion: Number(safeRate(numberValue(row, ["purchase_count"]), numberValue(row, ["search_count"]))).toFixed(1)
+    }));
+  }
+
+  function reportChartRows() {
+    const rows = reportChartRowsFromDataset(sotCurrentTestData);
+    if (currentDashReportPeriod === "daily") return rows;
+    const daily = sortMetricRows(sotCurrentTestData.daily || []);
+    if (currentDashReportPeriod === "weekly") {
+      return buildWeekRows(daily).map(row => aggregateMetricChartRow(row.label, row.rows));
+    }
+    return buildMonthRows(daily).map(row => aggregateMetricChartRow(row.label, row.rows));
+  }
+
+  function aggregateMetricChartRow(label, rows) {
+    const aggregate = (rows || []).reduce((acc, row) => {
+      acc.search += numberValue(row, ["search_count"]);
+      acc.cart += numberValue(row, ["cart_count"]);
+      acc.purchase += numberValue(row, ["purchase_count"]);
+      acc.revenue += numberValue(row, ["revenue"]);
+      return acc;
+    }, { search: 0, cart: 0, purchase: 0, revenue: 0 });
+    return {
+      time: label,
+      label,
+      search: aggregate.search,
+      cart: aggregate.cart,
+      purchase: aggregate.purchase,
+      order: aggregate.purchase,
+      revenue: aggregate.revenue,
+      revenueText: formatWon(aggregate.revenue),
+      conversion: Number(safeRate(aggregate.purchase, aggregate.search)).toFixed(1)
+    };
+  }
+
+  function eventChartRows() {
+    const detail = currentDashEventDataset();
+    if (currentDashEventPeriod === "daily") {
+      return reportChartRowsFromDataset(detail).map(row => ({
+        label: `${row.time}:00`,
+        search: row.search,
+        cart: row.cart,
+        order: row.purchase,
+        revenue: row.revenue,
+        revenueText: formatWon(row.revenue),
+        conversion: row.conversion
+      }));
+    }
+    const daily = sortMetricRows(detail.daily || []);
+    if (currentDashEventPeriod === "weekly") {
+      const selectedWeek = buildWeekRows(daily).find(row => row.week_start === currentDashSelectedWeekStart);
+      return (selectedWeek?.rows || []).map(row => ({
+        label: row.date_key || row.period_key || row.label || "-",
+        search: numberValue(row, ["search_count"]),
+        cart: numberValue(row, ["cart_count"]),
+        order: numberValue(row, ["purchase_count"]),
+        revenue: numberValue(row, ["revenue"]),
+        revenueText: formatWon(numberValue(row, ["revenue"])),
+        conversion: Number(safeRate(numberValue(row, ["purchase_count"]), numberValue(row, ["search_count"]))).toFixed(1)
+      }));
+    }
+    if (currentDashEventPeriod === "monthly") {
+      const selectedMonth = buildMonthRows(daily).find(row => row.month_key === currentDashSelectedMonthKey);
+      return buildWeekRows(selectedMonth?.rows || []).map(row => aggregateMetricChartRow(row.label, row.rows));
+    }
+    return buildMonthRows(daily).map(row => aggregateMetricChartRow(row.label, row.rows));
+  }
+
+  function maxMetricValue(rows, keys) {
+    const max = Math.max(10, ...(rows || []).map(row => Math.max(...keys.map(key => Number(row[key] || 0)))));
+    return Math.ceil(max / 10) * 10;
+  }
+
+  function maxRevenueValue(rows) {
+    const max = Math.max(1000, ...(rows || []).map(row => Number(row.revenue || 0)));
+    return Math.ceil(max / 10) * 10;
+  }
+
+  function initializeLineChart({ svgId, tooltipId, data, maxY }) {
+    const chart = document.getElementById(svgId);
+    const tooltip = document.getElementById(tooltipId);
+    if (!chart || !tooltip || !data.length) return;
+    drawSvgChart({ chart, tooltip, data, maxY, includeRevenue: false });
+  }
+
+  function initializeComboChart({ svgId, tooltipId, points, maxMetric, maxRevenue }) {
+    const chart = document.getElementById(svgId);
+    const tooltip = document.getElementById(tooltipId);
+    if (!chart || !tooltip || !points.length) return;
+    drawSvgChart({ chart, tooltip, data: points, maxY: maxMetric, includeRevenue: true, maxRevenue });
+  }
+
+  function drawSvgChart({ chart, tooltip, data, maxY, includeRevenue, maxRevenue }) {
+    const svgNS = "http://www.w3.org/2000/svg";
+    const width = includeRevenue ? 1080 : 1100;
+    const height = 360;
+    const margin = includeRevenue ? { top: 36, right: 48, bottom: 48, left: 68 } : { top: 24, right: 28, bottom: 42, left: 68 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
+    const colors = { search: "#c96b37", cart: "#0c8b88", purchase: "#d8a23d", order: "#ad4e67" };
+    chart.innerHTML = "";
+
+    const createSvg = (tag, attrs) => {
+      const el = document.createElementNS(svgNS, tag);
+      Object.entries(attrs || {}).forEach(([key, value]) => el.setAttribute(key, value));
+      return el;
+    };
+    const scaleX = index => margin.left + (innerWidth / Math.max(1, data.length - 1)) * index;
+    const scaleY = value => margin.top + innerHeight - (Number(value || 0) / Math.max(1, maxY)) * innerHeight;
+    const scaleRevenueY = value => margin.top + innerHeight - (Number(value || 0) / Math.max(1, maxRevenue || 1)) * innerHeight;
+
+    for (let step = 0; step <= 4; step += 1) {
+      const value = Math.round((maxY / 4) * step);
+      const y = scaleY(value);
+      chart.appendChild(createSvg("line", { x1: margin.left, y1: y, x2: width - margin.right, y2: y, stroke: "rgba(33,24,18,0.1)", "stroke-width": "1" }));
+      const label = createSvg("text", { x: margin.left - 18, y: y + 4, fill: "#6f6256", "font-size": "12", "text-anchor": "end" });
+      label.textContent = String(value);
+      chart.appendChild(label);
+    }
+    chart.appendChild(createSvg("line", { x1: margin.left, y1: margin.top, x2: margin.left, y2: height - margin.bottom, stroke: "rgba(33,24,18,0.12)" }));
+    chart.appendChild(createSvg("line", { x1: margin.left, y1: height - margin.bottom, x2: width - margin.right, y2: height - margin.bottom, stroke: "rgba(33,24,18,0.12)" }));
+
+    data.forEach((point, index) => {
+      const x = scaleX(index);
+      if (includeRevenue) {
+        const barY = scaleRevenueY(point.revenue);
+        chart.appendChild(createSvg("rect", { x: x - 14, y: barY, width: 28, height: height - margin.bottom - barY, rx: "10", fill: "rgba(216,162,61,0.35)" }));
+      }
+      const tick = createSvg("text", { x, y: height - 14, fill: "#6f6256", "font-size": "12", "text-anchor": "middle" });
+      tick.textContent = point.time || point.label || "";
+      chart.appendChild(tick);
+    });
+
+    const metricKeys = includeRevenue ? ["search", "cart", "order"] : ["search", "cart", "purchase"];
+    metricKeys.forEach(key => {
+      const points = data.map((point, index) => `${scaleX(index)},${scaleY(point[key])}`).join(" ");
+      chart.appendChild(createSvg("polyline", { points, fill: "none", stroke: colors[key], "stroke-width": "4", "stroke-linecap": "round", "stroke-linejoin": "round" }));
+    });
+
+    const focusLine = createSvg("line", { x1: scaleX(0), y1: margin.top, x2: scaleX(0), y2: height - margin.bottom, stroke: "rgba(33,24,18,0.18)", "stroke-width": "1.5", "stroke-dasharray": "4 4", opacity: "0" });
+    chart.appendChild(focusLine);
+    const focusDots = Object.fromEntries(metricKeys.map(key => [key, createSvg("circle", { r: "5", fill: colors[key], opacity: "0" })]));
+    Object.values(focusDots).forEach(dot => chart.appendChild(dot));
+    const overlay = createSvg("rect", { x: margin.left, y: margin.top, width: innerWidth, height: innerHeight, fill: "transparent", style: "cursor: crosshair;" });
+    chart.appendChild(overlay);
+
+    function setTooltip(index, clientX) {
+      const point = data[index];
+      const x = scaleX(index);
+      focusLine.setAttribute("x1", x);
+      focusLine.setAttribute("x2", x);
+      focusLine.setAttribute("opacity", "1");
+      metricKeys.forEach(key => {
+        focusDots[key].setAttribute("cx", x);
+        focusDots[key].setAttribute("cy", scaleY(point[key]));
+        focusDots[key].setAttribute("opacity", "1");
+      });
+      tooltip.innerHTML = `
+        <p class="ctdash-tooltip-time">${escapeHtml(point.label || point.time || "")}</p>
+        ${includeRevenue ? `<div class="ctdash-tooltip-row"><span>매출</span><b>${escapeHtml(point.revenueText || formatWon(point.revenue || 0))}</b></div>` : ""}
+        <div class="ctdash-tooltip-row"><span>검색</span><b>${formatNumber(point.search || 0)}</b></div>
+        <div class="ctdash-tooltip-row"><span>카트</span><b>${formatNumber(point.cart || 0)}</b></div>
+        <div class="ctdash-tooltip-row"><span>${includeRevenue ? "오더" : "구매"}</span><b>${formatNumber((includeRevenue ? point.order : point.purchase) || 0)}</b></div>
+        <div class="ctdash-tooltip-row"><span>평균전환율</span><b>${escapeHtml(String(point.conversion || "0"))}%</b></div>
+      `;
+      tooltip.classList.add("is-visible");
+      const box = chart.getBoundingClientRect();
+      const localX = clientX - box.left;
+      const preferredLeft = Math.min(Math.max(localX + 18, 14), box.width - 220);
+      tooltip.style.left = `${preferredLeft}px`;
+      tooltip.style.top = includeRevenue ? "52px" : "42px";
+    }
+
+    overlay.addEventListener("mousemove", event => {
+      const box = chart.getBoundingClientRect();
+      const ratio = (event.clientX - box.left - margin.left) / innerWidth;
+      const index = Math.min(data.length - 1, Math.max(0, Math.round(ratio * Math.max(1, data.length - 1))));
+      setTooltip(index, event.clientX);
+    });
+    overlay.addEventListener("mouseleave", () => {
+      tooltip.classList.remove("is-visible");
+      focusLine.setAttribute("opacity", "0");
+      Object.values(focusDots).forEach(dot => dot.setAttribute("opacity", "0"));
+    });
+  }
+
+  function firstText(row, fields) {
+    for (const field of fields || []) {
+      if (row && row[field] !== null && row[field] !== undefined && row[field] !== "") return String(row[field]);
+    }
+    return "";
   }
 
   async function loadDashboard() {
@@ -1544,11 +2188,36 @@
         activeAdminView = btn.dataset.adminView;
         syncAdminView();
         if (activeAdminView === "legacy") renderSotDashboard();
-        if (activeAdminView === "database") renderCurrentTestDashboard();
+        if (activeAdminView === "database") {
+          renderCurrentTestDashboard();
+          if (!sotCurrentTestLoaded && !sotCurrentTestLoading) loadCurrentTestDashboard();
+        }
       });
     });
 
     document.addEventListener("click", function(e) {
+      const currentDashViewButton = e.target.closest("[data-ctdash-view]");
+      if (currentDashViewButton) {
+        currentDashView = currentDashViewButton.dataset.ctdashView || "report";
+        renderCurrentTestDashboard();
+        if (currentDashView === "event-analysis" && currentDashSelectedEvent !== "all") ensureCurrentDashEventDetail(currentDashSelectedEvent);
+        return;
+      }
+
+      const currentDashReportPeriodButton = e.target.closest("[data-ctdash-report-period]");
+      if (currentDashReportPeriodButton) {
+        currentDashReportPeriod = currentDashReportPeriodButton.dataset.ctdashReportPeriod || "daily";
+        renderCurrentTestDashboard();
+        return;
+      }
+
+      const currentDashEventPeriodButton = e.target.closest("[data-ctdash-event-period]");
+      if (currentDashEventPeriodButton) {
+        currentDashEventPeriod = currentDashEventPeriodButton.dataset.ctdashEventPeriod || "all";
+        renderCurrentTestDashboard();
+        return;
+      }
+
       const sectionButton = e.target.closest("[data-sot-section]");
       if (sectionButton) {
         sotDashActiveSection = sectionButton.dataset.sotSection || "overview";
@@ -1632,6 +2301,27 @@
       logDashboardCacheRebuild("source filter change");
     });
     document.addEventListener("change", e => {
+      if (e.target && e.target.id === "ctdash_event_select") {
+        currentDashSelectedEvent = e.target.value || "all";
+        renderCurrentTestDashboard();
+        ensureCurrentDashEventDetail(currentDashSelectedEvent);
+        return;
+      }
+      if (e.target && e.target.id === "ctdash_week_select") {
+        currentDashSelectedWeekStart = e.target.value || "";
+        renderCurrentTestDashboard();
+        return;
+      }
+      if (e.target && e.target.id === "ctdash_month_select") {
+        currentDashSelectedMonthKey = e.target.value || "";
+        renderCurrentTestDashboard();
+        return;
+      }
+      if (e.target && e.target.id === "ctdash_date_select") {
+        currentDashSelectedDateKey = e.target.value || "";
+        renderCurrentTestDashboard();
+        return;
+      }
       if (e.target && e.target.id === "sot_dash_revenue_week_filter") {
         sotDashSelectedWeekStart = e.target.value || "";
         ensureSelectedDateKey();
