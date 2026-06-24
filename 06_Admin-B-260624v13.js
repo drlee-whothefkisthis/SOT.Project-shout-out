@@ -155,11 +155,56 @@
     return fetchDashboardProxy("detail", options);
   }
 
+  function normalizeBubbleApiKeys(value) {
+    const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    return Object.entries(source).reduce((result, [key, item]) => {
+      const isBubbleAlias = key.indexOf("_api_c2_") === 0;
+      const normalizedKey = isBubbleAlias ? key.slice("_api_c2_".length) : key;
+      if (normalizedKey === "body_raw_text") return result;
+      if (!isBubbleAlias || result[normalizedKey] === undefined) result[normalizedKey] = item;
+      return result;
+    }, {});
+  }
+
+  function flattenDashboardMetricRows(rows) {
+    return (Array.isArray(rows) ? rows : []).map(row => {
+      const source = normalizeBubbleApiKeys(row);
+      const metrics = normalizeBubbleApiKeys(source.metrics);
+      return { ...source, ...metrics };
+    });
+  }
+
   function normalizeCloudRunDashboardPayload(payload) {
     const response = payload && (payload.response || payload) || {};
+    const nestedSummary = normalizeBubbleApiKeys(response.summary);
+    const responseValues = normalizeBubbleApiKeys(response);
+    // Supports the temporary Bubble flat response while preferring the Cloud Run shape.
+    const summary = Object.keys(nestedSummary).length
+      ? nestedSummary
+      : ["visit_count", "session_count", "local_user_count", "search_count", "cart_count", "cart_photo_count", "purchase_count", "purchase_photo_count", "revenue", "exposure_sum", "exposure_count", "zero_exposure_count"]
+        .reduce((result, key) => {
+          if (responseValues[key] !== undefined) result[key] = responseValues[key];
+          return result;
+        }, {});
+    const eventSummaries = flattenDashboardMetricRows(response.events);
+    const events = [{ event_code:"all", event_name:"전체 대회" }];
+    eventSummaries.forEach(row => {
+      if (!row.event_code || row.event_code === "all") return;
+      events.push({ ...row, event_name: row.event_name || row.event_code });
+    });
+
     return {
-      summary: response.summary || {},
+      summary,
+      state: summary,
       rows: Array.isArray(response.rows) ? response.rows : [],
+      events,
+      event_summaries: eventSummaries,
+      daily: flattenDashboardMetricRows(response.daily),
+      hourly: flattenDashboardMetricRows(response.hourly),
+      sources: flattenDashboardMetricRows(response.sources),
+      campaigns: flattenDashboardMetricRows(response.campaigns),
+      devices: flattenDashboardMetricRows(response.devices),
+      row_counts: normalizeBubbleApiKeys(response.row_counts),
       generated_at: response.generated_at || ""
     };
   }
@@ -963,9 +1008,14 @@
     currentDashEventDetailError = "";
     renderCurrentTestDashboard();
     try {
-      const payload = await SOT_HEAD.fetchDashboardDetailFromCloudRun({
+      // dashboard_summary returns the event's KPI, time series, and traffic axes
+      // together. dashboard_detail is intentionally reserved for one raw agg_type.
+      const payload = await SOT_HEAD.fetchDashboardSummaryFromCloudRun({
         data_source: "current_test",
-        event_code: eventCode
+        event_code: eventCode,
+        period: "test-window",
+        start_date: "2026-06-20T00:00:00+09:00",
+        end_date: "2026-06-23T13:57:16.854371+09:00"
       });
       const normalized = SOT_HEAD.normalizeCloudRunDashboardPayload(payload);
       currentDashEventDetailCache[eventCode] = normalized;
