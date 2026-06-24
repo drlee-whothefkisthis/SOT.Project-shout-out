@@ -539,18 +539,21 @@
         <div class="sh-admin-hero-main hero-main card">
           <div class="sh-admin-eyebrow">SOT Data API Admin Console</div>
           <h1 class="sh-admin-title">Shout-out Admin Dashboard</h1>
-          <p class="sh-admin-sub">대회 관리, 검색, 구매, 스팟, 코스, 노출 품질을 한 화면에서 확인합니다.</p>
+          <p class="sh-admin-sub">대회 관리, 리포트, 대회별 분석, 일지 작성, 레거시데이터를 한 화면에서 확인합니다.</p>
         </div>
         <div class="sh-admin-status-card hero-side card">
           <div><b id="sh_hero_status">상태: 대기 중</b></div>
           <div>마지막 업데이트: <span id="sh_hero_updated">레거시데이터에서 조회</span></div>
           <div>Data API: <span id="sh_hero_snapshot_key">SOT:Dashboard</span></div>
+          <button class="sh-btn-sm sh-admin-refresh" type="button" id="sot_current_test_refresh_btn">DB분석 새로고침</button>
         </div>
       </header>
 
       <div class="sh-admin-tabs main-tabs" role="tablist" aria-label="Admin views">
         <button class="sh-admin-tab tab-btn is-active" type="button" data-admin-view="events" aria-selected="true">대회 관리</button>
-        <button class="sh-admin-tab tab-btn" type="button" data-admin-view="database" aria-selected="false">DB분석</button>
+        <button class="sh-admin-tab tab-btn" type="button" data-admin-view="report" aria-selected="false">리포트</button>
+        <button class="sh-admin-tab tab-btn" type="button" data-admin-view="event-analysis" aria-selected="false">대회별 분석</button>
+        <button class="sh-admin-tab tab-btn" type="button" data-admin-view="diary" aria-selected="false">일지 작성</button>
         <button class="sh-admin-tab tab-btn" type="button" data-admin-view="legacy" aria-selected="false">레거시데이터</button>
       </div>
 
@@ -598,8 +601,16 @@
         </table>
       </section>
 
-      <section class="sh-admin-panel is-hidden" data-admin-panel="database" hidden>
-        <div id="sot_current_test_content"></div>
+      <section class="sh-admin-panel is-hidden" data-admin-panel="report" hidden>
+        <div class="sot-current-test-content" data-current-test-content="report"></div>
+      </section>
+
+      <section class="sh-admin-panel is-hidden" data-admin-panel="event-analysis" hidden>
+        <div class="sot-current-test-content" data-current-test-content="event-analysis"></div>
+      </section>
+
+      <section class="sh-admin-panel is-hidden" data-admin-panel="diary" hidden>
+        <div class="sot-current-test-content" data-current-test-content="diary"></div>
       </section>
 
       <section class="sh-admin-panel is-hidden" data-admin-panel="legacy" hidden>
@@ -846,32 +857,8 @@
     }
   }
 
-  function currentTestDashboardFrame(contentMarkup, stateLabel) {
-    const data = sotCurrentTestData || {};
-    const activeView = currentDashView || "report";
-    return `
-      <div class="ctdash-shell shell">
-        <section class="ctdash-hero hero">
-          <div class="ctdash-hero-main ctdash-card hero-main card">
-            <div class="ctdash-eyebrow eyebrow">DB ANALYSIS</div>
-            <h2>Shout-out Admin Dashboard</h2>
-            <p>리포트, 대회별 분석, 일지 작성을 한 화면에서 확인합니다.</p>
-            <div class="ctdash-main-tabs main-tabs" role="tablist" aria-label="DB analysis views">
-              <button class="ctdash-tab tab-btn ${activeView === "report" ? "is-active" : ""}" type="button" data-ctdash-view="report">리포트</button>
-              <button class="ctdash-tab tab-btn ${activeView === "event-analysis" ? "is-active" : ""}" type="button" data-ctdash-view="event-analysis">대회별 분석</button>
-              <button class="ctdash-tab tab-btn ${activeView === "diary" ? "is-active" : ""}" type="button" data-ctdash-view="diary">일지 작성</button>
-            </div>
-          </div>
-          <aside class="ctdash-hero-side ctdash-card hero-side card">
-            <h3>연결 상태</h3>
-            <div class="ctdash-status-row"><span>데이터 소스</span><b>current_test</b></div>
-            <div class="ctdash-status-row"><span>상태</span><b>${escapeHtml(stateLabel || "준비")}</b></div>
-            <div class="ctdash-status-row"><span>대회 수</span><b>${formatNumber((data.event_summaries || []).length)}</b></div>
-            <button class="ctdash-refresh" type="button" id="sot_current_test_refresh_btn">DB분석 새로고침</button>
-          </aside>
-        </section>
-        ${contentMarkup || ""}
-      </div>`;
+  function currentTestDashboardFrame(contentMarkup) {
+    return contentMarkup || "";
   }
 
   function currentDashFallbackTable(headers) {
@@ -921,7 +908,7 @@
   }
 
   function renderCurrentTestDashboard() {
-    const target = $("#sot_current_test_content");
+    const target = document.querySelector(`[data-current-test-content="${currentDashView}"]`);
     if (!target) return;
 
     if (sotCurrentTestLoading) {
@@ -2577,9 +2564,10 @@
     document.querySelectorAll("[data-admin-view]").forEach(btn => {
       btn.addEventListener("click", () => {
         activeAdminView = btn.dataset.adminView;
+        if (["report", "event-analysis", "diary"].includes(activeAdminView)) currentDashView = activeAdminView;
         syncAdminView();
         if (activeAdminView === "legacy") renderSotDashboard();
-        if (activeAdminView === "database") {
+        if (["report", "event-analysis", "diary"].includes(activeAdminView)) {
           renderCurrentTestDashboard();
           if (!sotCurrentTestLoaded && !sotCurrentTestLoading) loadCurrentTestDashboard();
         }
@@ -2587,14 +2575,6 @@
     });
 
     document.addEventListener("click", function(e) {
-      const currentDashViewButton = e.target.closest("[data-ctdash-view]");
-      if (currentDashViewButton) {
-        currentDashView = currentDashViewButton.dataset.ctdashView || "report";
-        renderCurrentTestDashboard();
-        if (currentDashView === "event-analysis" && currentDashSelectedEvent !== "all") ensureCurrentDashEventDetail(currentDashSelectedEvent);
-        return;
-      }
-
       const currentDashReportPeriodButton = e.target.closest("[data-ctdash-report-period]");
       if (currentDashReportPeriodButton) {
         currentDashReportPeriod = currentDashReportPeriodButton.dataset.ctdashReportPeriod || "daily";
