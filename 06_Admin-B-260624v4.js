@@ -1,4 +1,339 @@
 (function(){
+  if (window.SotAdminHead) return;
+
+  const API_DASHBOARD_DATA_LIVE = "/api/1.1/obj/SOT:Dashboard";
+  const API_DASHBOARD_DATA_TEST = "/version-test/api/1.1/obj/SOT:Dashboard";
+  const DASHBOARD_PAGE_LIMIT = 500;
+  const SOT_ADMIN_DASHBOARD_PROXY_PATH = "/api/1.1/wf/sot-admin-dashboard";
+
+  const dashboardSections = [
+    { id:"overview", group:"Core", label:"1. 전체 현황", desc:"전체 KPI, 퍼널, 검색/노출을 한 화면 안에서 탭으로 확인합니다." },
+    { id:"period", group:"Core", label:"2. 기간별 분석", desc:"토요일 시작 주차별 요약, 선택 주차의 일자별 상세, 선택 날짜의 00~23시 시간대별 정보를 확인합니다." },
+    { id:"event", group:"Core", label:"3. 대회별 분석", desc:"대회 선택 후 구매자 객단가와 참가자 대비 구매 지표를 확인합니다." },
+    { id:"source", group:"Core", label:"4. 유입 / 디바이스 분석", desc:"SMS, 카카오, QR, 인앱, 디바이스를 한 화면으로 합쳤습니다." },
+    { id:"cart", group:"Commerce", label:"5. 장바구니 분석", desc:"장바구니는 현재 스팟 연결을 보류하고 기본 퍼널만 확인합니다." },
+    { id:"purchase", group:"Commerce", label:"6. 구매 / 매출 / 상품", desc:"낱장, 패키지, 금액대, 객단가를 확인합니다." },
+    { id:"spot", group:"Commerce", label:"7. 사진 prefix / 스팟", desc:"파일명 앞자리 AM/BM/CM 기준으로 판매 비중을 봅니다." },
+    { id:"course", group:"Operations", label:"8. 코스 / 배번호 관리", desc:"배번호 구간을 직접 추가하고 코스별 성과를 봅니다." },
+    { id:"quality", group:"Operations", label:"9. 데이터 품질", desc:"누락/중복/이상치 항목을 클릭해 실제 row를 확인합니다." },
+    { id:"payment", group:"Operations", label:"10. 결제 실패", desc:"create_order 이후 confirm/payment 원장 생성 실패를 추적합니다." }
+  ];
+
+  function emptyDashboardData() {
+    return {
+      generated_at: "",
+      state: {},
+      events: [{ event_code:"all", event_name:"전체 대회" }],
+      hourly: [],
+      daily: [],
+      event_summaries: [],
+      ranges: [],
+      sales_amount_hour: [],
+      sources: [],
+      campaigns: [],
+      devices: [],
+      searchTypes: [],
+      exposures: [],
+      queries: [],
+      carts: [],
+      products: [],
+      spots: [],
+      course_ranges: [],
+      quality: [],
+      payment_failures: []
+    };
+  }
+
+  function dashboardDataApiPath(pathname) {
+    return String(pathname || "").indexOf("/version-test") === 0 ? API_DASHBOARD_DATA_TEST : API_DASHBOARD_DATA_LIVE;
+  }
+
+  function dashboardDataApiUrl(apiBase, cursor, eventCode) {
+    const params = new URLSearchParams();
+    params.set("limit", String(DASHBOARD_PAGE_LIMIT));
+    params.set("cursor", String(cursor || 0));
+    const constraints = [{ key:"data_source", constraint_type:"equals", value:"legacy" }];
+    if (eventCode) {
+      constraints.push({ key:"event_code", constraint_type:"equals", value:eventCode });
+    }
+    params.set("constraints", JSON.stringify(constraints));
+    return apiBase + dashboardDataApiPath(window.location.pathname) + "?" + params.toString();
+  }
+
+  async function fetchAllDashboardRows(apiBase, eventCode) {
+    const rows = [];
+    let cursor = 0;
+    let remaining = 1;
+
+    while (remaining > 0) {
+      const res = await fetch(dashboardDataApiUrl(apiBase, cursor, eventCode), { method:"GET" });
+      const text = await res.text();
+      if (!res.ok) {
+        console.error("[SOT Dashboard] API failed", { status: res.status, body: text.slice(0, 500) });
+        throw new Error("SOT Dashboard API failed: " + res.status);
+      }
+
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (e) {
+        console.error("[SOT Dashboard] API JSON parse failed", { status: res.status, body: text.slice(0, 500) });
+        throw e;
+      }
+
+      const response = data.response || data;
+      const results = Array.isArray(response.results) ? response.results : [];
+      rows.push(...results);
+      remaining = numberValue(response, ["remaining"]);
+      cursor += results.length || DASHBOARD_PAGE_LIMIT;
+      if (!results.length && remaining > 0) break;
+    }
+
+    return rows;
+  }
+
+  function getDashboardApiConfig(options) {
+    const opts = options || {};
+    const testPrefix = String(window.location.pathname || "").indexOf("/version-test") === 0 ? "/version-test" : "";
+    return {
+      url: opts.proxyUrl || testPrefix + SOT_ADMIN_DASHBOARD_PROXY_PATH,
+      data_source: opts.data_source || "current_test"
+    };
+  }
+
+  async function fetchDashboardProxy(mode, options) {
+    const opts = options || {};
+    const config = getDashboardApiConfig(opts);
+    const payload = {
+      mode,
+      data_source: config.data_source
+    };
+
+    ["period", "start_date", "end_date", "agg_type"].forEach(key => {
+      if (opts[key] !== undefined && opts[key] !== null && opts[key] !== "") payload[key] = opts[key];
+    });
+    // Cloud Run treats an omitted event_code as the all-events query.
+    if (opts.event_code) payload.event_code = opts.event_code;
+
+    const res = await fetch(config.url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      console.error("[SOT Dashboard] proxy failed", { status: res.status, body: text.slice(0, 500), payload });
+      throw new Error("SOT Dashboard proxy failed: " + res.status);
+    }
+
+    try {
+      return text ? JSON.parse(text) : {};
+    } catch (e) {
+      console.error("[SOT Dashboard] proxy JSON parse failed", { status: res.status, body: text.slice(0, 500), payload });
+      throw e;
+    }
+  }
+
+  async function fetchDashboardSummaryFromCloudRun(options) {
+    return fetchDashboardProxy("summary", options);
+  }
+
+  async function fetchDashboardDetailFromCloudRun(options) {
+    return fetchDashboardProxy("detail", options);
+  }
+
+  function normalizeCloudRunDashboardPayload(payload) {
+    const response = payload && (payload.response || payload) || {};
+    return {
+      summary: response.summary || {},
+      rows: Array.isArray(response.rows) ? response.rows : [],
+      generated_at: response.generated_at || ""
+    };
+  }
+
+  function groupByAggType(rows) {
+    const grouped = { daily: [], weekly: [], monthly: [], all: [] };
+    (Array.isArray(rows) ? rows : []).forEach(row => {
+      const aggType = String(row && row.agg_type || "").toLowerCase();
+      if (grouped[aggType]) grouped[aggType].push(row);
+    });
+    return grouped;
+  }
+
+  function buildDashboardData(payload) {
+    const normalized = normalizeCloudRunDashboardPayload(payload);
+    const summary = normalized.summary || {};
+    const grouped = groupByAggType(normalized.rows);
+    return {
+      generated_at: normalized.generated_at || "",
+      state: summary.state || {},
+      events: Array.isArray(summary.events) && summary.events.length ? summary.events : [{ event_code:"all", event_name:"전체 대회" }],
+      hourly: Array.isArray(summary.hourly) ? summary.hourly : [],
+      daily: grouped.daily || [],
+      weekly: grouped.weekly || [],
+      monthly: grouped.monthly || [],
+      all: grouped.all || [],
+      event_summaries: Array.isArray(summary.event_summaries) ? summary.event_summaries : [],
+      ranges: Array.isArray(summary.ranges) ? summary.ranges : [],
+      sales_amount_hour: Array.isArray(summary.sales_amount_hour) ? summary.sales_amount_hour : [],
+      sources: Array.isArray(summary.sources) ? summary.sources : [],
+      campaigns: Array.isArray(summary.campaigns) ? summary.campaigns : [],
+      devices: Array.isArray(summary.devices) ? summary.devices : [],
+      searchTypes: Array.isArray(summary.search_types) ? summary.search_types : [],
+      exposures: Array.isArray(summary.exposures) ? summary.exposures : [],
+      queries: Array.isArray(summary.queries) ? summary.queries : [],
+      carts: Array.isArray(summary.carts) ? summary.carts : [],
+      products: Array.isArray(summary.products) ? summary.products : [],
+      spots: Array.isArray(summary.spots) ? summary.spots : [],
+      course_ranges: Array.isArray(summary.course_ranges) ? summary.course_ranges : [],
+      quality: Array.isArray(summary.quality) ? summary.quality : [],
+      payment_failures: Array.isArray(summary.payment_failures) ? summary.payment_failures : []
+    };
+  }
+
+  function filterDashboardRowsByPeriod(rows, aggType) {
+    return (Array.isArray(rows) ? rows : []).filter(row => String(row && row.agg_type || "").toLowerCase() === String(aggType || "").toLowerCase());
+  }
+
+  function countBy(rows, key) {
+    return (Array.isArray(rows) ? rows : []).reduce((acc, row) => {
+      const value = row && row[key];
+      if (value === undefined || value === null || value === "") return acc;
+      const bucket = String(value);
+      acc[bucket] = (acc[bucket] || 0) + 1;
+      return acc;
+    }, {});
+  }
+
+  function aggregateRows(rows) {
+    return (Array.isArray(rows) ? rows : []).reduce((acc, row) => {
+      Object.keys(row || {}).forEach(key => {
+        if (typeof row[key] === "number") acc[key] = (acc[key] || 0) + row[key];
+      });
+      return acc;
+    }, {});
+  }
+
+  function sessionIdsCount(rows) {
+    const ids = new Set();
+    (Array.isArray(rows) ? rows : []).forEach(row => {
+      const value = row && (row.session_id || row.sid || row.search_session_id);
+      if (value) ids.add(String(value));
+    });
+    return ids.size;
+  }
+
+  function saturdayWeekStart(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    const result = new Date(date);
+    while (result.getDay() !== 6) result.setDate(result.getDate() - 1);
+    result.setHours(0, 0, 0, 0);
+    return result;
+  }
+
+  function saturdayWeekEndExclusive(value) {
+    const start = saturdayWeekStart(value);
+    if (!start) return null;
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    return end;
+  }
+
+  function saturdayWeekLabel(value) {
+    const start = saturdayWeekStart(value);
+    const end = saturdayWeekEndExclusive(value);
+    if (!start || !end) return "";
+    return `${rangeLabel(start)} - ${rangeLabel(addDays(end, -1))}`;
+  }
+
+  function addDays(value, offset) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    const next = new Date(date);
+    next.setDate(next.getDate() + Number(offset || 0));
+    return next;
+  }
+
+  function numberValue(source, keys) {
+    const keyList = Array.isArray(keys) ? keys : [keys];
+    for (let i = 0; i < keyList.length; i += 1) {
+      const value = source && source[keyList[i]];
+      const num = Number(value);
+      if (Number.isFinite(num)) return num;
+    }
+    return 0;
+  }
+
+  function averageExposure(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    if (!list.length) return 0;
+    const total = list.reduce((sum, row) => sum + numberValue(row, ["exposure", "exposure_count"]), 0);
+    return total / list.length;
+  }
+
+  function rateValue(numerator, denominator) {
+    const num = Number(numerator || 0);
+    const den = Number(denominator || 0);
+    if (!den) return 0;
+    return (num / den) * 100;
+  }
+
+  function safeRate(numerator, denominator) {
+    return rateValue(numerator, denominator);
+  }
+
+  function rangeLabel(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return `${date.getMonth() + 1}/${date.getDate()}`;
+  }
+
+  function formatNumber(value) {
+    return Number(value || 0).toLocaleString("ko-KR");
+  }
+
+  function formatWon(value) {
+    return `₩${formatNumber(Math.round(Number(value || 0)))}`;
+  }
+
+  function formatPercent(value) {
+    return Number(value || 0).toFixed(1) + "%";
+  }
+
+  window.SotAdminHead = {
+    dashboardSections,
+    dashboardDataApiPath,
+    DASHBOARD_PAGE_LIMIT,
+    SOT_ADMIN_DASHBOARD_PROXY_PATH,
+    emptyDashboardData,
+    fetchAllDashboardRows,
+    getDashboardApiConfig,
+    fetchDashboardSummaryFromCloudRun,
+    fetchDashboardDetailFromCloudRun,
+    normalizeCloudRunDashboardPayload,
+    groupByAggType,
+    buildDashboardData,
+    filterDashboardRowsByPeriod,
+    countBy,
+    aggregateRows,
+    sessionIdsCount,
+    saturdayWeekStart,
+    saturdayWeekEndExclusive,
+    saturdayWeekLabel,
+    addDays,
+    numberValue,
+    averageExposure,
+    rateValue,
+    safeRate,
+    rangeLabel,
+    formatNumber,
+    formatWon,
+    formatPercent
+  };
+})();
+
+(function(){
 
   const $ = (s, root=document) => root.querySelector(s);
   const escapeHtml = (s) => String(s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
