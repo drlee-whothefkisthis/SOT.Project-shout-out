@@ -1062,7 +1062,7 @@
 
   function renderCurrentDashReportView() {
     const state = sotCurrentTestData.state || {};
-    const people = dashboardPeopleForSelection("all");
+    const people = currentDashboardPeopleForSelection("all");
     return `
       <section class="ctdash-screen">
         <article class="ctdash-card ctdash-section">
@@ -1084,27 +1084,27 @@
             ${metricCard("구매수", formatNumber(numberValue(state, ["purchase_count"])), "결제 완료")}
           </div>
         </article>
+        <article class="ctdash-card ctdash-section">
+          <div class="ctdash-section-head">
+            <div>
+              <div class="ctdash-kicker">Hourly</div>
+              <h3>시간대별 그래프</h3>
+              <p>마우스를 올리면 시간대별 검색, 카트, 구매, 평균전환율을 확인할 수 있습니다.</p>
+            </div>
+            <span class="ctdash-tag">Hover</span>
+          </div>
+          <div class="ctdash-chart-box">
+            <div class="ctdash-legend">
+              <span><i style="background:#c96b37"></i>검색</span>
+              <span><i style="background:#0c8b88"></i>카트</span>
+              <span><i style="background:#d8a23d"></i>구매</span>
+              <span><i style="background:rgba(216,162,61,.55);border-radius:4px"></i>매출</span>
+            </div>
+            <svg id="ctdashReportChart" viewBox="0 0 1100 360" aria-label="리포트 그래프"></svg>
+            <div class="ctdash-tooltip" id="ctdashReportTooltip"></div>
+          </div>
+        </article>
         <div class="ctdash-two-col">
-          <article class="ctdash-card ctdash-section">
-            <div class="ctdash-section-head">
-              <div>
-                <div class="ctdash-kicker">Hourly</div>
-                <h3>시간대별 그래프</h3>
-                <p>마우스를 올리면 시간대별 검색, 카트, 구매, 평균전환율을 확인할 수 있습니다.</p>
-              </div>
-              <span class="ctdash-tag">Hover</span>
-            </div>
-            <div class="ctdash-chart-box">
-              <div class="ctdash-legend">
-                <span><i style="background:#c96b37"></i>검색</span>
-                <span><i style="background:#0c8b88"></i>카트</span>
-                <span><i style="background:#d8a23d"></i>구매</span>
-                <span><i style="background:rgba(216,162,61,.55);border-radius:4px"></i>매출</span>
-              </div>
-              <svg id="ctdashReportChart" viewBox="0 0 1100 360" aria-label="리포트 그래프"></svg>
-              <div class="ctdash-tooltip" id="ctdashReportTooltip"></div>
-            </div>
-          </article>
           <article class="ctdash-card ctdash-section">
             <div class="ctdash-section-head">
               <div>
@@ -1148,7 +1148,7 @@
     const eventName = currentDashSelectedEvent === "all"
       ? "전체 대회"
       : ((sotCurrentTestData.events || []).find(row => row.event_code === currentDashSelectedEvent)?.event_name || currentDashSelectedEvent);
-    const people = currentDashSelectedEvent === "all" ? dashboardPeopleForSelection("all") : eventPeople(currentDashSelectedEvent);
+    const people = currentDashSelectedEvent === "all" ? currentDashboardPeopleForSelection("all") : currentDashboardPeopleForSelection(currentDashSelectedEvent);
     const rows = sortMetricRows(detail.daily || []);
     const detailTable = renderEventDetailTable(rows);
     return `
@@ -1735,6 +1735,7 @@
     const innerHeight = height - margin.top - margin.bottom;
     const colors = { search: "#c96b37", cart: "#0c8b88", purchase: "#d8a23d", order: "#ad4e67" };
     chart.innerHTML = "";
+    chart.setAttribute("viewBox", `0 0 ${width} ${height}`);
 
     const createSvg = (tag, attrs) => {
       const el = document.createElementNS(svgNS, tag);
@@ -1809,8 +1810,15 @@
     }
 
     overlay.addEventListener("mousemove", event => {
-      const box = chart.getBoundingClientRect();
-      const ratio = (event.clientX - box.left - margin.left) / innerWidth;
+      let svgX = margin.left;
+      const matrix = chart.getScreenCTM && chart.getScreenCTM();
+      if (matrix) {
+        const point = chart.createSVGPoint();
+        point.x = event.clientX;
+        point.y = event.clientY;
+        svgX = point.matrixTransform(matrix.inverse()).x;
+      }
+      const ratio = (svgX - margin.left) / innerWidth;
       const index = Math.min(data.length - 1, Math.max(0, Math.round(ratio * Math.max(1, data.length - 1))));
       setTooltip(index, event.clientX);
     });
@@ -2017,6 +2025,30 @@
   function eventPeople(eventCode) {
     const ev = (allEvents || []).find(item => item && item.event_code === eventCode);
     return numberValue(ev, ["people", "participants", "participant_count", "runner_count"]);
+  }
+
+  function currentDashboardPeopleForSelection(eventCode) {
+    if (eventCode && eventCode !== "all") return currentDashboardEventPeople(eventCode);
+    const seen = new Set();
+    const rows = []
+      .concat(sotCurrentTestData.events || [])
+      .concat(sotCurrentTestData.event_summaries || []);
+    const total = rows.reduce((sum, row) => {
+      const code = row && row.event_code;
+      if (!code || code === "all" || seen.has(code)) return sum;
+      seen.add(code);
+      return sum + currentDashboardEventPeople(code);
+    }, 0);
+    return total || numberValue(sotCurrentTestData.state || {}, ["people", "participants", "participant_count", "runner_count"]) || dashboardPeopleForSelection("all");
+  }
+
+  function currentDashboardEventPeople(eventCode) {
+    const rows = []
+      .concat(sotCurrentTestData.events || [])
+      .concat(sotCurrentTestData.event_summaries || [])
+      .concat(allEvents || []);
+    const row = rows.find(item => item && item.event_code === eventCode);
+    return numberValue(row, ["people", "participants", "participant_count", "runner_count"]);
   }
 
   function filteredSources() {
