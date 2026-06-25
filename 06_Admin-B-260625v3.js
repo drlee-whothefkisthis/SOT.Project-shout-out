@@ -136,15 +136,35 @@
 
     try {
       const parsed = text ? JSON.parse(text) : {};
-      const response = parsed && (parsed.response || parsed);
+      const dashboardResponse = parseDashboardProxyPayload(parsed);
+      const response = dashboardResponse && (dashboardResponse.response || dashboardResponse);
       if (response && response.ok === false) {
         throw new Error(response.error || "SOT Dashboard proxy returned ok=false");
       }
-      return parsed;
+      return dashboardResponse;
     } catch (e) {
       console.error("[SOT Dashboard] proxy JSON parse failed", { status: res.status, body: text.slice(0, 500), payload });
       throw e;
     }
+  }
+
+  function parseDashboardProxyPayload(bubbleData) {
+    const raw =
+      bubbleData?.response?.raw_body_text ||
+      bubbleData?.raw_body_text ||
+      bubbleData?.response?.body_raw_text ||
+      bubbleData?.body_raw_text;
+
+    if (raw && typeof raw === "string" && raw.trim()) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") return parsed;
+      } catch (error) {
+        console.warn("[SOT Dashboard] raw_body_text parse failed:", error);
+      }
+    }
+
+    return bubbleData?.response || bubbleData || {};
   }
 
   async function fetchDashboardSummaryFromCloudRun(options) {
@@ -175,7 +195,7 @@
   }
 
   function normalizeCloudRunDashboardPayload(payload) {
-    const response = payload && (payload.response || payload) || {};
+    const response = parseDashboardProxyPayload(payload);
     const nestedSummary = normalizeBubbleApiKeys(response.summary);
     const responseValues = normalizeBubbleApiKeys(response);
     // Supports the temporary Bubble flat response while preferring the Cloud Run shape.
