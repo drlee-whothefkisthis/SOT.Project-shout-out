@@ -572,6 +572,9 @@
   let sotCurrentTestLastError = "";
   let currentDashView = "report";
   let currentDashReportPeriod = "daily";
+  let currentDashReportSelectedWeekStart = "";
+  let currentDashReportSelectedDateKey = "";
+  let currentDashReportSelectedMonthKey = "";
   let currentDashEventPeriod = "all";
   let currentDashSelectedEvent = "all";
   let currentDashSelectedWeekStart = "";
@@ -1056,6 +1059,14 @@
     if (!events.some(row => row.event_code === currentDashSelectedEvent)) {
       currentDashSelectedEvent = events.find(row => row.event_code !== "all")?.event_code || "all";
     }
+    const reportDailyRows = sortMetricRows(sotCurrentTestData.daily || []);
+    const reportWeeks = buildWeekRows(reportDailyRows);
+    const reportMonths = buildMonthRows(reportDailyRows);
+    const reportDates = reportDailyRows.map(row => row.date_key || row.period_key || row.label).filter(Boolean);
+    if (!reportDates.includes(currentDashReportSelectedDateKey)) currentDashReportSelectedDateKey = reportDates[0] || "";
+    if (!reportWeeks.some(row => row.week_start === currentDashReportSelectedWeekStart)) currentDashReportSelectedWeekStart = reportWeeks[0]?.week_start || "";
+    if (!reportMonths.some(row => row.month_key === currentDashReportSelectedMonthKey)) currentDashReportSelectedMonthKey = reportMonths[0]?.month_key || "";
+
     const detail = currentDashSelectedEvent !== "all" && currentDashEventDetailCode === currentDashSelectedEvent
       ? currentDashEventDetailData
       : sotCurrentTestData;
@@ -1076,12 +1087,79 @@
   }
 
   function currentDashSelectedEventSummary() {
+    const detail = currentDashEventDataset();
+    if (currentDashEventPeriod !== "all") return aggregateCurrentDashRows(currentDashEventRowsForPeriod(detail));
+    if (currentDashSelectedEvent !== "all" && detail && detail.state) return detail.state || {};
     if (currentDashSelectedEvent === "all") return sotCurrentTestData.state || {};
     return (sotCurrentTestData.event_summaries || []).find(row => row.event_code === currentDashSelectedEvent) || {};
   }
 
+  function aggregateCurrentDashRows(rows) {
+    const fields = ["visit_count", "local_user_count", "session_count", "search_user_count", "search_count", "cart_count", "cart_photo_count", "purchase_count", "purchase_photo_count", "revenue", "exposure_sum", "exposure_count", "zero_exposure_count"];
+    return (rows || []).reduce((acc, row) => {
+      fields.forEach(field => { acc[field] = Number(acc[field] || 0) + numberValue(row, [field]); });
+      return acc;
+    }, {});
+  }
+
+  function currentDashReportRowsForPeriod() {
+    const daily = sortMetricRows(sotCurrentTestData.daily || []);
+    if (currentDashReportPeriod === "daily") {
+      return daily.filter(row => (row.date_key || row.period_key || row.label) === currentDashReportSelectedDateKey);
+    }
+    if (currentDashReportPeriod === "weekly") {
+      const selectedWeek = buildWeekRows(daily).find(row => row.week_start === currentDashReportSelectedWeekStart);
+      return selectedWeek?.rows || [];
+    }
+    const selectedMonth = buildMonthRows(daily).find(row => row.month_key === currentDashReportSelectedMonthKey);
+    return selectedMonth?.rows || [];
+  }
+
+  function currentDashReportState() {
+    const rows = currentDashReportRowsForPeriod();
+    return rows.length ? aggregateCurrentDashRows(rows) : (sotCurrentTestData.state || {});
+  }
+
+  function currentDashReportScopeLabel() {
+    const daily = sortMetricRows(sotCurrentTestData.daily || []);
+    if (currentDashReportPeriod === "daily") return currentDashReportSelectedDateKey || "일별";
+    if (currentDashReportPeriod === "weekly") {
+      const selectedWeek = buildWeekRows(daily).find(row => row.week_start === currentDashReportSelectedWeekStart);
+      return selectedWeek?.label || "주별";
+    }
+    const selectedMonth = buildMonthRows(daily).find(row => row.month_key === currentDashReportSelectedMonthKey);
+    return selectedMonth?.label || "월별";
+  }
+
+  function currentDashReportScopeControls() {
+    const daily = sortMetricRows(sotCurrentTestData.daily || []);
+    if (currentDashReportPeriod === "daily") {
+      return `<label><span>일자 선택</span><select class="ctdash-select" id="ctdash_report_date_select">${daily.map(row => { const key = row.date_key || row.period_key || row.label; return `<option value="${escapeHtml(key)}" ${key === currentDashReportSelectedDateKey ? "selected" : ""}>${escapeHtml(key)}</option>`; }).join("")}</select></label>`;
+    }
+    if (currentDashReportPeriod === "weekly") {
+      return `<label><span>주차 선택</span><select class="ctdash-select" id="ctdash_report_week_select">${buildWeekRows(daily).map(row => `<option value="${escapeHtml(row.week_start)}" ${row.week_start === currentDashReportSelectedWeekStart ? "selected" : ""}>${escapeHtml(row.label)}</option>`).join("")}</select></label>`;
+    }
+    return `<label><span>월 선택</span><select class="ctdash-select" id="ctdash_report_month_select">${buildMonthRows(daily).map(row => `<option value="${escapeHtml(row.month_key)}" ${row.month_key === currentDashReportSelectedMonthKey ? "selected" : ""}>${escapeHtml(row.label)}</option>`).join("")}</select></label>`;
+  }
+
+  function currentDashEventRowsForPeriod(detail) {
+    const daily = sortMetricRows((detail || {}).daily || []);
+    if (currentDashEventPeriod === "daily") {
+      return daily.filter(row => (row.date_key || row.period_key || row.label) === currentDashSelectedDateKey);
+    }
+    if (currentDashEventPeriod === "weekly") {
+      const selectedWeek = buildWeekRows(daily).find(row => row.week_start === currentDashSelectedWeekStart);
+      return selectedWeek?.rows || [];
+    }
+    if (currentDashEventPeriod === "monthly") {
+      const selectedMonth = buildMonthRows(daily).find(row => row.month_key === currentDashSelectedMonthKey);
+      return selectedMonth?.rows || [];
+    }
+    return daily;
+  }
+
   function renderCurrentDashReportView() {
-    const state = sotCurrentTestData.state || {};
+    const state = currentDashReportState();
     const people = currentDashboardPeopleForSelection("all");
     return `
       <section class="ctdash-screen">
@@ -1096,6 +1174,7 @@
               ${["daily","weekly","monthly"].map(period => `<button class="ctdash-chip ${currentDashReportPeriod === period ? "is-active" : ""}" type="button" data-ctdash-report-period="${period}">${period === "daily" ? "일별" : period === "weekly" ? "주별" : "월별"}</button>`).join("")}
             </div>
           </div>
+          <div class="ctdash-inline-fields">${currentDashReportScopeControls()}</div>
           <div class="ctdash-metrics-grid">
             ${metricCard("접속수", formatNumber(dashboardSessionCount(state)), "로컬 개수")}
             ${metricCard("검색자", formatNumber(dashboardSearchUserCount(state)), "로컬 개수")}
@@ -1158,7 +1237,7 @@
             </div>
           </article>
         </div>
-        ${renderPhotoExposureSection()}
+        ${renderPhotoExposureSection(state, currentDashReportScopeLabel())}
       </section>`;
   }
 
@@ -1417,8 +1496,21 @@
     return `<article class="ctdash-spot-card"><h4>${prefix}</h4><strong>${formatNumber(Math.round(purchases * ratio))}건 판매</strong><div class="ctdash-spot-row"><span>매출</span><b>${formatWon(Math.round(revenue * ratio))}</b></div><div class="ctdash-spot-row"><span>촬영 사진 수</span><b>일지 연동 예정</b></div></article>`;
   }
 
-  function photoExposureRows(payload) {
-    const rows = Array.isArray(payload.photo_counts) ? payload.photo_counts : [];
+  function photoExposureRows(payload, summaryOverride) {
+    const summaryRows = Array.isArray(summaryOverride?.photo_counts)
+      ? summaryOverride.photo_counts
+      : Array.isArray(summaryOverride?.photo_count_buckets)
+        ? summaryOverride.photo_count_buckets
+        : Array.isArray(summaryOverride?.photo_count_stats)
+          ? summaryOverride.photo_count_stats
+          : [];
+    const rows = summaryRows.length
+      ? summaryRows
+      : Array.isArray(payload.photo_counts)
+        ? payload.photo_counts
+        : Array.isArray(payload.summary?.photo_count_buckets)
+          ? payload.summary.photo_count_buckets
+          : [];
     if (rows.length) {
       return rows.map(row => {
         const label = row.range || row.bucket || row.label || row.photo_count || row.photo_bucket || "-";
@@ -1444,9 +1536,9 @@
     ];
   }
 
-  function renderPhotoExposureSection() {
-    const summary = sotCurrentTestData.state || {};
-    const rows = photoExposureRows(sotCurrentTestData);
+  function renderPhotoExposureSection(summaryOverride, scopeLabel) {
+    const summary = summaryOverride || sotCurrentTestData.state || {};
+    const rows = photoExposureRows(sotCurrentTestData, summary);
     const totalSearch = numberValue(summary, ["search_count"]);
     const zeroExposureSearch = numberValue(summary, ["zero_exposure_count"]);
     const uniqueZeroExposure = numberValue(summary, ["zero_exposure_unique", "zero_exposure_unique_count"]);
@@ -1454,7 +1546,6 @@
     const validSearchCount = Math.max(0, totalSearch - zeroExposureSearch);
     const validAvg = validSearchCount ? numberValue(summary, ["exposure_sum"]) / validSearchCount : 0;
     const validPurchaseRate = safeRate(numberValue(summary, ["purchase_count"]), validSearchCount);
-    const bestRow = rows.reduce((best, row) => (row.purchaseRate > best.purchaseRate ? row : best), rows[0] || { label: "-" , purchaseRate: 0 });
     const maxSearch = Math.max(10, ...rows.map(row => row.searchCount));
     const maxRate = Math.max(1, ...rows.map(row => row.purchaseRate));
 
@@ -1464,7 +1555,7 @@
           <div>
             <div class="ctdash-kicker">Exposure</div>
             <h3>노출 사진 수 분석</h3>
-            <p>검색 결과에 노출된 사진 수 구간별로 검색, 구매, 판매사진, 매출 흐름을 확인합니다.</p>
+            <p>${escapeHtml(scopeLabel || "전체 기간")} 기준입니다. 검색 결과에 노출된 사진 수 구간별로 검색, 구매, 판매사진, 매출 흐름을 확인합니다.</p>
           </div>
           <span class="ctdash-tag">Photo Buckets</span>
         </div>
@@ -1535,9 +1626,12 @@
                 const barHeight = Math.max(8, Math.round((row.searchCount / maxSearch) * 170));
                 const lineY = Math.round(240 - (row.purchaseRate / maxRate) * 110);
                 return `
-                  <rect x="${x}" y="${240 - barHeight}" width="42" height="${barHeight}" rx="6" fill="${index === 0 ? "#f4dfcf" : index === 4 ? "#d98957" : index === 5 ? "#c96b37" : "#e4a674"}"></rect>
-                  <text x="${x + 21}" y="275" font-family="Arial, sans-serif" font-size="12" fill="#6f6256" text-anchor="middle">${escapeHtml(row.label)}</text>
-                  <circle cx="${x + 21}" cy="${lineY}" r="5" fill="#0c8b88"></circle>
+                  <g>
+                    <title>${escapeHtml(row.label)} / 검색 ${formatNumber(row.searchCount)} / 구매율 ${formatPercent(row.purchaseRate)}</title>
+                    <rect x="${x}" y="${240 - barHeight}" width="42" height="${barHeight}" rx="6" fill="${index === 0 ? "#f4dfcf" : index === 4 ? "#d98957" : index === 5 ? "#c96b37" : "#e4a674"}"></rect>
+                    <text x="${x + 21}" y="275" font-family="Arial, sans-serif" font-size="12" fill="#6f6256" text-anchor="middle">${escapeHtml(row.label)}</text>
+                    <circle cx="${x + 21}" cy="${lineY}" r="5" fill="#0c8b88"></circle>
+                  </g>
                 `;
               }).join("")}
               <polyline points="${rows.map((row, index) => {
@@ -1545,10 +1639,6 @@
                 const y = Math.round(240 - (row.purchaseRate / maxRate) * 110);
                 return `${x},${y}`;
               }).join(" ")}" fill="none" stroke="#0c8b88" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></polyline>
-              <rect x="426" y="61" width="144" height="76" rx="15" fill="#2c211b"></rect>
-              <text x="444" y="84" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#cbbfb6">최고 효율 구간</text>
-              <text x="444" y="107" font-family="Arial, sans-serif" font-size="13" font-weight="800" fill="#ffffff">${escapeHtml(bestRow.label)}</text>
-              <text x="444" y="128" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#ffffff">구매율 ${formatPercent(bestRow.purchaseRate)}</text>
             </svg>
           </div>
         </article>
@@ -1565,7 +1655,7 @@
   }
 
   function eventDailyRows(detail) {
-    return reportChartRowsFromDataset(detail).map(row => [
+    return reportChartRowsFromDataset(detail, currentDashSelectedDateKey).map(row => [
       escapeHtml(row.time),
       formatNumber(row.search),
       formatNumber(row.cart),
@@ -1613,9 +1703,10 @@
     return Number.isInteger(hour) && hour >= 0 && hour <= 23 ? String(hour).padStart(2, "0") : "";
   }
 
-  function detailHourlyChartRowsFromDataset(dataset) {
+  function detailHourlyChartRowsFromDataset(dataset, dateKey) {
     return [...(dataset.hourly || [])]
       .filter(row => normalizedHourKey(row.hour_key))
+      .filter(row => !dateKey || (row.date_key || row.period_key || row.label) === dateKey)
       .sort((a, b) => String(a.date_key || a.period_key || "").localeCompare(String(b.date_key || b.period_key || "")) || normalizedHourKey(a.hour_key).localeCompare(normalizedHourKey(b.hour_key)))
       .map(row => ({
         time: normalizedHourKey(row.hour_key),
@@ -1627,10 +1718,11 @@
       }));
   }
 
-  function reportChartRowsFromDataset(dataset) {
+  function reportChartRowsFromDataset(dataset, dateKey) {
     const fields = ["search_count", "cart_count", "cart_photo_count", "purchase_count", "purchase_photo_count", "revenue", "exposure_sum", "exposure_count", "zero_exposure_count", "visit_count", "session_count", "local_user_count", "search_user_count"];
     const byHour = new Map();
     (dataset.hourly || []).forEach(row => {
+      if (dateKey && (row.date_key || row.period_key || row.label) !== dateKey) return;
       const hourKey = normalizedHourKey(row.hour_key);
       if (!hourKey) return;
       if (!byHour.has(hourKey)) byHour.set(hourKey, { hour_key: hourKey });
@@ -1659,7 +1751,7 @@
   }
 
   function reportChartRows() {
-    const rows = reportChartRowsFromDataset(sotCurrentTestData);
+    const rows = reportChartRowsFromDataset(sotCurrentTestData, currentDashReportPeriod === "daily" ? currentDashReportSelectedDateKey : "");
     if (currentDashReportPeriod === "daily") return rows;
     const daily = sortMetricRows(sotCurrentTestData.daily || []);
     if (currentDashReportPeriod === "weekly") {
@@ -1692,7 +1784,7 @@
   function eventChartRows() {
     const detail = currentDashEventDataset();
     if (currentDashEventPeriod === "daily") {
-      return detailHourlyChartRowsFromDataset(detail).map(row => ({
+      return detailHourlyChartRowsFromDataset(detail, currentDashSelectedDateKey).map(row => ({
         label: `${row.time}:00`,
         search: row.search,
         cart: row.cart,
@@ -2906,6 +2998,7 @@
       const currentDashReportPeriodButton = e.target.closest("[data-ctdash-report-period]");
       if (currentDashReportPeriodButton) {
         currentDashReportPeriod = currentDashReportPeriodButton.dataset.ctdashReportPeriod || "daily";
+        syncCurrentDashSelections();
         renderCurrentTestDashboard();
         return;
       }
@@ -2913,6 +3006,7 @@
       const currentDashEventPeriodButton = e.target.closest("[data-ctdash-event-period]");
       if (currentDashEventPeriodButton) {
         currentDashEventPeriod = currentDashEventPeriodButton.dataset.ctdashEventPeriod || "all";
+        syncCurrentDashSelections();
         renderCurrentTestDashboard();
         return;
       }
@@ -3000,6 +3094,21 @@
       logDashboardCacheRebuild("source filter change");
     });
     document.addEventListener("change", e => {
+      if (e.target && e.target.id === "ctdash_report_date_select") {
+        currentDashReportSelectedDateKey = e.target.value || "";
+        renderCurrentTestDashboard();
+        return;
+      }
+      if (e.target && e.target.id === "ctdash_report_week_select") {
+        currentDashReportSelectedWeekStart = e.target.value || "";
+        renderCurrentTestDashboard();
+        return;
+      }
+      if (e.target && e.target.id === "ctdash_report_month_select") {
+        currentDashReportSelectedMonthKey = e.target.value || "";
+        renderCurrentTestDashboard();
+        return;
+      }
       if (e.target && e.target.id === "ctdash_event_select") {
         currentDashSelectedEvent = e.target.value || "all";
         renderCurrentTestDashboard();
