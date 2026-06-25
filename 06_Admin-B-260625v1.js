@@ -181,7 +181,7 @@
     // Supports the temporary Bubble flat response while preferring the Cloud Run shape.
     const summary = Object.keys(nestedSummary).length
       ? nestedSummary
-      : ["visit_count", "session_count", "local_user_count", "search_count", "cart_count", "cart_photo_count", "purchase_count", "purchase_photo_count", "revenue", "exposure_sum", "exposure_count", "zero_exposure_count"]
+      : ["visit_count", "search_user_count", "session_count", "local_user_count", "search_count", "cart_count", "cart_photo_count", "purchase_count", "purchase_photo_count", "revenue", "exposure_sum", "exposure_count", "zero_exposure_count"]
         .reduce((result, key) => {
           if (responseValues[key] !== undefined) result[key] = responseValues[key];
           return result;
@@ -204,6 +204,7 @@
       sources: flattenDashboardMetricRows(response.sources),
       campaigns: flattenDashboardMetricRows(response.campaigns),
       devices: flattenDashboardMetricRows(response.devices),
+      photo_counts: flattenDashboardMetricRows(response.photo_counts || response.photo_count_stats || response.photo_count_buckets),
       row_counts: normalizeBubbleApiKeys(response.row_counts),
       generated_at: response.generated_at || ""
     };
@@ -237,6 +238,7 @@
       sources: Array.isArray(summary.sources) ? summary.sources : [],
       campaigns: Array.isArray(summary.campaigns) ? summary.campaigns : [],
       devices: Array.isArray(summary.devices) ? summary.devices : [],
+      photo_counts: Array.isArray(summary.photo_counts) ? summary.photo_counts : Array.isArray(summary.photo_count_stats) ? summary.photo_count_stats : Array.isArray(summary.photo_count_buckets) ? summary.photo_count_buckets : [],
       searchTypes: Array.isArray(summary.search_types) ? summary.search_types : [],
       exposures: Array.isArray(summary.exposures) ? summary.exposures : [],
       queries: Array.isArray(summary.queries) ? summary.queries : [],
@@ -1097,6 +1099,7 @@
                 <span><i style="background:#c96b37"></i>검색</span>
                 <span><i style="background:#0c8b88"></i>카트</span>
                 <span><i style="background:#d8a23d"></i>구매</span>
+                <span><i style="background:rgba(216,162,61,.55);border-radius:4px"></i>매출</span>
               </div>
               <svg id="ctdashReportChart" viewBox="0 0 1100 360" aria-label="리포트 그래프"></svg>
               <div class="ctdash-tooltip" id="ctdashReportTooltip"></div>
@@ -1135,6 +1138,7 @@
             </div>
           </article>
         </div>
+        ${renderPhotoExposureSection()}
       </section>`;
   }
 
@@ -1271,7 +1275,8 @@
       svgId: "ctdashReportChart",
       tooltipId: "ctdashReportTooltip",
       data: rows,
-      maxY: maxMetricValue(rows, ["search", "cart", "purchase"])
+      maxY: maxMetricValue(rows, ["search", "cart", "purchase"]),
+      maxRevenue: maxRevenueValue(rows)
     });
   }
 
@@ -1392,6 +1397,145 @@
     return `<article class="ctdash-spot-card"><h4>${prefix}</h4><strong>${formatNumber(Math.round(purchases * ratio))}건 판매</strong><div class="ctdash-spot-row"><span>매출</span><b>${formatWon(Math.round(revenue * ratio))}</b></div><div class="ctdash-spot-row"><span>촬영 사진 수</span><b>일지 연동 예정</b></div></article>`;
   }
 
+  function photoExposureRows(payload) {
+    const rows = Array.isArray(payload.photo_counts) ? payload.photo_counts : [];
+    if (rows.length) {
+      return rows.map(row => {
+        const label = row.range || row.bucket || row.label || row.photo_count || row.photo_bucket || "-";
+        const searchCount = numberValue(row, ["search_count", "count", "searches"]);
+        const uniqueBibCount = numberValue(row, ["bib_count", "bibs", "search_bib_count", "unique_bib_count"]);
+        const cartCount = numberValue(row, ["cart_count", "cart"]);
+        const purchaseCount = numberValue(row, ["purchase_count", "purchase"]);
+        const soldPhotoCount = numberValue(row, ["sold_photo_count", "sold_photo", "purchase_photo_count"]);
+        const revenue = numberValue(row, ["revenue"]);
+        const purchaseRate = safeRate(purchaseCount, searchCount);
+        return { label: String(label), searchCount, uniqueBibCount, cartCount, purchaseCount, soldPhotoCount, revenue, purchaseRate };
+      });
+    }
+
+    return [
+      { label: "0장", searchCount: numberValue(payload.state, ["zero_exposure_count"]), uniqueBibCount: 0, cartCount: 0, purchaseCount: 0, soldPhotoCount: 0, revenue: 0, purchaseRate: 0 },
+      { label: "1장", searchCount: 0, uniqueBibCount: 0, cartCount: 0, purchaseCount: 0, soldPhotoCount: 0, revenue: 0, purchaseRate: 0 },
+      { label: "2~3장", searchCount: 0, uniqueBibCount: 0, cartCount: 0, purchaseCount: 0, soldPhotoCount: 0, revenue: 0, purchaseRate: 0 },
+      { label: "4~5장", searchCount: 0, uniqueBibCount: 0, cartCount: 0, purchaseCount: 0, soldPhotoCount: 0, revenue: 0, purchaseRate: 0 },
+      { label: "6~10장", searchCount: 0, uniqueBibCount: 0, cartCount: 0, purchaseCount: 0, soldPhotoCount: 0, revenue: 0, purchaseRate: 0 },
+      { label: "11~20장", searchCount: 0, uniqueBibCount: 0, cartCount: 0, purchaseCount: 0, soldPhotoCount: 0, revenue: 0, purchaseRate: 0 },
+      { label: "21장+", searchCount: 0, uniqueBibCount: 0, cartCount: 0, purchaseCount: 0, soldPhotoCount: 0, revenue: 0, purchaseRate: 0 }
+    ];
+  }
+
+  function renderPhotoExposureSection() {
+    const summary = sotCurrentTestData.state || {};
+    const rows = photoExposureRows(sotCurrentTestData);
+    const totalSearch = numberValue(summary, ["search_count"]);
+    const zeroExposureSearch = numberValue(summary, ["zero_exposure_count"]);
+    const uniqueZeroExposure = numberValue(summary, ["zero_exposure_unique", "zero_exposure_unique_count"]);
+    const overallAvg = totalSearch ? numberValue(summary, ["exposure_sum"]) / totalSearch : 0;
+    const validSearchCount = Math.max(0, totalSearch - zeroExposureSearch);
+    const validAvg = validSearchCount ? numberValue(summary, ["exposure_sum"]) / validSearchCount : 0;
+    const validPurchaseRate = safeRate(numberValue(summary, ["purchase_count"]), validSearchCount);
+    const bestRow = rows.reduce((best, row) => (row.purchaseRate > best.purchaseRate ? row : best), rows[0] || { label: "-" , purchaseRate: 0 });
+    const maxSearch = Math.max(10, ...rows.map(row => row.searchCount));
+    const maxRate = Math.max(1, ...rows.map(row => row.purchaseRate));
+
+    return `
+      <section class="ctdash-card ctdash-section">
+        <div class="ctdash-section-head">
+          <div>
+            <div class="ctdash-kicker">Exposure</div>
+            <h3>노출 사진 수 분석</h3>
+            <p>검색 결과에 노출된 사진 수 구간별로 검색, 구매, 판매사진, 매출 흐름을 확인합니다.</p>
+          </div>
+          <span class="ctdash-tag">Photo Buckets</span>
+        </div>
+        <div class="ctdash-metrics-grid">
+          ${metricCard("총 검색 횟수", formatNumber(totalSearch), "search_log row 기준")}
+          ${metricCard("노출 0 검색", formatNumber(zeroExposureSearch), "사진 없음 검색 횟수")}
+          ${metricCard("노출 0 고유 배번호", formatNumber(uniqueZeroExposure), "중복 검색 제거")}
+          ${metricCard("전체 평균 노출", `${overallAvg.toFixed(2)}장`, "전체 검색 기준")}
+          ${metricCard("유효 평균 노출", `${validAvg.toFixed(2)}장`, "노출 1장 이상 기준")}
+          ${metricCard("유효 검색 구매율", formatPercent(validPurchaseRate), "사진 있는 검색 기준")}
+        </div>
+        <article class="ctdash-sub-card" style="margin-top:18px;">
+          <h4>사진 수 구간별 구매 분석</h4>
+          <div class="ctdash-table-wrap">
+            <table class="ctdash-table">
+              <thead>
+                <tr>
+                  <th>노출 사진 수</th>
+                  <th>검색</th>
+                  <th>고유 배번호</th>
+                  <th>카트</th>
+                  <th>구매</th>
+                  <th>판매사진</th>
+                  <th>매출</th>
+                  <th>구매율</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map(row => `
+                  <tr>
+                    <td style="padding:13px 10px; font-weight:900; color:#c96b37;">${escapeHtml(row.label)}</td>
+                    <td align="right" style="padding:13px 10px;">${formatNumber(row.searchCount)}</td>
+                    <td align="right" style="padding:13px 10px;">${formatNumber(row.uniqueBibCount)}</td>
+                    <td align="right" style="padding:13px 10px;">${formatNumber(row.cartCount)}</td>
+                    <td align="right" style="padding:13px 10px;">${formatNumber(row.purchaseCount)}</td>
+                    <td align="right" style="padding:13px 8px;">${formatNumber(row.soldPhotoCount)}</td>
+                    <td align="right" style="padding:13px 8px;">${formatWon(row.revenue)}</td>
+                    <td align="right" style="padding:13px 8px; font-weight:900; ${row.purchaseRate >= 10 ? "color:#0c8b88;" : ""}">${formatPercent(row.purchaseRate)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+          <p style="margin:12px 0 0; font-size:13px; line-height:1.65; color:#6f6256;">
+            판단: 사진 노출이 있는 구간에서 구매율과 매출이 어떻게 변하는지 확인하는 섹션입니다.
+          </p>
+        </article>
+        <article class="ctdash-sub-card" style="margin-top:18px;">
+          <div style="padding:4px 0 12px;">
+            <div class="ctdash-kicker">Bucket Flow</div>
+            <h4 style="margin-top:8px;">사진 수와 구매율 흐름</h4>
+            <p style="margin:8px 0 0; color:#6f6256;">막대는 검색 횟수, 선은 구매율입니다. 사진 수가 구매를 밀어 올리는지 확인합니다.</p>
+          </div>
+          <div class="ctdash-chart-box" style="margin-top:10px;">
+            <svg viewBox="0 0 632 330" xmlns="http://www.w3.org/2000/svg" style="display:block; width:100%; height:auto;">
+              <rect x="0" y="0" width="632" height="330" rx="18" fill="#fffdf9"></rect>
+              <circle cx="25" cy="24" r="6" fill="#c96b37"></circle>
+              <text x="38" y="29" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#5e5146">검색 횟수</text>
+              <circle cx="122" cy="24" r="6" fill="#0c8b88"></circle>
+              <text x="135" y="29" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#5e5146">구매율</text>
+              <line x1="64" y1="68" x2="604" y2="68" stroke="#e8dfd6" stroke-width="1"></line>
+              <line x1="64" y1="116" x2="604" y2="116" stroke="#e8dfd6" stroke-width="1"></line>
+              <line x1="64" y1="164" x2="604" y2="164" stroke="#e8dfd6" stroke-width="1"></line>
+              <line x1="64" y1="212" x2="604" y2="212" stroke="#e8dfd6" stroke-width="1"></line>
+              <line x1="64" y1="260" x2="604" y2="260" stroke="#d8cec4" stroke-width="1"></line>
+              ${rows.map((row, index) => {
+                const x = 78 + index * 76;
+                const barHeight = Math.max(8, Math.round((row.searchCount / maxSearch) * 170));
+                const lineY = Math.round(240 - (row.purchaseRate / maxRate) * 110);
+                return `
+                  <rect x="${x}" y="${240 - barHeight}" width="42" height="${barHeight}" rx="6" fill="${index === 0 ? "#f4dfcf" : index === 4 ? "#d98957" : index === 5 ? "#c96b37" : "#e4a674"}"></rect>
+                  <text x="${x + 21}" y="275" font-family="Arial, sans-serif" font-size="12" fill="#6f6256" text-anchor="middle">${escapeHtml(row.label)}</text>
+                  <circle cx="${x + 21}" cy="${lineY}" r="5" fill="#0c8b88"></circle>
+                `;
+              }).join("")}
+              <polyline points="${rows.map((row, index) => {
+                const x = 99 + index * 76;
+                const y = Math.round(240 - (row.purchaseRate / maxRate) * 110);
+                return `${x},${y}`;
+              }).join(" ")}" fill="none" stroke="#0c8b88" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></polyline>
+              <rect x="426" y="61" width="144" height="76" rx="15" fill="#2c211b"></rect>
+              <text x="444" y="84" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#cbbfb6">최고 효율 구간</text>
+              <text x="444" y="107" font-family="Arial, sans-serif" font-size="13" font-weight="800" fill="#ffffff">${escapeHtml(bestRow.label)}</text>
+              <text x="444" y="128" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#ffffff">구매율 ${formatPercent(bestRow.purchaseRate)}</text>
+            </svg>
+          </div>
+        </article>
+      </section>
+    `;
+  }
+
   function summaryTable(rows) {
     return `<div class="ctdash-table-wrap"><table class="ctdash-table"><thead><tr><th>대회명</th><th>참가자 수</th><th>매출</th><th>객단가</th><th>검색→구매</th></tr></thead><tbody>${rows.map(row => `<tr><td>${escapeHtml(row.event_name || row.event_code || "-")}</td><td>${formatNumber(eventPeople(row.event_code))}</td><td>${formatWon(numberValue(row, ["revenue"]))}</td><td>${formatWon(avgOrderValue(row))}</td><td>${formatPercent(safeRate(numberValue(row, ["purchase_count"]), numberValue(row, ["search_count"])))}</td></tr>`).join("")}</tbody></table></div>`;
   }
@@ -1443,16 +1587,55 @@
     });
   }
 
+  function normalizedHourKey(value) {
+    if (value === undefined || value === null || value === "") return "";
+    const hour = Number.parseInt(String(value), 10);
+    return Number.isInteger(hour) && hour >= 0 && hour <= 23 ? String(hour).padStart(2, "0") : "";
+  }
+
+  function detailHourlyChartRowsFromDataset(dataset) {
+    return [...(dataset.hourly || [])]
+      .filter(row => normalizedHourKey(row.hour_key))
+      .sort((a, b) => String(a.date_key || a.period_key || "").localeCompare(String(b.date_key || b.period_key || "")) || normalizedHourKey(a.hour_key).localeCompare(normalizedHourKey(b.hour_key)))
+      .map(row => ({
+        time: normalizedHourKey(row.hour_key),
+        search: numberValue(row, ["search_count"]),
+        cart: numberValue(row, ["cart_count"]),
+        purchase: numberValue(row, ["purchase_count"]),
+        revenue: numberValue(row, ["revenue"]),
+        conversion: Number(safeRate(numberValue(row, ["purchase_count"]), numberValue(row, ["search_count"]))).toFixed(1)
+      }));
+  }
+
   function reportChartRowsFromDataset(dataset) {
-    const hourly = [...(dataset.hourly || [])].sort((a, b) => String(a.hour_key || a.period_key || a.label || "").localeCompare(String(b.hour_key || b.period_key || b.label || "")));
-    return hourly.map(row => ({
-      time: String(row.hour_key || row.period_key || row.label || row.hour || "00").replace(":00", ""),
-      search: numberValue(row, ["search_count"]),
-      cart: numberValue(row, ["cart_count"]),
-      purchase: numberValue(row, ["purchase_count"]),
-      revenue: numberValue(row, ["revenue"]),
-      conversion: Number(safeRate(numberValue(row, ["purchase_count"]), numberValue(row, ["search_count"]))).toFixed(1)
-    }));
+    const fields = ["search_count", "cart_count", "cart_photo_count", "purchase_count", "purchase_photo_count", "revenue", "exposure_sum", "exposure_count", "zero_exposure_count", "visit_count", "session_count", "local_user_count", "search_user_count"];
+    const byHour = new Map();
+    (dataset.hourly || []).forEach(row => {
+      const hourKey = normalizedHourKey(row.hour_key);
+      if (!hourKey) return;
+      if (!byHour.has(hourKey)) byHour.set(hourKey, { hour_key: hourKey });
+      const aggregate = byHour.get(hourKey);
+      fields.forEach(field => {
+        aggregate[field] = Number(aggregate[field] || 0) + numberValue(row, [field]);
+      });
+    });
+    return [...byHour.values()]
+      .sort((a, b) => a.hour_key.localeCompare(b.hour_key))
+      .map(row => ({
+        time: row.hour_key,
+        search: row.search_count,
+        cart: row.cart_count,
+        purchase: row.purchase_count,
+        revenue: row.revenue,
+        visit_count: row.visit_count,
+        session_count: row.session_count,
+        local_user_count: row.local_user_count,
+        search_user_count: row.search_user_count,
+        exposure_sum: row.exposure_sum,
+        exposure_count: row.exposure_count,
+        zero_exposure_count: row.zero_exposure_count,
+        conversion: Number(safeRate(row.purchase_count, row.search_count)).toFixed(1)
+      }));
   }
 
   function reportChartRows() {
@@ -1489,7 +1672,7 @@
   function eventChartRows() {
     const detail = currentDashEventDataset();
     if (currentDashEventPeriod === "daily") {
-      return reportChartRowsFromDataset(detail).map(row => ({
+      return detailHourlyChartRowsFromDataset(detail).map(row => ({
         label: `${row.time}:00`,
         search: row.search,
         cart: row.cart,
@@ -1529,11 +1712,11 @@
     return Math.ceil(max / 10) * 10;
   }
 
-  function initializeLineChart({ svgId, tooltipId, data, maxY }) {
+  function initializeLineChart({ svgId, tooltipId, data, maxY, maxRevenue }) {
     const chart = document.getElementById(svgId);
     const tooltip = document.getElementById(tooltipId);
     if (!chart || !tooltip || !data.length) return;
-    drawSvgChart({ chart, tooltip, data, maxY, includeRevenue: false });
+    drawSvgChart({ chart, tooltip, data, maxY, includeRevenue: true, maxRevenue });
   }
 
   function initializeComboChart({ svgId, tooltipId, points, maxMetric, maxRevenue }) {
@@ -1584,7 +1767,8 @@
       chart.appendChild(tick);
     });
 
-    const metricKeys = includeRevenue ? ["search", "cart", "order"] : ["search", "cart", "purchase"];
+    const usesOrder = includeRevenue && data.some(point => point.order !== undefined);
+    const metricKeys = includeRevenue ? ["search", "cart", usesOrder ? "order" : "purchase"] : ["search", "cart", "purchase"];
     metricKeys.forEach(key => {
       const points = data.map((point, index) => `${scaleX(index)},${scaleY(point[key])}`).join(" ");
       chart.appendChild(createSvg("polyline", { points, fill: "none", stroke: colors[key], "stroke-width": "4", "stroke-linecap": "round", "stroke-linejoin": "round" }));
@@ -1613,7 +1797,7 @@
         ${includeRevenue ? `<div class="ctdash-tooltip-row"><span>매출</span><b>${escapeHtml(point.revenueText || formatWon(point.revenue || 0))}</b></div>` : ""}
         <div class="ctdash-tooltip-row"><span>검색</span><b>${formatNumber(point.search || 0)}</b></div>
         <div class="ctdash-tooltip-row"><span>카트</span><b>${formatNumber(point.cart || 0)}</b></div>
-        <div class="ctdash-tooltip-row"><span>${includeRevenue ? "오더" : "구매"}</span><b>${formatNumber((includeRevenue ? point.order : point.purchase) || 0)}</b></div>
+        <div class="ctdash-tooltip-row"><span>${usesOrder ? "오더" : "구매"}</span><b>${formatNumber((usesOrder ? point.order : point.purchase) || 0)}</b></div>
         <div class="ctdash-tooltip-row"><span>평균전환율</span><b>${escapeHtml(String(point.conversion || "0"))}%</b></div>
       `;
       tooltip.classList.add("is-visible");
@@ -1816,12 +2000,11 @@
   }
 
   function dashboardSessionCount(row) {
-    const parsed = sessionIdsCount(row);
-    return parsed || numberValue(row, ["session_count", "visit_count"]);
+    return numberValue(row, ["visit_count"]);
   }
 
   function dashboardSearchUserCount(row) {
-    return numberValue(row, ["search_user_count", "search_session_count"]);
+    return numberValue(row, ["search_user_count"]);
   }
 
   function dashboardPeopleForSelection(eventCode) {
