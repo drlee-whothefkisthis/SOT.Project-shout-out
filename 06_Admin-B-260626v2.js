@@ -602,11 +602,13 @@
   let currentDashView = "report";
   let currentDashReportPeriod = "daily";
   let currentDashReportSelectedWeekStart = "";
+  let currentDashReportSelectedWeekKey = "";
   let currentDashReportSelectedDateKey = formatKSTDate(new Date());
   let currentDashReportSelectedMonthKey = "";
   let currentDashEventPeriod = "daily";
   let currentDashSelectedEvent = "all";
   let currentDashSelectedWeekStart = "";
+  let currentDashSelectedWeekKey = "";
   let currentDashSelectedDateKey = formatKSTDate(new Date());
   let currentDashSelectedMonthKey = "";
   let currentDashEventDetailCode = "";
@@ -616,6 +618,8 @@
   let currentDashEventDetailError = "";
   let currentDashEventDetailMissingSnapshot = null;
   const currentDashEventDetailCache = {};
+  let currentDashStatusSnapshot = null;
+  let currentDashEventListSnapshot = null;
 
   function invalidateCurrentDashReportCache() {
     sotCurrentTestLoaded = false;
@@ -630,6 +634,60 @@
     currentDashEventDetailData = SOT_HEAD.emptyDashboardData();
     currentDashEventDetailError = "";
     currentDashEventDetailMissingSnapshot = null;
+  }
+
+  function currentDashEventOptions() {
+    const fallback = (sotCurrentTestData.events || []).filter(row => row && row.event_code && row.event_code !== "all");
+    const preferred = (currentDashEventListSnapshot?.events || []).filter(row => row && row.event_code && row.event_code !== "all");
+    return preferred.length ? preferred : fallback;
+  }
+
+  async function ensureCurrentDashStatusSnapshot() {
+    if (currentDashStatusSnapshot) return currentDashStatusSnapshot;
+    try {
+      const payload = await SOT_HEAD.fetchDashboardSnapshot({
+        snapshotType: "snapshot_status",
+        periodKey: "latest",
+        eventCode: "all",
+        tab: "report"
+      });
+      if (payload && payload.ok) currentDashStatusSnapshot = SOT_HEAD.normalizeCloudRunDashboardPayload(payload);
+    } catch (error) {
+      console.warn("[SOT Snapshot] snapshot_status unavailable", error?.message || error);
+    }
+    return currentDashStatusSnapshot;
+  }
+
+  async function ensureCurrentDashEventListSnapshot() {
+    if (currentDashEventListSnapshot) return currentDashEventListSnapshot;
+    try {
+      const payload = await SOT_HEAD.fetchDashboardSnapshot({
+        snapshotType: "event_list",
+        periodKey: "latest",
+        eventCode: "all",
+        tab: "event-analysis"
+      });
+      if (payload && payload.ok) currentDashEventListSnapshot = SOT_HEAD.normalizeCloudRunDashboardPayload(payload);
+    } catch (error) {
+      console.warn("[SOT Snapshot] event_list unavailable", error?.message || error);
+    }
+    return currentDashEventListSnapshot;
+  }
+
+  function syncCurrentDashHeroSnapshotInfo() {
+    const updated = $("#sh_hero_updated");
+    const endpoint = $("#sh_hero_snapshot_key");
+    if (updated) {
+      const generatedAt = currentDashStatusSnapshot?.meta?.generated_at || sotCurrentTestData?.generated_at || "";
+      const rangeStart = currentDashStatusSnapshot?.meta?.date_keys?.[0] || "";
+      const rangeEnd = (currentDashStatusSnapshot?.meta?.date_keys || []).slice(-1)[0] || "";
+      updated.textContent = generatedAt
+        ? `${generatedAt}${rangeStart && rangeEnd ? ` / 생성 범위 ${rangeStart} ~ ${rangeEnd}` : ""}`
+        : "snapshot generated_at 없음";
+    }
+    if (endpoint) {
+      endpoint.textContent = currentDashSnapshotTypeForView(currentDashView) + " / " + currentDashPeriodKeyForView(currentDashView);
+    }
   }
 
   function warnSnapshotHourlyCount(data) {
@@ -664,6 +722,59 @@
         console.warn("[SOT Admin] SotAdminHead.addDays missing, using local fallback");
         return `${yy}-${mm}-${dd}`;
       };
+
+  function monthKeyFromDateKey(dateKey) {
+    return String(dateKey || "").slice(0, 7);
+  }
+
+  function sotWeekKeyFromDateKey(dateKey) {
+    if (!dateKey) return "";
+    const [y, m, d] = String(dateKey).split("-").map(Number);
+    if (!y || !m || !d) return "";
+    const date = new Date(Date.UTC(y, m - 1, d));
+    while (date.getUTCDay() !== 6) {
+      date.setUTCDate(date.getUTCDate() - 1);
+    }
+    const year = date.getUTCFullYear();
+    const yearStart = new Date(Date.UTC(year, 0, 1));
+    const firstSaturday = new Date(yearStart);
+    while (firstSaturday.getUTCDay() !== 6) {
+      firstSaturday.setUTCDate(firstSaturday.getUTCDate() + 1);
+    }
+    if (date < firstSaturday) {
+      return sotWeekKeyFromDateKey(`${year - 1}-12-31`);
+    }
+    const weekNo = Math.floor((date - firstSaturday) / (7 * 24 * 60 * 60 * 1000)) + 1;
+    return `${year}-W${String(weekNo).padStart(2, "0")}`;
+  }
+
+  function syncCurrentDashPeriodKeys() {
+    const reportDateKey = currentDashReportSelectedDateKey || todayKSTDateKey();
+    const eventDateKey = currentDashSelectedDateKey || todayKSTDateKey();
+    if (!currentDashReportSelectedWeekKey) currentDashReportSelectedWeekKey = sotWeekKeyFromDateKey(reportDateKey);
+    if (!currentDashSelectedWeekKey) currentDashSelectedWeekKey = sotWeekKeyFromDateKey(eventDateKey);
+    if (!currentDashReportSelectedMonthKey) currentDashReportSelectedMonthKey = monthKeyFromDateKey(reportDateKey);
+    if (!currentDashSelectedMonthKey) currentDashSelectedMonthKey = monthKeyFromDateKey(eventDateKey);
+  }
+
+  function snapshotMissingMessage(snapshotType, periodKey) {
+    return `해당 기간의 snapshot이 없습니다. 먼저 snapshot 생성을 실행하세요.`;
+  }
+
+  function currentDashScopeLabel(viewName) {
+    if (viewName === "report") {
+      if (currentDashReportPeriod === "weekly") return currentDashPeriodKeyForView("report") || "주별";
+      if (currentDashReportPeriod === "monthly") return currentDashPeriodKeyForView("report") || "월별";
+      return currentDashReportSelectedDateKey || "일별";
+    }
+    if (viewName === "event-analysis") {
+      if (currentDashEventPeriod === "weekly") return currentDashPeriodKeyForView("event-analysis") || "주별";
+      if (currentDashEventPeriod === "monthly") return currentDashPeriodKeyForView("event-analysis") || "월별";
+      if (currentDashEventPeriod === "total") return "total";
+      return currentDashSelectedDateKey || "일별";
+    }
+    return "";
+  }
 
   function initUI(){
 
@@ -956,11 +1067,46 @@
   }
 
   function currentDashSnapshotTypeForView(viewName) {
-    return viewName === "report" ? "report_daily" : "event_daily";
+    if (viewName === "report") {
+      if (currentDashReportPeriod === "weekly") return "report_weekly";
+      if (currentDashReportPeriod === "monthly") return "report_monthly";
+      return "report_daily";
+    }
+    if (viewName === "event-analysis") {
+      if (currentDashEventPeriod === "weekly") return "event_weekly";
+      if (currentDashEventPeriod === "monthly") return "event_monthly";
+      if (currentDashEventPeriod === "total") return "event_total";
+      return "event_daily";
+    }
+    return "report_daily";
   }
 
   function currentDashPeriodKeyForView(viewName) {
-    return viewName === "report" ? currentDashReportSelectedDateKey : currentDashSelectedDateKey;
+    syncCurrentDashPeriodKeys();
+    if (viewName === "report") {
+      const dateKey = currentDashReportSelectedDateKey || todayKSTDateKey();
+      if (currentDashReportPeriod === "weekly") {
+        return currentDashReportSelectedWeekKey || sotWeekKeyFromDateKey(dateKey);
+      }
+      if (currentDashReportPeriod === "monthly") {
+        return currentDashReportSelectedMonthKey || monthKeyFromDateKey(dateKey);
+      }
+      return dateKey;
+    }
+    if (viewName === "event-analysis") {
+      const dateKey = currentDashSelectedDateKey || todayKSTDateKey();
+      if (currentDashEventPeriod === "weekly") {
+        return currentDashSelectedWeekKey || sotWeekKeyFromDateKey(dateKey);
+      }
+      if (currentDashEventPeriod === "monthly") {
+        return currentDashSelectedMonthKey || monthKeyFromDateKey(dateKey);
+      }
+      if (currentDashEventPeriod === "total") {
+        return "total";
+      }
+      return dateKey;
+    }
+    return todayKSTDateKey();
   }
 
   async function loadCurrentTestDashboard() {
@@ -969,6 +1115,7 @@
 
     if (currentDashView === "report" && !currentDashReportSelectedDateKey) currentDashReportSelectedDateKey = todayKSTDateKey();
     if (currentDashView === "event-analysis" && !currentDashSelectedDateKey) currentDashSelectedDateKey = todayKSTDateKey();
+    syncCurrentDashPeriodKeys();
     sotCurrentTestLoading = true;
     sotCurrentTestLastError = "";
     sotCurrentTestMissingSnapshot = null;
@@ -994,7 +1141,7 @@
         sotCurrentTestData = SOT_HEAD.emptyDashboardData();
         sotCurrentTestMissingSnapshot = {
           agg_key: payload.agg_key || "",
-          message: "해당 날짜의 daily snapshot이 없습니다. 먼저 write_daily_snapshots를 실행하세요."
+          message: snapshotMissingMessage(snapshotType, periodKey)
         };
         clearCurrentDashEventDetailCache();
         return;
@@ -1003,6 +1150,13 @@
       warnSnapshotHourlyCount(sotCurrentTestData);
       clearCurrentDashEventDetailCache();
       sotCurrentTestLoaded = true;
+      ensureCurrentDashStatusSnapshot().then(() => {
+        syncCurrentDashHeroSnapshotInfo();
+        if (currentDashView === "event-analysis") renderCurrentTestDashboard();
+      });
+      if (currentDashView === "event-analysis") {
+        ensureCurrentDashEventListSnapshot().then(() => renderCurrentTestDashboard());
+      }
       if (currentDashView === "event-analysis" && currentDashSelectedEvent !== "all") {
         ensureCurrentDashEventDetail(currentDashSelectedEvent);
       }
@@ -1079,7 +1233,7 @@
     }
 
     if (sotCurrentTestLoading) {
-      target.innerHTML = currentTestDashboardFrame(renderCurrentDashFallbackView("Loading", "Bubble Admin 프록시를 통해 daily snapshot 데이터를 불러오는 중입니다."), "불러오는 중");
+      target.innerHTML = currentTestDashboardFrame(renderCurrentDashFallbackView("Loading", "Bubble Admin 프록시를 통해 snapshot 데이터를 불러오는 중입니다."), "불러오는 중");
       return;
     }
     if (sotCurrentTestMissingSnapshot) {
@@ -1091,10 +1245,11 @@
       return;
     }
     if (!sotCurrentTestLoaded) {
-      target.innerHTML = currentTestDashboardFrame(renderCurrentDashFallbackView("Waiting", "daily snapshot 데이터를 아직 불러오지 않았습니다. 탭 진입 시 자동 조회됩니다."), "대기 중");
+      target.innerHTML = currentTestDashboardFrame(renderCurrentDashFallbackView("Waiting", "snapshot 데이터를 아직 불러오지 않았습니다. 탭 진입 시 자동 조회됩니다."), "대기 중");
       return;
     }
     syncCurrentDashSelections();
+    syncCurrentDashHeroSnapshotInfo();
     const reportMarkup = currentDashView === "report" ? renderCurrentDashReportView() : "";
     const eventMarkup = currentDashView === "event-analysis" ? renderCurrentDashEventView() : "";
     const eventDetailMissingMarkup = currentDashEventDetailMissingSnapshot && currentDashView === "event-analysis"
@@ -1112,10 +1267,12 @@
       clearCurrentDashEventDetailCache();
       return;
     }
-    const cacheKey = `${currentDashSelectedDateKey || ""}::${eventCode}`;
+    const snapshotType = currentDashSnapshotTypeForView("event-analysis");
+    const periodKey = currentDashPeriodKeyForView("event-analysis");
+    const cacheKey = `${snapshotType}::${periodKey}::${eventCode}`;
     if (currentDashEventDetailCache[cacheKey]) {
       currentDashEventDetailCode = eventCode;
-      currentDashEventDetailPeriodKey = currentDashSelectedDateKey || "";
+      currentDashEventDetailPeriodKey = periodKey;
       currentDashEventDetailData = currentDashEventDetailCache[cacheKey];
       currentDashEventDetailLoading = false;
       currentDashEventDetailError = "";
@@ -1129,8 +1286,8 @@
     renderCurrentTestDashboard();
     try {
       const payload = await SOT_HEAD.fetchDashboardSnapshot({
-        snapshotType: "event_daily",
-        periodKey: currentDashSelectedDateKey,
+        snapshotType,
+        periodKey,
         eventCode,
         tab: "event-analysis"
       });
@@ -1142,11 +1299,11 @@
           period_key: payload?.period_key
         });
         currentDashEventDetailCode = eventCode;
-        currentDashEventDetailPeriodKey = currentDashSelectedDateKey || "";
+        currentDashEventDetailPeriodKey = periodKey;
         currentDashEventDetailData = SOT_HEAD.emptyDashboardData();
         currentDashEventDetailMissingSnapshot = {
           agg_key: payload.agg_key || "",
-          message: "해당 날짜의 daily snapshot이 없습니다. 먼저 write_daily_snapshots를 실행하세요."
+          message: snapshotMissingMessage(snapshotType, periodKey)
         };
         return;
       }
@@ -1154,16 +1311,16 @@
       warnSnapshotHourlyCount(normalized);
       currentDashEventDetailCache[cacheKey] = normalized;
       currentDashEventDetailCode = eventCode;
-      currentDashEventDetailPeriodKey = currentDashSelectedDateKey || "";
+      currentDashEventDetailPeriodKey = periodKey;
       currentDashEventDetailData = normalized;
       currentDashEventDetailMissingSnapshot = null;
     } catch (error) {
       currentDashEventDetailError = error && error.message ? error.message : "대회별 상세 데이터를 불러오지 못했습니다.";
       console.error("[SOT Snapshot] failed", {
         message: error?.message,
-        snapshot_type: "event_daily",
+        snapshot_type: snapshotType,
         event_code: eventCode,
-        period_key: currentDashSelectedDateKey
+        period_key: periodKey
       });
     } finally {
       currentDashEventDetailLoading = false;
@@ -1176,10 +1333,11 @@
     if (!events.some(row => row.event_code === currentDashSelectedEvent)) currentDashSelectedEvent = "all";
     if (!currentDashReportSelectedDateKey) currentDashReportSelectedDateKey = formatKSTDate(new Date());
     if (!currentDashSelectedDateKey) currentDashSelectedDateKey = formatKSTDate(new Date());
+    syncCurrentDashPeriodKeys();
   }
 
   function currentDashEventDataset() {
-    if (currentDashSelectedEvent !== "all" && currentDashEventDetailCode === currentDashSelectedEvent && currentDashEventDetailPeriodKey === (currentDashSelectedDateKey || "") && currentDashEventDetailData) {
+    if (currentDashSelectedEvent !== "all" && currentDashEventDetailCode === currentDashSelectedEvent && currentDashEventDetailPeriodKey === currentDashPeriodKeyForView("event-analysis") && currentDashEventDetailData) {
       return currentDashEventDetailData;
     }
     if (currentDashSelectedEvent !== "all") return SOT_HEAD.emptyDashboardData();
@@ -1202,10 +1360,16 @@
   }
 
   function currentDashReportScopeLabel() {
-    return currentDashReportSelectedDateKey || "일별";
+    return currentDashScopeLabel("report");
   }
 
   function currentDashReportScopeControls() {
+    if (currentDashReportPeriod === "monthly") {
+      return `<label><span>월 선택</span><input class="ctdash-input" type="month" id="ctdash_report_month_input" value="${escapeHtml(currentDashReportSelectedMonthKey || monthKeyFromDateKey(currentDashReportSelectedDateKey || todayKSTDateKey()))}"></label>`;
+    }
+    if (currentDashReportPeriod === "weekly") {
+      return `<label><span>주차 기준일 선택</span><input class="ctdash-input" type="date" id="ctdash_report_week_input" value="${escapeHtml(currentDashReportSelectedDateKey || todayKSTDateKey())}"></label>`;
+    }
     return `<label><span>일자 선택</span><input class="ctdash-input" type="date" id="ctdash_report_date_input" value="${escapeHtml(currentDashReportSelectedDateKey || "")}"></label>`;
   }
 
@@ -1225,10 +1389,12 @@
             <div>
               <div class="ctdash-kicker">Report</div>
               <h3>리포트</h3>
-              <p>Daily snapshot 기준으로 해당 날짜의 리포트를 조회합니다.</p>
+              <p>선택한 기간 기준 snapshot을 조회합니다.</p>
             </div>
             <div class="ctdash-period-tabs">
-              <button class="ctdash-chip is-active" type="button">일별</button>
+              <button class="ctdash-chip ${currentDashReportPeriod === "daily" ? "is-active" : ""}" type="button" data-ctdash-report-period="daily">일별</button>
+              <button class="ctdash-chip ${currentDashReportPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-report-period="weekly">주별</button>
+              <button class="ctdash-chip ${currentDashReportPeriod === "monthly" ? "is-active" : ""}" type="button" data-ctdash-report-period="monthly">월별</button>
             </div>
           </div>
           <div class="ctdash-inline-fields">${currentDashReportScopeControls()}</div>
@@ -1317,16 +1483,25 @@
             <div>
               <div class="ctdash-kicker">Event Analysis</div>
               <h3>대회별 분석</h3>
-              <p>대회와 날짜를 선택하면 event_daily snapshot을 다시 조회합니다.</p>
+              <p>대회와 기간을 선택하면 해당 snapshot을 다시 조회합니다.</p>
             </div>
           </div>
           <div class="ctdash-event-toolbar">
             <div class="ctdash-period-tabs">
-              <button class="ctdash-chip is-active" type="button">일별</button>
+              <button class="ctdash-chip ${currentDashEventPeriod === "daily" ? "is-active" : ""}" type="button" data-ctdash-event-period="daily">일별</button>
+              <button class="ctdash-chip ${currentDashEventPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-event-period="weekly">주별</button>
+              <button class="ctdash-chip ${currentDashEventPeriod === "monthly" ? "is-active" : ""}" type="button" data-ctdash-event-period="monthly">월별</button>
+              <button class="ctdash-chip ${currentDashEventPeriod === "total" ? "is-active" : ""}" type="button" data-ctdash-event-period="total">전체</button>
             </div>
             <div class="ctdash-inline-fields">
-              <label><span>대회 선택</span><select class="ctdash-select" id="ctdash_event_select">${[{ event_code:"all", event_name:"전체 대회" }].concat((sotCurrentTestData.events || []).filter(row => row.event_code && row.event_code !== "all")).map(row => `<option value="${escapeHtml(row.event_code)}" ${row.event_code === currentDashSelectedEvent ? "selected" : ""}>${escapeHtml(row.event_name || row.event_code)}</option>`).join("")}</select></label>
-              <label><span>일자 선택</span><input class="ctdash-input" type="date" id="ctdash_date_input" value="${escapeHtml(currentDashSelectedDateKey || "")}"></label>
+              <label><span>대회 선택</span><select class="ctdash-select" id="ctdash_event_select">${[{ event_code:"all", event_name:"전체 대회" }].concat(currentDashEventOptions()).map(row => `<option value="${escapeHtml(row.event_code)}" ${row.event_code === currentDashSelectedEvent ? "selected" : ""}>${escapeHtml(row.event_name || row.event_code)}</option>`).join("")}</select></label>
+              ${currentDashEventPeriod === "total"
+                ? `<label><span>전체 기준</span><input class="ctdash-input" type="text" value="total" disabled></label>`
+                : currentDashEventPeriod === "monthly"
+                  ? `<label><span>월 선택</span><input class="ctdash-input" type="month" id="ctdash_event_month_input" value="${escapeHtml(currentDashSelectedMonthKey || monthKeyFromDateKey(currentDashSelectedDateKey || todayKSTDateKey()))}"></label>`
+                  : currentDashEventPeriod === "weekly"
+                    ? `<label><span>주차 기준일 선택</span><input class="ctdash-input" type="date" id="ctdash_event_week_input" value="${escapeHtml(currentDashSelectedDateKey || "")}"></label>`
+                    : `<label><span>일자 선택</span><input class="ctdash-input" type="date" id="ctdash_date_input" value="${escapeHtml(currentDashSelectedDateKey || "")}"></label>`}
             </div>
           </div>
           ${currentDashEventDetailLoading ? `<div class="ctdash-callout">선택한 대회 상세를 불러오는 중입니다.</div>` : ""}
@@ -1406,7 +1581,8 @@
   }
 
   function renderEventDetailTable(rows) {
-    return detailTableSection("시간대별 상세", ["시간대", "검색", "카트", "오더", "매출"], eventDailyRows(currentDashEventDataset()));
+    const title = currentDashEventPeriod === "total" ? "누적 시간대별 상세" : `${currentDashScopeLabel("event-analysis")} 시간대별 상세`;
+    return detailTableSection(title, ["시간대", "검색", "카트", "오더", "매출"], eventDailyRows(currentDashEventDataset()));
   }
 
   function renderCurrentDashCharts() {
@@ -1703,7 +1879,7 @@
   }
 
   function eventDailyRows(detail) {
-    return reportChartRowsFromDataset(detail, currentDashSelectedDateKey).map(row => [
+    return reportChartRowsFromDataset(detail, "").map(row => [
       escapeHtml(row.time),
       formatNumber(row.search),
       formatNumber(row.cart),
@@ -1799,12 +1975,12 @@
   }
 
   function reportChartRows() {
-    return reportChartRowsFromDataset(sotCurrentTestData, currentDashReportSelectedDateKey);
+    return reportChartRowsFromDataset(sotCurrentTestData, "");
   }
 
   function eventChartRows() {
     const detail = currentDashEventDataset();
-    return detailHourlyChartRowsFromDataset(detail, currentDashSelectedDateKey).map(row => ({
+    return detailHourlyChartRowsFromDataset(detail, "").map(row => ({
       label: `${row.time}:00`,
       search: row.search,
       cart: row.cart,
@@ -3030,10 +3206,30 @@
             clearCurrentDashEventDetailCache();
             loadCurrentTestDashboard();
           } else {
-            delete currentDashEventDetailCache[`${currentDashSelectedDateKey || ""}::${currentDashSelectedEvent}`];
+            delete currentDashEventDetailCache[`${currentDashSnapshotTypeForView("event-analysis")}::${currentDashPeriodKeyForView("event-analysis")}::${currentDashSelectedEvent}`];
             ensureCurrentDashEventDetail(currentDashSelectedEvent);
           }
         }
+        return;
+      }
+
+      const reportPeriodButton = e.target.closest("[data-ctdash-report-period]");
+      if (reportPeriodButton) {
+        currentDashReportPeriod = reportPeriodButton.dataset.ctdashReportPeriod || "daily";
+        syncCurrentDashPeriodKeys();
+        invalidateCurrentDashReportCache();
+        loadCurrentTestDashboard();
+        renderCurrentTestDashboard();
+        return;
+      }
+
+      const eventPeriodButton = e.target.closest("[data-ctdash-event-period]");
+      if (eventPeriodButton) {
+        currentDashEventPeriod = eventPeriodButton.dataset.ctdashEventPeriod || "daily";
+        syncCurrentDashPeriodKeys();
+        clearCurrentDashEventDetailCache();
+        loadCurrentTestDashboard();
+        renderCurrentTestDashboard();
         return;
       }
 
@@ -3093,6 +3289,22 @@
     document.addEventListener("change", e => {
       if (e.target && e.target.id === "ctdash_report_date_input") {
         currentDashReportSelectedDateKey = e.target.value || todayKSTDateKey();
+        currentDashReportSelectedWeekKey = sotWeekKeyFromDateKey(currentDashReportSelectedDateKey);
+        currentDashReportSelectedMonthKey = monthKeyFromDateKey(currentDashReportSelectedDateKey);
+        invalidateCurrentDashReportCache();
+        loadCurrentTestDashboard();
+        return;
+      }
+      if (e.target && e.target.id === "ctdash_report_week_input") {
+        currentDashReportSelectedDateKey = e.target.value || todayKSTDateKey();
+        currentDashReportSelectedWeekKey = sotWeekKeyFromDateKey(currentDashReportSelectedDateKey);
+        invalidateCurrentDashReportCache();
+        loadCurrentTestDashboard();
+        return;
+      }
+      if (e.target && e.target.id === "ctdash_report_month_input") {
+        currentDashReportSelectedMonthKey = e.target.value || monthKeyFromDateKey(todayKSTDateKey());
+        currentDashReportSelectedDateKey = `${currentDashReportSelectedMonthKey}-01`;
         invalidateCurrentDashReportCache();
         loadCurrentTestDashboard();
         return;
@@ -3114,6 +3326,40 @@
       }
       if (e.target && e.target.id === "ctdash_date_input") {
         currentDashSelectedDateKey = e.target.value || todayKSTDateKey();
+        currentDashSelectedWeekKey = sotWeekKeyFromDateKey(currentDashSelectedDateKey);
+        currentDashSelectedMonthKey = monthKeyFromDateKey(currentDashSelectedDateKey);
+        currentDashEventDetailLoading = currentDashSelectedEvent !== "all";
+        currentDashEventDetailData = SOT_HEAD.emptyDashboardData();
+        currentDashEventDetailError = "";
+        currentDashEventDetailMissingSnapshot = null;
+        renderCurrentTestDashboard();
+        if (currentDashSelectedEvent === "all") {
+          clearCurrentDashEventDetailCache();
+          loadCurrentTestDashboard();
+        } else {
+          ensureCurrentDashEventDetail(currentDashSelectedEvent);
+        }
+        return;
+      }
+      if (e.target && e.target.id === "ctdash_event_week_input") {
+        currentDashSelectedDateKey = e.target.value || todayKSTDateKey();
+        currentDashSelectedWeekKey = sotWeekKeyFromDateKey(currentDashSelectedDateKey);
+        currentDashEventDetailLoading = currentDashSelectedEvent !== "all";
+        currentDashEventDetailData = SOT_HEAD.emptyDashboardData();
+        currentDashEventDetailError = "";
+        currentDashEventDetailMissingSnapshot = null;
+        renderCurrentTestDashboard();
+        if (currentDashSelectedEvent === "all") {
+          clearCurrentDashEventDetailCache();
+          loadCurrentTestDashboard();
+        } else {
+          ensureCurrentDashEventDetail(currentDashSelectedEvent);
+        }
+        return;
+      }
+      if (e.target && e.target.id === "ctdash_event_month_input") {
+        currentDashSelectedMonthKey = e.target.value || monthKeyFromDateKey(todayKSTDateKey());
+        currentDashSelectedDateKey = `${currentDashSelectedMonthKey}-01`;
         currentDashEventDetailLoading = currentDashSelectedEvent !== "all";
         currentDashEventDetailData = SOT_HEAD.emptyDashboardData();
         currentDashEventDetailError = "";
