@@ -654,10 +654,47 @@
     currentDashEventDetailMissingSnapshot = null;
   }
 
+  function currentDashEventLabel(row) {
+    if (!row) return "";
+    return row.event_name || row.event_display_name || row.display_name || row.name || row.event_code || "";
+  }
+
+  function mergeCurrentDashEventOptions(...sources) {
+    const byCode = new Map();
+    sources.flat().forEach(row => {
+      if (!row || typeof row !== "object") return;
+      const eventCode = String(row.event_code || "").trim();
+      if (!eventCode || eventCode === "all") return;
+      const existing = byCode.get(eventCode) || { event_code: eventCode };
+      const merged = { ...existing, ...row, event_code: eventCode };
+      const existingLabel = currentDashEventLabel(existing);
+      const nextLabel = currentDashEventLabel(row);
+      if (!existingLabel || existingLabel === eventCode || (nextLabel && nextLabel !== eventCode)) {
+        merged.event_name = nextLabel || eventCode;
+      } else {
+        merged.event_name = existingLabel;
+      }
+      byCode.set(eventCode, merged);
+    });
+    return Array.from(byCode.values()).sort((a, b) => {
+      return String(currentDashEventLabel(a)).localeCompare(String(currentDashEventLabel(b)), "ko");
+    });
+  }
+
   function currentDashEventOptions() {
-    const fallback = (sotCurrentTestData.events || []).filter(row => row && row.event_code && row.event_code !== "all");
-    const preferred = (currentDashEventListSnapshot?.events || []).filter(row => row && row.event_code && row.event_code !== "all");
-    return preferred.length ? preferred : fallback;
+    return mergeCurrentDashEventOptions(
+      currentDashEventListSnapshot?.events || [],
+      sotCurrentTestData.events || [],
+      sotCurrentTestData.event_summaries || [],
+      sotCurrentTestData.daily || [],
+      sotCurrentTestData.hourly || [],
+      sotCurrentTestData.sources || [],
+      sotCurrentTestData.campaigns || [],
+      sotCurrentTestData.devices || [],
+      sotCurrentTestData.photo_counts || [],
+      sotCurrentTestData.spots || [],
+      allEvents || []
+    );
   }
 
   async function ensureCurrentDashStatusSnapshot() {
@@ -1504,8 +1541,8 @@
   }
 
   function syncCurrentDashSelections() {
-    const events = (sotCurrentTestData.events || []).filter(row => row.event_code);
-    if (!events.some(row => row.event_code === currentDashSelectedEvent)) currentDashSelectedEvent = "all";
+    const events = currentDashEventOptions();
+    if (currentDashSelectedEvent !== "all" && events.length && !events.some(row => row.event_code === currentDashSelectedEvent)) currentDashSelectedEvent = "all";
     if (!currentDashReportSelectedDateKey) currentDashReportSelectedDateKey = yesterdayKSTDateKey();
     if (!currentDashSelectedDateKey) currentDashSelectedDateKey = yesterdayKSTDateKey();
     if (!currentDashReportSelectedMonthKey) currentDashReportSelectedMonthKey = monthKeyFromDateKey(todayKSTDateKey());
@@ -1558,8 +1595,9 @@
   function currentDashEventScopeControls() {
     const monthlyValue = currentDashSelectedMonthKey || monthKeyFromDateKey(todayKSTDateKey());
     const weeklyOptions = buildWeeksForMonth(monthlyValue);
+    const eventOptions = currentDashEventOptions();
     return `
-      <label><span>대회 선택</span><select class="ctdash-select" id="ctdash_event_select">${[{ event_code:"all", event_name:"전체 대회" }].concat(currentDashEventOptions()).map(row => `<option value="${escapeHtml(row.event_code)}" ${row.event_code === currentDashSelectedEvent ? "selected" : ""}>${escapeHtml(row.event_name || row.event_code)}</option>`).join("")}</select></label>
+      <label><span>대회 선택</span><select class="ctdash-select" id="ctdash_event_select">${[{ event_code:"all", event_name:"전체 대회" }].concat(eventOptions).map(row => `<option value="${escapeHtml(row.event_code)}" ${row.event_code === currentDashSelectedEvent ? "selected" : ""}>${escapeHtml(currentDashEventLabel(row))}</option>`).join("")}</select></label>
       ${currentDashEventPeriod === "total"
         ? `<label><span>전체 기준</span><input class="ctdash-input" type="text" value="total" disabled></label>`
         : currentDashEventPeriod === "monthly"
@@ -1685,7 +1723,7 @@
     const spots = Array.isArray(detail.spots) ? detail.spots : [];
     const eventName = currentDashSelectedEvent === "all"
       ? "전체 대회"
-      : ((sotCurrentTestData.events || []).find(row => row.event_code === currentDashSelectedEvent)?.event_name || currentDashSelectedEvent);
+      : (currentDashEventLabel(currentDashEventOptions().find(row => row.event_code === currentDashSelectedEvent)) || currentDashSelectedEvent);
     const people = currentDashSelectedEvent === "all" ? currentDashboardPeopleForSelection("all") : currentDashboardPeopleForSelection(currentDashSelectedEvent);
     const rows = sortMetricRows(detail.daily || []);
     const detailTable = renderEventDetailTable(rows);
