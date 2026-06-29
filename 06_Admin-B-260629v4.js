@@ -582,6 +582,16 @@
     return;
   }
 
+  function todayKSTDateKey() {
+    return formatKSTDate(new Date());
+  }
+
+  function yesterdayKSTDateKey() {
+    const date = new Date();
+    date.setDate(date.getDate() - 1);
+    return formatKSTDate(date);
+  }
+
   let allEvents = [];
   let activeAdminView = "events";
   let activeEventMonth = getKSTMonthKey(new Date());
