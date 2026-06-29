@@ -1154,16 +1154,16 @@
     if (sotCurrentTestLoading) return;
     if (!["report", "event-analysis"].includes(currentDashView)) return;
 
-    await ensureCurrentDashInitialSnapshotDate();
-    if (currentDashView === "report" && !currentDashReportSelectedDateKey) currentDashReportSelectedDateKey = todayKSTDateKey();
-    if (currentDashView === "event-analysis" && !currentDashSelectedDateKey) currentDashSelectedDateKey = todayKSTDateKey();
-    syncCurrentDashPeriodKeys();
     sotCurrentTestLoading = true;
     sotCurrentTestLastError = "";
     sotCurrentTestMissingSnapshot = null;
     renderCurrentTestDashboard();
 
     try {
+      await ensureCurrentDashInitialSnapshotDate();
+      if (currentDashView === "report" && !currentDashReportSelectedDateKey) currentDashReportSelectedDateKey = todayKSTDateKey();
+      if (currentDashView === "event-analysis" && !currentDashSelectedDateKey) currentDashSelectedDateKey = todayKSTDateKey();
+      syncCurrentDashPeriodKeys();
       const snapshotType = currentDashSnapshotTypeForView(currentDashView);
       const periodKey = currentDashPeriodKeyForView(currentDashView);
       const payload = await SOT_HEAD.fetchDashboardSnapshot({
@@ -1241,8 +1241,11 @@
         <article class="ctdash-card ctdash-section section">
           <div class="ctdash-section-head">
             <div><div class="ctdash-kicker">${kicker}</div><h3>${title}</h3><p>데이터 연결 전에도 동일한 리포트 구조를 먼저 표시합니다.</p></div>
-            <div class="ctdash-period-tabs"><button class="ctdash-chip is-active" type="button">${eventMode ? "전체" : "일별"}</button><button class="ctdash-chip" type="button">${eventMode ? "월별" : "주별"}</button><button class="ctdash-chip" type="button">${eventMode ? "주차별" : "월별"}</button></div>
+            <div class="ctdash-period-tabs">${eventMode
+              ? `<button class="ctdash-chip ${currentDashEventPeriod === "daily" ? "is-active" : ""}" type="button">일별</button><button class="ctdash-chip ${currentDashEventPeriod === "weekly" ? "is-active" : ""}" type="button">주별</button><button class="ctdash-chip ${currentDashEventPeriod === "monthly" ? "is-active" : ""}" type="button">월별</button><button class="ctdash-chip ${currentDashEventPeriod === "total" ? "is-active" : ""}" type="button">전체</button>`
+              : `<button class="ctdash-chip ${currentDashReportPeriod === "daily" ? "is-active" : ""}" type="button">일별</button><button class="ctdash-chip ${currentDashReportPeriod === "weekly" ? "is-active" : ""}" type="button">주별</button><button class="ctdash-chip ${currentDashReportPeriod === "monthly" ? "is-active" : ""}" type="button">월별</button>`}</div>
           </div>
+          <div class="ctdash-inline-fields">${eventMode ? currentDashEventScopeControls() : currentDashReportScopeControls()}</div>
           <div class="${eventMode ? "ctdash-summary-grid" : "ctdash-metrics-grid"}">${metrics.map(row => metricCard(row[0], row[1], row[2])).join("")}</div>
         </article>
         <div class="ctdash-two-col">
@@ -1266,6 +1269,14 @@
       </section>`;
   }
 
+  function renderCurrentDashShellState(message, tone) {
+    syncCurrentDashSelections();
+    const calloutClass = tone === "warn" ? "ctdash-callout warn" : "ctdash-callout";
+    const reportMarkup = currentDashView === "report" ? renderCurrentDashReportView() : "";
+    const eventMarkup = currentDashView === "event-analysis" ? renderCurrentDashEventView() : "";
+    return `${message ? `<div class="${calloutClass}">${escapeHtml(message)}</div>` : ""}${reportMarkup}${eventMarkup}`;
+  }
+
   function renderCurrentTestDashboard() {
     const target = document.querySelector(`[data-current-test-content="${currentDashView}"]`);
     if (!target) return;
@@ -1275,18 +1286,30 @@
     }
 
     if (sotCurrentTestLoading) {
+      if (currentDashStatusSnapshot) {
+        target.innerHTML = currentTestDashboardFrame(renderCurrentDashShellState("snapshot 데이터를 불러오는 중입니다.", "info"), "불러오는 중");
+        renderCurrentDashCharts();
+        return;
+      }
       target.innerHTML = currentTestDashboardFrame(renderCurrentDashFallbackView("Loading", "Bubble Admin 프록시를 통해 snapshot 데이터를 불러오는 중입니다."), "불러오는 중");
       return;
     }
     if (sotCurrentTestMissingSnapshot) {
-      target.innerHTML = currentTestDashboardFrame(renderCurrentDashFallbackView("Snapshot Missing", sotCurrentTestMissingSnapshot.message), "snapshot 없음");
+      target.innerHTML = currentTestDashboardFrame(renderCurrentDashShellState(sotCurrentTestMissingSnapshot.message, "warn"), "snapshot 없음");
+      renderCurrentDashCharts();
       return;
     }
     if (sotCurrentTestLastError) {
-      target.innerHTML = currentTestDashboardFrame(renderCurrentDashFallbackView("Connection Error", `snapshot API 연결 실패: ${sotCurrentTestLastError}`), "연결 실패");
+      target.innerHTML = currentTestDashboardFrame(renderCurrentDashShellState(`snapshot API 연결 실패: ${sotCurrentTestLastError}`, "warn"), "연결 실패");
+      renderCurrentDashCharts();
       return;
     }
     if (!sotCurrentTestLoaded) {
+      if (currentDashStatusSnapshot) {
+        target.innerHTML = currentTestDashboardFrame(renderCurrentDashShellState("snapshot 데이터를 아직 불러오지 않았습니다. 탭 진입 시 자동 조회됩니다.", "warn"), "대기 중");
+        renderCurrentDashCharts();
+        return;
+      }
       target.innerHTML = currentTestDashboardFrame(renderCurrentDashFallbackView("Waiting", "snapshot 데이터를 아직 불러오지 않았습니다. 탭 진입 시 자동 조회됩니다."), "대기 중");
       return;
     }
@@ -1415,6 +1438,19 @@
     return `<label><span>일자 선택</span><input class="ctdash-input" type="date" id="ctdash_report_date_input" value="${escapeHtml(currentDashReportSelectedDateKey || "")}"></label>`;
   }
 
+  function currentDashEventScopeControls() {
+    return `
+      <label><span>대회 선택</span><select class="ctdash-select" id="ctdash_event_select">${[{ event_code:"all", event_name:"전체 대회" }].concat(currentDashEventOptions()).map(row => `<option value="${escapeHtml(row.event_code)}" ${row.event_code === currentDashSelectedEvent ? "selected" : ""}>${escapeHtml(row.event_name || row.event_code)}</option>`).join("")}</select></label>
+      ${currentDashEventPeriod === "total"
+        ? `<label><span>전체 기준</span><input class="ctdash-input" type="text" value="total" disabled></label>`
+        : currentDashEventPeriod === "monthly"
+          ? `<label><span>월 선택</span><input class="ctdash-input" type="month" id="ctdash_event_month_input" value="${escapeHtml(currentDashSelectedMonthKey || monthKeyFromDateKey(currentDashSelectedDateKey || todayKSTDateKey()))}"></label>`
+          : currentDashEventPeriod === "weekly"
+            ? `<label><span>주차 기준일 선택</span><input class="ctdash-input" type="date" id="ctdash_event_week_input" value="${escapeHtml(currentDashSelectedDateKey || "")}"></label>`
+            : `<label><span>일자 선택</span><input class="ctdash-input" type="date" id="ctdash_date_input" value="${escapeHtml(currentDashSelectedDateKey || "")}"></label>`}
+    `;
+  }
+
   function currentDashEventRowsForPeriod(detail) {
     const daily = sortMetricRows((detail || {}).daily || []);
     return daily.filter(row => (row.date_key || row.period_key || row.label) === currentDashSelectedDateKey);
@@ -1535,16 +1571,7 @@
               <button class="ctdash-chip ${currentDashEventPeriod === "monthly" ? "is-active" : ""}" type="button" data-ctdash-event-period="monthly">월별</button>
               <button class="ctdash-chip ${currentDashEventPeriod === "total" ? "is-active" : ""}" type="button" data-ctdash-event-period="total">전체</button>
             </div>
-            <div class="ctdash-inline-fields">
-              <label><span>대회 선택</span><select class="ctdash-select" id="ctdash_event_select">${[{ event_code:"all", event_name:"전체 대회" }].concat(currentDashEventOptions()).map(row => `<option value="${escapeHtml(row.event_code)}" ${row.event_code === currentDashSelectedEvent ? "selected" : ""}>${escapeHtml(row.event_name || row.event_code)}</option>`).join("")}</select></label>
-              ${currentDashEventPeriod === "total"
-                ? `<label><span>전체 기준</span><input class="ctdash-input" type="text" value="total" disabled></label>`
-                : currentDashEventPeriod === "monthly"
-                  ? `<label><span>월 선택</span><input class="ctdash-input" type="month" id="ctdash_event_month_input" value="${escapeHtml(currentDashSelectedMonthKey || monthKeyFromDateKey(currentDashSelectedDateKey || todayKSTDateKey()))}"></label>`
-                  : currentDashEventPeriod === "weekly"
-                    ? `<label><span>주차 기준일 선택</span><input class="ctdash-input" type="date" id="ctdash_event_week_input" value="${escapeHtml(currentDashSelectedDateKey || "")}"></label>`
-                    : `<label><span>일자 선택</span><input class="ctdash-input" type="date" id="ctdash_date_input" value="${escapeHtml(currentDashSelectedDateKey || "")}"></label>`}
-            </div>
+            <div class="ctdash-inline-fields">${currentDashEventScopeControls()}</div>
           </div>
           ${currentDashEventDetailLoading ? `<div class="ctdash-callout">선택한 대회 상세를 불러오는 중입니다.</div>` : ""}
         </article>
