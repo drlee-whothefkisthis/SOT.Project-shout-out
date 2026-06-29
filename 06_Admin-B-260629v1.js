@@ -620,6 +620,7 @@
   const currentDashEventDetailCache = {};
   let currentDashStatusSnapshot = null;
   let currentDashEventListSnapshot = null;
+  let currentDashInitialDateResolved = false;
 
   function invalidateCurrentDashReportCache() {
     sotCurrentTestLoaded = false;
@@ -656,6 +657,46 @@
       console.warn("[SOT Snapshot] snapshot_status unavailable", error?.message || error);
     }
     return currentDashStatusSnapshot;
+  }
+
+  function currentDashAvailableDateKeys() {
+    const keys = currentDashStatusSnapshot?.meta?.date_keys;
+    return Array.isArray(keys) ? keys.filter(Boolean) : [];
+  }
+
+  function currentDashLatestAvailableDateKey() {
+    const keys = currentDashAvailableDateKeys();
+    return keys.length ? keys[keys.length - 1] : "";
+  }
+
+  function syncCurrentDashDateSelection(dateKey) {
+    if (!dateKey) return;
+    currentDashReportSelectedDateKey = dateKey;
+    currentDashReportSelectedWeekKey = sotWeekKeyFromDateKey(dateKey);
+    currentDashReportSelectedMonthKey = monthKeyFromDateKey(dateKey);
+    currentDashSelectedDateKey = dateKey;
+    currentDashSelectedWeekKey = sotWeekKeyFromDateKey(dateKey);
+    currentDashSelectedMonthKey = monthKeyFromDateKey(dateKey);
+  }
+
+  async function ensureCurrentDashInitialSnapshotDate() {
+    if (currentDashInitialDateResolved) return;
+    await ensureCurrentDashStatusSnapshot();
+    const latestDateKey = currentDashLatestAvailableDateKey();
+    if (!latestDateKey) {
+      currentDashInitialDateResolved = true;
+      return;
+    }
+    const todayDateKey = todayKSTDateKey();
+    const availableDateKeys = currentDashAvailableDateKeys();
+    const reportDateKey = currentDashReportSelectedDateKey || todayDateKey;
+    const eventDateKey = currentDashSelectedDateKey || todayDateKey;
+    const shouldSyncReport = !currentDashReportSelectedDateKey || reportDateKey === todayDateKey || !availableDateKeys.includes(reportDateKey);
+    const shouldSyncEvent = !currentDashSelectedDateKey || eventDateKey === todayDateKey || !availableDateKeys.includes(eventDateKey);
+    if (shouldSyncReport || shouldSyncEvent) {
+      syncCurrentDashDateSelection(latestDateKey);
+    }
+    currentDashInitialDateResolved = true;
   }
 
   async function ensureCurrentDashEventListSnapshot() {
@@ -1113,6 +1154,7 @@
     if (sotCurrentTestLoading) return;
     if (!["report", "event-analysis"].includes(currentDashView)) return;
 
+    await ensureCurrentDashInitialSnapshotDate();
     if (currentDashView === "report" && !currentDashReportSelectedDateKey) currentDashReportSelectedDateKey = todayKSTDateKey();
     if (currentDashView === "event-analysis" && !currentDashSelectedDateKey) currentDashSelectedDateKey = todayKSTDateKey();
     syncCurrentDashPeriodKeys();
