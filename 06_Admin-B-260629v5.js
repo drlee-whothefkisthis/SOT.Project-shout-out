@@ -1618,7 +1618,6 @@
             ${metricCard("검색수", formatNumber(numberValue(state, ["search_count"])), "세션 수")}
             ${metricCard("장바구니수", formatNumber(numberValue(state, ["cart_count"])), "카트 진입")}
             ${metricCard("구매수", formatNumber(numberValue(state, ["purchase_count"])), "결제 완료")}
-            ${metricCard("노출 0 고유 배번호", formatNumber(numberValue(state, ["zero_exposure_unique_count"])), "없으면 0")}
           </div>
         </article>
         <article class="ctdash-card ctdash-section">
@@ -1690,6 +1689,7 @@
     const people = currentDashSelectedEvent === "all" ? currentDashboardPeopleForSelection("all") : currentDashboardPeopleForSelection(currentDashSelectedEvent);
     const rows = sortMetricRows(detail.daily || []);
     const detailTable = renderEventDetailTable(rows);
+    const eventPurchaseCount = numberValue(summary, ["purchase_count"]);
     return `
       <section class="ctdash-screen">
         <article class="ctdash-card ctdash-section">
@@ -1716,9 +1716,15 @@
             <div class="ctdash-section-head"><div><div class="ctdash-kicker">Overview</div><h3>기본 요약</h3></div><span class="ctdash-tag">Snapshot</span></div>
             <div class="ctdash-summary-grid">
               ${metricCard("대회명", escapeHtml(eventName), currentDashSelectedEvent === "all" ? "전체 합산" : currentDashSelectedEvent)}
+              ${metricCard("접속수", formatNumber(dashboardSessionCount(summary)), "session_count 우선")}
+              ${metricCard("검색자", formatNumber(dashboardSearchUserCount(summary)), "로컬 개수")}
+              ${metricCard("검색수", formatNumber(numberValue(summary, ["search_count"])), "세션 수")}
+              ${metricCard("장바구니수", formatNumber(numberValue(summary, ["cart_count"])), "카트 진입")}
+              ${metricCard("구매수", formatNumber(eventPurchaseCount), "결제 완료")}
               ${metricCard("참가자 수", formatNumber(people), "Bubble 이벤트 데이터")}
               ${metricCard("대회매출", formatWon(numberValue(summary, ["revenue"])), "선택 기간 기준")}
               ${metricCard("객단가", formatWon(avgOrderValue(summary)), "구매 1건당")}
+              ${metricCard("참가자 대비 구매율", formatPercent(safeRate(eventPurchaseCount, people)), "purchase / participants")}
             </div>
           </article>
           <article class="ctdash-card ctdash-section">
