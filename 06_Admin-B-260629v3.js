@@ -184,7 +184,13 @@
     return formatKSTDate(new Date());
   }
 
-  async function fetchDashboardSnapshot({ snapshotType, periodKey, eventCode, tab }) {
+  function yesterdayKSTDateKey() {
+    const date = new Date();
+    date.setDate(date.getDate() - 1);
+    return formatKSTDate(date);
+  }
+
+  async function fetchDashboardSnapshot({ snapshotType, periodKey, eventCode, tab, manualRefresh }) {
     const payload = {
       data_source: "current",
       mode: "dashboard_snapshot",
@@ -193,6 +199,7 @@
       period_key: periodKey || todayKSTDateKey(),
       event_code: eventCode || "all"
     };
+    if (manualRefresh === true) payload.manual_refresh = true;
     console.log("[SOT Snapshot] request", payload);
     const data = await fetchDashboardProxy("dashboard_snapshot", payload);
     console.log("[SOT Snapshot] response", {
@@ -600,17 +607,17 @@
   let sotCurrentTestLastError = "";
   let sotCurrentTestMissingSnapshot = null;
   let currentDashView = "report";
-  let currentDashReportPeriod = "daily";
+  let currentDashReportPeriod = "weekly";
   let currentDashReportSelectedWeekStart = "";
-  let currentDashReportSelectedWeekKey = "";
-  let currentDashReportSelectedDateKey = formatKSTDate(new Date());
-  let currentDashReportSelectedMonthKey = "";
-  let currentDashEventPeriod = "daily";
+  let currentDashReportSelectedWeekKey = sotWeekKeyFromDateKey(yesterdayKSTDateKey());
+  let currentDashReportSelectedDateKey = yesterdayKSTDateKey();
+  let currentDashReportSelectedMonthKey = monthKeyFromDateKey(todayKSTDateKey());
+  let currentDashEventPeriod = "weekly";
   let currentDashSelectedEvent = "all";
   let currentDashSelectedWeekStart = "";
-  let currentDashSelectedWeekKey = "";
-  let currentDashSelectedDateKey = formatKSTDate(new Date());
-  let currentDashSelectedMonthKey = "";
+  let currentDashSelectedWeekKey = sotWeekKeyFromDateKey(yesterdayKSTDateKey());
+  let currentDashSelectedDateKey = yesterdayKSTDateKey();
+  let currentDashSelectedMonthKey = monthKeyFromDateKey(todayKSTDateKey());
   let currentDashEventDetailCode = "";
   let currentDashEventDetailPeriodKey = "";
   let currentDashEventDetailData = SOT_HEAD.emptyDashboardData();
@@ -682,20 +689,16 @@
   async function ensureCurrentDashInitialSnapshotDate() {
     if (currentDashInitialDateResolved) return;
     await ensureCurrentDashStatusSnapshot();
-    const latestDateKey = currentDashLatestAvailableDateKey();
-    if (!latestDateKey) {
-      currentDashInitialDateResolved = true;
-      return;
-    }
     const todayDateKey = todayKSTDateKey();
-    const availableDateKeys = currentDashAvailableDateKeys();
-    const reportDateKey = currentDashReportSelectedDateKey || todayDateKey;
-    const eventDateKey = currentDashSelectedDateKey || todayDateKey;
-    const shouldSyncReport = !currentDashReportSelectedDateKey || reportDateKey === todayDateKey || !availableDateKeys.includes(reportDateKey);
-    const shouldSyncEvent = !currentDashSelectedDateKey || eventDateKey === todayDateKey || !availableDateKeys.includes(eventDateKey);
-    if (shouldSyncReport || shouldSyncEvent) {
-      syncCurrentDashDateSelection(latestDateKey);
-    }
+    const yesterdayDateKey = yesterdayKSTDateKey();
+    if (!currentDashReportSelectedMonthKey) currentDashReportSelectedMonthKey = monthKeyFromDateKey(todayDateKey);
+    if (!currentDashSelectedMonthKey) currentDashSelectedMonthKey = monthKeyFromDateKey(todayDateKey);
+    if (!currentDashReportSelectedDateKey) currentDashReportSelectedDateKey = yesterdayDateKey;
+    if (!currentDashSelectedDateKey) currentDashSelectedDateKey = yesterdayDateKey;
+    if (!currentDashReportSelectedWeekKey) currentDashReportSelectedWeekKey = saturdayFridayWeekKeyFromDateKey(currentDashReportSelectedDateKey);
+    if (!currentDashSelectedWeekKey) currentDashSelectedWeekKey = saturdayFridayWeekKeyFromDateKey(currentDashSelectedDateKey);
+    if (currentDashReportPeriod === "weekly") syncReportWeeklySelection(currentDashReportSelectedDateKey, currentDashReportSelectedWeekKey);
+    if (currentDashEventPeriod === "weekly") syncEventWeeklySelection(currentDashSelectedDateKey, currentDashSelectedWeekKey);
     currentDashInitialDateResolved = true;
   }
 
@@ -768,6 +771,97 @@
     return String(dateKey || "").slice(0, 7);
   }
 
+  function parseDateKeyUtc(dateKey) {
+    const [y, m, d] = String(dateKey || "").split("-").map(Number);
+    if (!y || !m || !d) return null;
+    return new Date(Date.UTC(y, m - 1, d));
+  }
+
+  function toDateKeyUtc(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+    const yy = date.getUTCFullYear();
+    const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(date.getUTCDate()).padStart(2, "0");
+    return `${yy}-${mm}-${dd}`;
+  }
+
+  function saturdayStartDateKey(dateKey) {
+    const date = parseDateKeyUtc(dateKey);
+    if (!date) return "";
+    while (date.getUTCDay() !== 6) date.setUTCDate(date.getUTCDate() - 1);
+    return toDateKeyUtc(date);
+  }
+
+  function saturdayFridayWeekKeyFromDateKey(dateKey) {
+    return sotWeekKeyFromDateKey(dateKey);
+  }
+
+  function buildWeeksForMonth(monthKey) {
+    const [year, month] = String(monthKey || "").split("-").map(Number);
+    if (!year || !month) return [];
+    const monthStart = new Date(Date.UTC(year, month - 1, 1));
+    const monthEnd = new Date(Date.UTC(year, month, 0));
+    const cursor = parseDateKeyUtc(saturdayStartDateKey(toDateKeyUtc(monthStart)));
+    if (!cursor) return [];
+    const weeks = [];
+    let index = 1;
+    while (cursor.getTime() <= monthEnd.getTime()) {
+      const weekStart = new Date(cursor);
+      const weekEnd = new Date(cursor);
+      weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+      const startDateKey = toDateKeyUtc(weekStart);
+      const endDateKey = toDateKeyUtc(weekEnd);
+      const label = `${year}년 ${month}월 ${index}주차 (${startDateKey} ~ ${endDateKey})`;
+      weeks.push({
+        month_key: monthKey,
+        week_key: saturdayFridayWeekKeyFromDateKey(startDateKey),
+        index,
+        start_date_key: startDateKey,
+        end_date_key: endDateKey,
+        label
+      });
+      cursor.setUTCDate(cursor.getUTCDate() + 7);
+      index += 1;
+    }
+    return weeks;
+  }
+
+  function weekContainsDate(weekRow, dateKey) {
+    if (!weekRow || !dateKey) return false;
+    return weekRow.start_date_key <= dateKey && dateKey <= weekRow.end_date_key;
+  }
+
+  function pickWeekForMonth(monthKey, preferredWeekKey, preferredDateKey) {
+    const weeks = buildWeeksForMonth(monthKey);
+    if (!weeks.length) return null;
+    return weeks.find(row => row.week_key === preferredWeekKey)
+      || weeks.find(row => weekContainsDate(row, preferredDateKey))
+      || weeks[weeks.length - 1];
+  }
+
+  function weekLabelForMonth(monthKey, weekKey) {
+    const weeks = buildWeeksForMonth(monthKey);
+    return weeks.find(row => row.week_key === weekKey)?.label || weekKey || "";
+  }
+
+  function syncReportWeeklySelection(preferredDateKey, preferredWeekKey) {
+    const baseMonthKey = currentDashReportSelectedMonthKey || monthKeyFromDateKey(todayKSTDateKey());
+    currentDashReportSelectedMonthKey = baseMonthKey;
+    const picked = pickWeekForMonth(baseMonthKey, preferredWeekKey, preferredDateKey || currentDashReportSelectedDateKey);
+    if (!picked) return;
+    currentDashReportSelectedWeekKey = picked.week_key;
+    currentDashReportSelectedDateKey = weekContainsDate(picked, preferredDateKey) ? preferredDateKey : picked.start_date_key;
+  }
+
+  function syncEventWeeklySelection(preferredDateKey, preferredWeekKey) {
+    const baseMonthKey = currentDashSelectedMonthKey || monthKeyFromDateKey(todayKSTDateKey());
+    currentDashSelectedMonthKey = baseMonthKey;
+    const picked = pickWeekForMonth(baseMonthKey, preferredWeekKey, preferredDateKey || currentDashSelectedDateKey);
+    if (!picked) return;
+    currentDashSelectedWeekKey = picked.week_key;
+    currentDashSelectedDateKey = weekContainsDate(picked, preferredDateKey) ? preferredDateKey : picked.start_date_key;
+  }
+
   function sotWeekKeyFromDateKey(dateKey) {
     if (!dateKey) return "";
     const [y, m, d] = String(dateKey).split("-").map(Number);
@@ -790,12 +884,14 @@
   }
 
   function syncCurrentDashPeriodKeys() {
-    const reportDateKey = currentDashReportSelectedDateKey || todayKSTDateKey();
-    const eventDateKey = currentDashSelectedDateKey || todayKSTDateKey();
+    const reportDateKey = currentDashReportSelectedDateKey || yesterdayKSTDateKey();
+    const eventDateKey = currentDashSelectedDateKey || yesterdayKSTDateKey();
     if (!currentDashReportSelectedWeekKey) currentDashReportSelectedWeekKey = sotWeekKeyFromDateKey(reportDateKey);
     if (!currentDashSelectedWeekKey) currentDashSelectedWeekKey = sotWeekKeyFromDateKey(eventDateKey);
-    if (!currentDashReportSelectedMonthKey) currentDashReportSelectedMonthKey = monthKeyFromDateKey(reportDateKey);
-    if (!currentDashSelectedMonthKey) currentDashSelectedMonthKey = monthKeyFromDateKey(eventDateKey);
+    if (!currentDashReportSelectedMonthKey) currentDashReportSelectedMonthKey = monthKeyFromDateKey(todayKSTDateKey());
+    if (!currentDashSelectedMonthKey) currentDashSelectedMonthKey = monthKeyFromDateKey(todayKSTDateKey());
+    if (currentDashReportPeriod === "weekly") syncReportWeeklySelection(currentDashReportSelectedDateKey, currentDashReportSelectedWeekKey);
+    if (currentDashEventPeriod === "weekly") syncEventWeeklySelection(currentDashSelectedDateKey, currentDashSelectedWeekKey);
   }
 
   function snapshotMissingMessage(snapshotType, periodKey) {
@@ -804,12 +900,12 @@
 
   function currentDashScopeLabel(viewName) {
     if (viewName === "report") {
-      if (currentDashReportPeriod === "weekly") return currentDashPeriodKeyForView("report") || "주별";
+      if (currentDashReportPeriod === "weekly") return weekLabelForMonth(currentDashReportSelectedMonthKey, currentDashReportSelectedWeekKey) || currentDashPeriodKeyForView("report") || "주차별";
       if (currentDashReportPeriod === "monthly") return currentDashPeriodKeyForView("report") || "월별";
       return currentDashReportSelectedDateKey || "일별";
     }
     if (viewName === "event-analysis") {
-      if (currentDashEventPeriod === "weekly") return currentDashPeriodKeyForView("event-analysis") || "주별";
+      if (currentDashEventPeriod === "weekly") return weekLabelForMonth(currentDashSelectedMonthKey, currentDashSelectedWeekKey) || currentDashPeriodKeyForView("event-analysis") || "주차별";
       if (currentDashEventPeriod === "monthly") return currentDashPeriodKeyForView("event-analysis") || "월별";
       if (currentDashEventPeriod === "total") return "total";
       return currentDashSelectedDateKey || "일별";
@@ -1125,7 +1221,7 @@
   function currentDashPeriodKeyForView(viewName) {
     syncCurrentDashPeriodKeys();
     if (viewName === "report") {
-      const dateKey = currentDashReportSelectedDateKey || todayKSTDateKey();
+      const dateKey = currentDashReportSelectedDateKey || yesterdayKSTDateKey();
       if (currentDashReportPeriod === "weekly") {
         return currentDashReportSelectedWeekKey || sotWeekKeyFromDateKey(dateKey);
       }
@@ -1135,7 +1231,7 @@
       return dateKey;
     }
     if (viewName === "event-analysis") {
-      const dateKey = currentDashSelectedDateKey || todayKSTDateKey();
+      const dateKey = currentDashSelectedDateKey || yesterdayKSTDateKey();
       if (currentDashEventPeriod === "weekly") {
         return currentDashSelectedWeekKey || sotWeekKeyFromDateKey(dateKey);
       }
@@ -1147,10 +1243,11 @@
       }
       return dateKey;
     }
-    return todayKSTDateKey();
+    return yesterdayKSTDateKey();
   }
 
-  async function loadCurrentTestDashboard() {
+  async function loadCurrentTestDashboard(options) {
+    const opts = options || {};
     if (sotCurrentTestLoading) return;
     if (!["report", "event-analysis"].includes(currentDashView)) return;
 
@@ -1161,8 +1258,8 @@
 
     try {
       await ensureCurrentDashInitialSnapshotDate();
-      if (currentDashView === "report" && !currentDashReportSelectedDateKey) currentDashReportSelectedDateKey = todayKSTDateKey();
-      if (currentDashView === "event-analysis" && !currentDashSelectedDateKey) currentDashSelectedDateKey = todayKSTDateKey();
+      if (currentDashView === "report" && !currentDashReportSelectedDateKey) currentDashReportSelectedDateKey = yesterdayKSTDateKey();
+      if (currentDashView === "event-analysis" && !currentDashSelectedDateKey) currentDashSelectedDateKey = yesterdayKSTDateKey();
       syncCurrentDashPeriodKeys();
       const snapshotType = currentDashSnapshotTypeForView(currentDashView);
       const periodKey = currentDashPeriodKeyForView(currentDashView);
@@ -1170,7 +1267,8 @@
         snapshotType,
         periodKey,
         eventCode: "all",
-        tab: currentDashView
+        tab: currentDashView,
+        manualRefresh: opts.manualRefresh === true
       });
       if (payload && payload.ok === false && payload.error === "snapshot_not_found") {
         console.warn("[SOT Snapshot] not found", {
@@ -1242,8 +1340,8 @@
           <div class="ctdash-section-head">
             <div><div class="ctdash-kicker">${kicker}</div><h3>${title}</h3><p>데이터 연결 전에도 동일한 리포트 구조를 먼저 표시합니다.</p></div>
             <div class="ctdash-period-tabs">${eventMode
-              ? `<button class="ctdash-chip ${currentDashEventPeriod === "daily" ? "is-active" : ""}" type="button">일별</button><button class="ctdash-chip ${currentDashEventPeriod === "weekly" ? "is-active" : ""}" type="button">주별</button><button class="ctdash-chip ${currentDashEventPeriod === "monthly" ? "is-active" : ""}" type="button">월별</button><button class="ctdash-chip ${currentDashEventPeriod === "total" ? "is-active" : ""}" type="button">전체</button>`
-              : `<button class="ctdash-chip ${currentDashReportPeriod === "daily" ? "is-active" : ""}" type="button">일별</button><button class="ctdash-chip ${currentDashReportPeriod === "weekly" ? "is-active" : ""}" type="button">주별</button><button class="ctdash-chip ${currentDashReportPeriod === "monthly" ? "is-active" : ""}" type="button">월별</button>`}</div>
+              ? `<button class="ctdash-chip ${currentDashEventPeriod === "daily" ? "is-active" : ""}" type="button">일별</button><button class="ctdash-chip ${currentDashEventPeriod === "weekly" ? "is-active" : ""}" type="button">주차별</button><button class="ctdash-chip ${currentDashEventPeriod === "monthly" ? "is-active" : ""}" type="button">월별</button><button class="ctdash-chip ${currentDashEventPeriod === "total" ? "is-active" : ""}" type="button">전체</button>`
+              : `<button class="ctdash-chip ${currentDashReportPeriod === "daily" ? "is-active" : ""}" type="button">일별</button><button class="ctdash-chip ${currentDashReportPeriod === "weekly" ? "is-active" : ""}" type="button">주차별</button><button class="ctdash-chip ${currentDashReportPeriod === "monthly" ? "is-active" : ""}" type="button">월별</button>`}</div>
           </div>
           <div class="ctdash-inline-fields">${eventMode ? currentDashEventScopeControls() : currentDashReportScopeControls()}</div>
           <div class="${eventMode ? "ctdash-summary-grid" : "ctdash-metrics-grid"}">${metrics.map(row => metricCard(row[0], row[1], row[2])).join("")}</div>
@@ -1327,7 +1425,8 @@
     renderCurrentDashCharts();
   }
 
-  async function ensureCurrentDashEventDetail(eventCode) {
+  async function ensureCurrentDashEventDetail(eventCode, options) {
+    const opts = options || {};
     if (!eventCode || eventCode === "all") {
       clearCurrentDashEventDetailCache();
       return;
@@ -1335,7 +1434,7 @@
     const snapshotType = currentDashSnapshotTypeForView("event-analysis");
     const periodKey = currentDashPeriodKeyForView("event-analysis");
     const cacheKey = `${snapshotType}::${periodKey}::${eventCode}`;
-    if (currentDashEventDetailCache[cacheKey]) {
+    if (!opts.manualRefresh && currentDashEventDetailCache[cacheKey]) {
       currentDashEventDetailCode = eventCode;
       currentDashEventDetailPeriodKey = periodKey;
       currentDashEventDetailData = currentDashEventDetailCache[cacheKey];
@@ -1354,7 +1453,8 @@
         snapshotType,
         periodKey,
         eventCode,
-        tab: "event-analysis"
+        tab: "event-analysis",
+        manualRefresh: opts.manualRefresh === true
       });
       if (payload && payload.ok === false && payload.error === "snapshot_not_found") {
         console.warn("[SOT Snapshot] not found", {
@@ -1396,8 +1496,10 @@
   function syncCurrentDashSelections() {
     const events = (sotCurrentTestData.events || []).filter(row => row.event_code);
     if (!events.some(row => row.event_code === currentDashSelectedEvent)) currentDashSelectedEvent = "all";
-    if (!currentDashReportSelectedDateKey) currentDashReportSelectedDateKey = formatKSTDate(new Date());
-    if (!currentDashSelectedDateKey) currentDashSelectedDateKey = formatKSTDate(new Date());
+    if (!currentDashReportSelectedDateKey) currentDashReportSelectedDateKey = yesterdayKSTDateKey();
+    if (!currentDashSelectedDateKey) currentDashSelectedDateKey = yesterdayKSTDateKey();
+    if (!currentDashReportSelectedMonthKey) currentDashReportSelectedMonthKey = monthKeyFromDateKey(todayKSTDateKey());
+    if (!currentDashSelectedMonthKey) currentDashSelectedMonthKey = monthKeyFromDateKey(todayKSTDateKey());
     syncCurrentDashPeriodKeys();
   }
 
@@ -1433,20 +1535,27 @@
       return `<label><span>월 선택</span><input class="ctdash-input" type="month" id="ctdash_report_month_input" value="${escapeHtml(currentDashReportSelectedMonthKey || monthKeyFromDateKey(currentDashReportSelectedDateKey || todayKSTDateKey()))}"></label>`;
     }
     if (currentDashReportPeriod === "weekly") {
-      return `<label><span>주차 기준일 선택</span><input class="ctdash-input" type="date" id="ctdash_report_week_input" value="${escapeHtml(currentDashReportSelectedDateKey || todayKSTDateKey())}"></label>`;
+      const monthKey = currentDashReportSelectedMonthKey || monthKeyFromDateKey(todayKSTDateKey());
+      const weeks = buildWeeksForMonth(monthKey);
+      return `
+        <label><span>기준월</span><input class="ctdash-input" type="month" id="ctdash_report_week_month_input" value="${escapeHtml(monthKey)}"></label>
+        <label><span>주차 선택</span><select class="ctdash-select" id="ctdash_report_week_select">${weeks.map(row => `<option value="${escapeHtml(row.week_key)}" ${row.week_key === currentDashReportSelectedWeekKey ? "selected" : ""}>${escapeHtml(row.label)}</option>`).join("")}</select></label>
+      `;
     }
     return `<label><span>일자 선택</span><input class="ctdash-input" type="date" id="ctdash_report_date_input" value="${escapeHtml(currentDashReportSelectedDateKey || "")}"></label>`;
   }
 
   function currentDashEventScopeControls() {
+    const monthlyValue = currentDashSelectedMonthKey || monthKeyFromDateKey(todayKSTDateKey());
+    const weeklyOptions = buildWeeksForMonth(monthlyValue);
     return `
       <label><span>대회 선택</span><select class="ctdash-select" id="ctdash_event_select">${[{ event_code:"all", event_name:"전체 대회" }].concat(currentDashEventOptions()).map(row => `<option value="${escapeHtml(row.event_code)}" ${row.event_code === currentDashSelectedEvent ? "selected" : ""}>${escapeHtml(row.event_name || row.event_code)}</option>`).join("")}</select></label>
       ${currentDashEventPeriod === "total"
         ? `<label><span>전체 기준</span><input class="ctdash-input" type="text" value="total" disabled></label>`
         : currentDashEventPeriod === "monthly"
-          ? `<label><span>월 선택</span><input class="ctdash-input" type="month" id="ctdash_event_month_input" value="${escapeHtml(currentDashSelectedMonthKey || monthKeyFromDateKey(currentDashSelectedDateKey || todayKSTDateKey()))}"></label>`
+          ? `<label><span>월 선택</span><input class="ctdash-input" type="month" id="ctdash_event_month_input" value="${escapeHtml(monthlyValue)}"></label>`
           : currentDashEventPeriod === "weekly"
-            ? `<label><span>주차 기준일 선택</span><input class="ctdash-input" type="date" id="ctdash_event_week_input" value="${escapeHtml(currentDashSelectedDateKey || "")}"></label>`
+            ? `<label><span>기준월</span><input class="ctdash-input" type="month" id="ctdash_event_week_month_input" value="${escapeHtml(monthlyValue)}"></label><label><span>주차 선택</span><select class="ctdash-select" id="ctdash_event_week_select">${weeklyOptions.map(row => `<option value="${escapeHtml(row.week_key)}" ${row.week_key === currentDashSelectedWeekKey ? "selected" : ""}>${escapeHtml(row.label)}</option>`).join("")}</select></label>`
             : `<label><span>일자 선택</span><input class="ctdash-input" type="date" id="ctdash_date_input" value="${escapeHtml(currentDashSelectedDateKey || "")}"></label>`}
     `;
   }
@@ -1454,6 +1563,23 @@
   function currentDashEventRowsForPeriod(detail) {
     const daily = sortMetricRows((detail || {}).daily || []);
     return daily.filter(row => (row.date_key || row.period_key || row.label) === currentDashSelectedDateKey);
+  }
+
+  async function refreshCurrentDashSelection() {
+    if (currentDashView === "report") {
+      invalidateCurrentDashReportCache();
+      await loadCurrentTestDashboard({ manualRefresh: true });
+      return;
+    }
+    if (currentDashView === "event-analysis") {
+      if (currentDashSelectedEvent === "all") {
+        clearCurrentDashEventDetailCache();
+        await loadCurrentTestDashboard({ manualRefresh: true });
+        return;
+      }
+      delete currentDashEventDetailCache[`${currentDashSnapshotTypeForView("event-analysis")}::${currentDashPeriodKeyForView("event-analysis")}::${currentDashSelectedEvent}`];
+      await ensureCurrentDashEventDetail(currentDashSelectedEvent, { manualRefresh: true });
+    }
   }
 
   function renderCurrentDashReportView() {
@@ -1471,7 +1597,7 @@
             </div>
             <div class="ctdash-period-tabs">
               <button class="ctdash-chip ${currentDashReportPeriod === "daily" ? "is-active" : ""}" type="button" data-ctdash-report-period="daily">일별</button>
-              <button class="ctdash-chip ${currentDashReportPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-report-period="weekly">주별</button>
+              <button class="ctdash-chip ${currentDashReportPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-report-period="weekly">주차별</button>
               <button class="ctdash-chip ${currentDashReportPeriod === "monthly" ? "is-active" : ""}" type="button" data-ctdash-report-period="monthly">월별</button>
             </div>
           </div>
@@ -1567,7 +1693,7 @@
           <div class="ctdash-event-toolbar">
             <div class="ctdash-period-tabs">
               <button class="ctdash-chip ${currentDashEventPeriod === "daily" ? "is-active" : ""}" type="button" data-ctdash-event-period="daily">일별</button>
-              <button class="ctdash-chip ${currentDashEventPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-event-period="weekly">주별</button>
+              <button class="ctdash-chip ${currentDashEventPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-event-period="weekly">주차별</button>
               <button class="ctdash-chip ${currentDashEventPeriod === "monthly" ? "is-active" : ""}" type="button" data-ctdash-event-period="monthly">월별</button>
               <button class="ctdash-chip ${currentDashEventPeriod === "total" ? "is-active" : ""}" type="button" data-ctdash-event-period="total">전체</button>
             </div>
@@ -3267,24 +3393,13 @@
       const currentTestRefreshButton = e.target.closest("#sot_current_test_refresh_btn");
       if (currentTestRefreshButton) {
         console.log("[SOT Current Test] refresh button clicked");
-        if (currentDashView === "report") {
-          invalidateCurrentDashReportCache();
-          loadCurrentTestDashboard();
-        } else if (currentDashView === "event-analysis") {
-          if (currentDashSelectedEvent === "all") {
-            clearCurrentDashEventDetailCache();
-            loadCurrentTestDashboard();
-          } else {
-            delete currentDashEventDetailCache[`${currentDashSnapshotTypeForView("event-analysis")}::${currentDashPeriodKeyForView("event-analysis")}::${currentDashSelectedEvent}`];
-            ensureCurrentDashEventDetail(currentDashSelectedEvent);
-          }
-        }
+        refreshCurrentDashSelection();
         return;
       }
 
       const reportPeriodButton = e.target.closest("[data-ctdash-report-period]");
       if (reportPeriodButton) {
-        currentDashReportPeriod = reportPeriodButton.dataset.ctdashReportPeriod || "daily";
+        currentDashReportPeriod = reportPeriodButton.dataset.ctdashReportPeriod || "weekly";
         syncCurrentDashPeriodKeys();
         invalidateCurrentDashReportCache();
         loadCurrentTestDashboard();
@@ -3294,7 +3409,7 @@
 
       const eventPeriodButton = e.target.closest("[data-ctdash-event-period]");
       if (eventPeriodButton) {
-        currentDashEventPeriod = eventPeriodButton.dataset.ctdashEventPeriod || "daily";
+        currentDashEventPeriod = eventPeriodButton.dataset.ctdashEventPeriod || "weekly";
         syncCurrentDashPeriodKeys();
         clearCurrentDashEventDetailCache();
         loadCurrentTestDashboard();
@@ -3357,16 +3472,23 @@
     });
     document.addEventListener("change", e => {
       if (e.target && e.target.id === "ctdash_report_date_input") {
-        currentDashReportSelectedDateKey = e.target.value || todayKSTDateKey();
+        currentDashReportSelectedDateKey = e.target.value || yesterdayKSTDateKey();
         currentDashReportSelectedWeekKey = sotWeekKeyFromDateKey(currentDashReportSelectedDateKey);
         currentDashReportSelectedMonthKey = monthKeyFromDateKey(currentDashReportSelectedDateKey);
         invalidateCurrentDashReportCache();
         loadCurrentTestDashboard();
         return;
       }
-      if (e.target && e.target.id === "ctdash_report_week_input") {
-        currentDashReportSelectedDateKey = e.target.value || todayKSTDateKey();
-        currentDashReportSelectedWeekKey = sotWeekKeyFromDateKey(currentDashReportSelectedDateKey);
+      if (e.target && e.target.id === "ctdash_report_week_month_input") {
+        currentDashReportSelectedMonthKey = e.target.value || monthKeyFromDateKey(todayKSTDateKey());
+        syncReportWeeklySelection(currentDashReportSelectedDateKey, currentDashReportSelectedWeekKey);
+        invalidateCurrentDashReportCache();
+        loadCurrentTestDashboard();
+        return;
+      }
+      if (e.target && e.target.id === "ctdash_report_week_select") {
+        currentDashReportSelectedWeekKey = e.target.value || "";
+        syncReportWeeklySelection("", currentDashReportSelectedWeekKey);
         invalidateCurrentDashReportCache();
         loadCurrentTestDashboard();
         return;
@@ -3394,7 +3516,7 @@
         return;
       }
       if (e.target && e.target.id === "ctdash_date_input") {
-        currentDashSelectedDateKey = e.target.value || todayKSTDateKey();
+        currentDashSelectedDateKey = e.target.value || yesterdayKSTDateKey();
         currentDashSelectedWeekKey = sotWeekKeyFromDateKey(currentDashSelectedDateKey);
         currentDashSelectedMonthKey = monthKeyFromDateKey(currentDashSelectedDateKey);
         currentDashEventDetailLoading = currentDashSelectedEvent !== "all";
@@ -3410,9 +3532,25 @@
         }
         return;
       }
-      if (e.target && e.target.id === "ctdash_event_week_input") {
-        currentDashSelectedDateKey = e.target.value || todayKSTDateKey();
-        currentDashSelectedWeekKey = sotWeekKeyFromDateKey(currentDashSelectedDateKey);
+      if (e.target && e.target.id === "ctdash_event_week_month_input") {
+        currentDashSelectedMonthKey = e.target.value || monthKeyFromDateKey(todayKSTDateKey());
+        syncEventWeeklySelection(currentDashSelectedDateKey, currentDashSelectedWeekKey);
+        currentDashEventDetailLoading = currentDashSelectedEvent !== "all";
+        currentDashEventDetailData = SOT_HEAD.emptyDashboardData();
+        currentDashEventDetailError = "";
+        currentDashEventDetailMissingSnapshot = null;
+        renderCurrentTestDashboard();
+        if (currentDashSelectedEvent === "all") {
+          clearCurrentDashEventDetailCache();
+          loadCurrentTestDashboard();
+        } else {
+          ensureCurrentDashEventDetail(currentDashSelectedEvent);
+        }
+        return;
+      }
+      if (e.target && e.target.id === "ctdash_event_week_select") {
+        currentDashSelectedWeekKey = e.target.value || "";
+        syncEventWeeklySelection("", currentDashSelectedWeekKey);
         currentDashEventDetailLoading = currentDashSelectedEvent !== "all";
         currentDashEventDetailData = SOT_HEAD.emptyDashboardData();
         currentDashEventDetailError = "";
