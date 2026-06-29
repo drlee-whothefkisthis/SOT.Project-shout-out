@@ -1613,6 +1613,13 @@
     return daily.filter(row => (row.date_key || row.period_key || row.label) === currentDashSelectedDateKey);
   }
 
+  function currentDashChartTitle(period) {
+    if (period === "weekly") return "일자별 그래프";
+    if (period === "monthly") return "주차별 그래프";
+    if (period === "total") return "일자별 그래프";
+    return "시간대별 그래프";
+  }
+
   async function refreshCurrentDashSelection() {
     if (currentDashView === "report") {
       invalidateCurrentDashReportCache();
@@ -1662,8 +1669,8 @@
           <div class="ctdash-section-head">
             <div>
               <div class="ctdash-kicker">Hourly</div>
-              <h3>시간대별 그래프</h3>
-              <p>마우스를 올리면 시간대별 검색, 카트, 구매, 평균전환율을 확인할 수 있습니다.</p>
+              <h3>${currentDashChartTitle(currentDashReportPeriod)}</h3>
+              <p>마우스를 올리면 선택 기간 기준 검색, 카트, 구매, 평균전환율을 확인할 수 있습니다.</p>
             </div>
             <span class="ctdash-tag">Hover</span>
           </div>
@@ -1700,7 +1707,8 @@
             <div class="ctdash-sub-grid">
               ${rankSection("캠페인", topRankRows(sotCurrentTestData.campaigns || [], ["utm_campaign", "label"]))}
               ${rankSection("소스", topRankRows(sotCurrentTestData.sources || [], ["utm_source", "label"]))}
-              ${rankSection("디바이스", topRankRows(sotCurrentTestData.devices || [], ["device_type", "os_type", "label"]))}
+              ${rankSection("디바이스", topRankRows(sotCurrentTestData.devices || [], ["device_type", "label"]))}
+              ${rankSection("OS", topRankRows(sotCurrentTestData.devices || [], ["os_type", "label"]))}
             </div>
           </article>
           <article class="ctdash-card ctdash-section">
@@ -1721,6 +1729,7 @@
     const detail = currentDashEventDataset();
     const summary = currentDashSelectedEventSummary();
     const spots = Array.isArray(detail.spots) ? detail.spots : [];
+    const photoCounts = Array.isArray(detail.photo_counts) ? detail.photo_counts : [];
     const eventName = currentDashSelectedEvent === "all"
       ? "전체 대회"
       : (currentDashEventLabel(currentDashEventOptions().find(row => row.event_code === currentDashSelectedEvent)) || currentDashSelectedEvent);
@@ -1773,7 +1782,7 @@
           </article>
         </div>
         <article class="ctdash-card ctdash-section">
-          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Graph</div><h3>시간대별 그래프</h3></div><span class="ctdash-tag">Revenue + Search/Cart/Order</span></div>
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Graph</div><h3>${currentDashChartTitle(currentDashEventPeriod)}</h3></div><span class="ctdash-tag">Revenue + Search/Cart/Order</span></div>
           <div class="ctdash-chart-box">
             <div class="ctdash-legend">
               <span><i style="background:#d8a23d;border-radius:4px"></i>매출</span>
@@ -1786,12 +1795,14 @@
           </div>
         </article>
         ${detailTable}
+        ${photoCounts.length ? renderPhotoExposureSection(detail, currentDashScopeLabel("event-analysis")) : renderPhotoExposurePendingSection()}
         <article class="ctdash-card ctdash-section">
           <div class="ctdash-section-head"><div><div class="ctdash-kicker">Traffic</div><h3>유입경로별 분석</h3></div><span class="ctdash-tag">Wide Section</span></div>
           <div class="ctdash-sub-grid">
             ${rankSection("캠페인", topRankRows(detail.campaigns || [], ["utm_campaign", "label"]))}
             ${rankSection("소스", topRankRows(detail.sources || [], ["utm_source", "label"]))}
-            ${rankSection("디바이스", topRankRows(detail.devices || [], ["device_type", "os_type", "label"]))}
+            ${rankSection("디바이스", topRankRows(detail.devices || [], ["device_type", "label"]))}
+            ${rankSection("OS", topRankRows(detail.devices || [], ["os_type", "label"]))}
           </div>
         </article>
         <article class="ctdash-card ctdash-section">
@@ -1830,8 +1841,15 @@
   }
 
   function renderEventDetailTable(rows) {
-    const title = currentDashEventPeriod === "total" ? "누적 시간대별 상세" : `${currentDashScopeLabel("event-analysis")} 시간대별 상세`;
-    return detailTableSection(title, ["시간대", "검색", "카트", "오더", "매출"], eventDailyRows(currentDashEventDataset()));
+    const title = currentDashEventPeriod === "weekly"
+      ? `${currentDashScopeLabel("event-analysis")} 일자별 상세`
+      : currentDashEventPeriod === "monthly"
+        ? `${currentDashScopeLabel("event-analysis")} 주차별 상세`
+        : currentDashEventPeriod === "total"
+          ? "누적 일자별 상세"
+          : `${currentDashScopeLabel("event-analysis")} 시간대별 상세`;
+    const firstHeader = currentDashEventPeriod === "daily" ? "시간대" : currentDashEventPeriod === "monthly" ? "주차" : "일자";
+    return detailTableSection(title, [firstHeader, "검색", "카트", "오더", "매출"], eventDailyRows(currentDashEventDataset()));
   }
 
   function renderCurrentDashCharts() {
@@ -1940,12 +1958,14 @@
   }
 
   function topRankRows(rows, labelFields) {
-    return [...(rows || [])]
-      .map(row => ({
-        label: firstText(row, labelFields),
-        value: numberValue(row, ["search_count", "purchase_count", "count", "sessions", "value"])
-      }))
-      .filter(row => row.label)
+    const byLabel = new Map();
+    (rows || []).forEach(row => {
+      const label = firstText(row, labelFields);
+      if (!label) return;
+      byLabel.set(label, (byLabel.get(label) || 0) + numberValue(row, ["search_count", "purchase_count", "count", "sessions", "value"]));
+    });
+    return [...byLabel.entries()]
+      .map(([label, value]) => ({ label, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
   }
@@ -1975,7 +1995,7 @@
           <div>
             <div class="ctdash-kicker">Exposure</div>
             <h3>노출 사진 수 분석</h3>
-            <p>선택한 daily snapshot에 photo_counts가 아직 없습니다.</p>
+            <p>선택한 snapshot에 photo_counts가 아직 없습니다.</p>
           </div>
           <span class="ctdash-tag">Pending</span>
         </div>
@@ -2010,8 +2030,11 @@
   }
 
   function renderPhotoExposureSection(summaryOverride, scopeLabel) {
-    const summary = summaryOverride || sotCurrentTestData.state || {};
-    const rows = photoExposureRows(sotCurrentTestData, summary);
+    const payload = summaryOverride && (Array.isArray(summaryOverride.photo_counts) || summaryOverride.state || summaryOverride.summary)
+      ? summaryOverride
+      : sotCurrentTestData;
+    const summary = summaryOverride?.state || summaryOverride?.summary || summaryOverride || sotCurrentTestData.state || {};
+    const rows = photoExposureRows(payload, summary);
     const totalSearch = numberValue(summary, ["search_count"]);
     const zeroExposureSearch = numberValue(summary, ["zero_exposure_count"]);
     const uniqueZeroExposure = numberValue(summary, ["zero_exposure_unique", "zero_exposure_unique_count"]);
@@ -2128,11 +2151,11 @@
   }
 
   function eventDailyRows(detail) {
-    return reportChartRowsFromDataset(detail, "").map(row => [
+    return chartRowsForPeriod(detail, currentDashEventPeriod).map(row => [
       escapeHtml(row.time),
       formatNumber(row.search),
       formatNumber(row.cart),
-      formatNumber(row.purchase),
+      formatNumber(row.purchase || row.order),
       formatWon(row.revenue || 0)
     ]);
   }
@@ -2174,6 +2197,74 @@
     if (value === undefined || value === null || value === "") return "";
     const hour = Number.parseInt(String(value), 10);
     return Number.isInteger(hour) && hour >= 0 && hour <= 23 ? String(hour).padStart(2, "0") : "";
+  }
+
+  const currentDashMetricFields = ["search_count", "cart_count", "cart_photo_count", "purchase_count", "purchase_photo_count", "revenue", "exposure_sum", "exposure_count", "zero_exposure_count", "visit_count", "session_count", "local_user_count", "search_user_count"];
+
+  function currentDashDateKey(row) {
+    return row?.date_key || row?.period_key || row?.label || "";
+  }
+
+  function currentDashHourBucket(row) {
+    const hourKey = normalizedHourKey(row.hour_key);
+    if (!hourKey) return "";
+    return Number(hourKey) < 6 ? "00" : hourKey;
+  }
+
+  function aggregateMetricRows(rows, keyFn, labelFn) {
+    const byKey = new Map();
+    (rows || []).forEach(row => {
+      const key = keyFn(row);
+      if (!key) return;
+      if (!byKey.has(key)) byKey.set(key, { key, label: labelFn ? labelFn(row, key) : key });
+      const aggregate = byKey.get(key);
+      currentDashMetricFields.forEach(field => {
+        aggregate[field] = Number(aggregate[field] || 0) + numberValue(row, [field]);
+      });
+    });
+    return [...byKey.values()].sort((a, b) => String(a.key).localeCompare(String(b.key)));
+  }
+
+  function chartPointFromAggregate(row) {
+    return {
+      time: row.label || row.key,
+      label: row.label || row.key,
+      search: row.search_count || 0,
+      cart: row.cart_count || 0,
+      purchase: row.purchase_count || 0,
+      order: row.purchase_count || 0,
+      revenue: row.revenue || 0,
+      revenueText: formatWon(row.revenue || 0),
+      conversion: Number(safeRate(row.purchase_count, row.search_count)).toFixed(1)
+    };
+  }
+
+  function weekRangeLabelFromDateKey(dateKey) {
+    const startKey = saturdayStartDateKey(dateKey);
+    const endKey = addDays(startKey, 6);
+    return `${startKey} ~ ${endKey}`;
+  }
+
+  function dailyHourChartRowsFromDataset(dataset) {
+    return aggregateMetricRows(dataset.hourly || [], currentDashHourBucket, (row, key) => key)
+      .map(chartPointFromAggregate);
+  }
+
+  function dailyDateChartRowsFromDataset(dataset) {
+    return aggregateMetricRows(dataset.daily || [], currentDashDateKey, (row, key) => key)
+      .map(chartPointFromAggregate);
+  }
+
+  function weeklyChartRowsFromDataset(dataset) {
+    return aggregateMetricRows(dataset.daily || [], row => saturdayStartDateKey(currentDashDateKey(row)), (row, key) => weekRangeLabelFromDateKey(key))
+      .map(chartPointFromAggregate);
+  }
+
+  function chartRowsForPeriod(dataset, period) {
+    if (period === "weekly") return dailyDateChartRowsFromDataset(dataset);
+    if (period === "monthly") return weeklyChartRowsFromDataset(dataset);
+    if (period === "total") return dailyDateChartRowsFromDataset(dataset);
+    return dailyHourChartRowsFromDataset(dataset);
   }
 
   function detailHourlyChartRowsFromDataset(dataset, dateKey) {
@@ -2224,20 +2315,12 @@
   }
 
   function reportChartRows() {
-    return reportChartRowsFromDataset(sotCurrentTestData, "");
+    return chartRowsForPeriod(sotCurrentTestData, currentDashReportPeriod);
   }
 
   function eventChartRows() {
     const detail = currentDashEventDataset();
-    return detailHourlyChartRowsFromDataset(detail, "").map(row => ({
-      label: `${row.time}:00`,
-      search: row.search,
-      cart: row.cart,
-      order: row.purchase,
-      revenue: row.revenue,
-      revenueText: formatWon(row.revenue),
-      conversion: row.conversion
-    }));
+    return chartRowsForPeriod(detail, currentDashEventPeriod);
   }
 
   function maxMetricValue(rows, keys) {
