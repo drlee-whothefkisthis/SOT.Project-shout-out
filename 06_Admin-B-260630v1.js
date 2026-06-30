@@ -1856,6 +1856,7 @@
     if (!sotCurrentTestLoaded) return;
     renderCurrentDashReportChart();
     renderCurrentDashEventChart();
+    renderPhotoCountPurchaseCharts();
   }
 
   function renderCurrentDashReportChart() {
@@ -1878,6 +1879,16 @@
       maxMetric: maxMetricValue(rows, ["search", "cart", "order"]),
       maxRevenue: maxRevenueValue(rows)
     });
+  }
+
+  function renderPhotoCountPurchaseCharts() {
+    const chart = document.getElementById("ctdashPhotoCountChart");
+    const tooltip = document.getElementById("ctdashPhotoCountTooltip");
+    if (!chart || !tooltip) return;
+
+    const dataset = currentDashView === "event-analysis" ? currentDashEventDataset() : sotCurrentTestData;
+    const rows = photoExposureRows(dataset, dataset.state || dataset.summary || dataset);
+    drawPhotoCountBucketChart({ chart, tooltip, rows });
   }
 
   function sortMetricRows(rows) {
@@ -1999,35 +2010,54 @@
           </div>
           <span class="ctdash-tag">Pending</span>
         </div>
-        <div class="ctdash-callout">사진 수 구간 데이터 준비 중</div>
+	        <div class="ctdash-callout">사진 수 구간별 구매 분석 데이터가 없습니다.</div>
       </section>
     `;
   }
 
-  function photoExposureRows(payload, summaryOverride) {
-    const summaryRows = Array.isArray(summaryOverride?.photo_counts)
-      ? summaryOverride.photo_counts
+	  function photoExposureRows(payload, summaryOverride) {
+	    const summaryRows = Array.isArray(summaryOverride?.photo_counts)
+	      ? summaryOverride.photo_counts
       : Array.isArray(summaryOverride?.photo_count_buckets)
         ? summaryOverride.photo_count_buckets
         : Array.isArray(summaryOverride?.photo_count_stats)
           ? summaryOverride.photo_count_stats
           : [];
     const rows = summaryRows.length ? summaryRows : Array.isArray(payload.photo_counts) ? payload.photo_counts : [];
-    if (rows.length) {
-      return rows.map(row => {
-        const label = row.range || row.bucket || row.label || row.photo_count || row.photo_bucket || "-";
-        const searchCount = numberValue(row, ["search_count", "count", "searches"]);
-        const uniqueBibCount = numberValue(row, ["bib_count", "bibs", "search_bib_count", "unique_bib_count"]);
-        const cartCount = numberValue(row, ["cart_count", "cart"]);
-        const purchaseCount = numberValue(row, ["purchase_count", "purchase"]);
-        const soldPhotoCount = numberValue(row, ["sold_photo_count", "sold_photo", "purchase_photo_count"]);
-        const revenue = numberValue(row, ["revenue"]);
-        const purchaseRate = safeRate(purchaseCount, searchCount);
-        return { label: String(label), searchCount, uniqueBibCount, cartCount, purchaseCount, soldPhotoCount, revenue, purchaseRate };
-      });
-    }
-    return [];
-  }
+	    if (rows.length) {
+	      return rows.map(row => {
+	        const label = row.bucket_label || row.range || row.bucket || row.label || row.photo_count_range || row.photo_count || row.photo_bucket || "-";
+	        const searchCount = numberValue(row, ["search_count", "count", "searches"]);
+	        const uniqueBibCount = numberValue(row, ["unique_query_count", "bib_count", "bibs", "search_bib_count", "unique_bib_count"]);
+	        const cartCount = numberValue(row, ["cart_count", "cart"]);
+	        const purchaseCount = numberValue(row, ["purchase_count", "purchase"]);
+	        const soldPhotoCount = numberValue(row, ["sold_photo_count", "sold_photo", "purchase_photo_count", "purchase_photo_count"]);
+	        const revenue = numberValue(row, ["revenue", "purchase_amount", "revenue_total"]);
+	        const purchaseRate = Number.isFinite(Number(row.purchase_rate)) ? Number(row.purchase_rate) : safeRate(purchaseCount, searchCount);
+	        const cartRate = Number.isFinite(Number(row.cart_rate)) ? Number(row.cart_rate) : safeRate(cartCount, searchCount);
+	        const cartToPurchaseRate = Number.isFinite(Number(row.cart_to_purchase_rate)) ? Number(row.cart_to_purchase_rate) : safeRate(purchaseCount, cartCount);
+	        const avgOrderValue = numberValue(row, ["avg_order_value", "aov"]) || (purchaseCount ? Math.round(revenue / purchaseCount) : 0);
+	        return { label: String(label), searchCount, uniqueBibCount, cartCount, purchaseCount, soldPhotoCount, revenue, purchaseRate, cartRate, cartToPurchaseRate, avgOrderValue };
+	      });
+	    }
+	    return [];
+	  }
+
+	  function renderPhotoCountPurchaseChart(rows) {
+	    if (!Array.isArray(rows) || !rows.length) {
+	      return `<div class="ctdash-callout">사진 수 구간별 구매 분석 데이터가 없습니다.</div>`;
+	    }
+	    return `
+	      <div class="ctdash-chart-box" style="margin-top:10px;">
+	        <div class="ctdash-legend">
+	          <span><i style="background:#c96b37;border-radius:4px"></i>구매율</span>
+	          <span><i style="background:#0c8b88"></i>검색 수</span>
+	        </div>
+	        <svg id="ctdashPhotoCountChart" viewBox="0 0 1080 360" aria-label="사진 수 구간별 구매율 차트"></svg>
+	        <div class="ctdash-tooltip" id="ctdashPhotoCountTooltip"></div>
+	      </div>
+	    `;
+	  }
 
   function renderPhotoExposureSection(summaryOverride, scopeLabel) {
     const payload = summaryOverride && (Array.isArray(summaryOverride.photo_counts) || summaryOverride.state || summaryOverride.summary)
@@ -2042,8 +2072,6 @@
     const validSearchCount = Math.max(0, totalSearch - zeroExposureSearch);
     const validAvg = validSearchCount ? numberValue(summary, ["exposure_sum"]) / validSearchCount : 0;
     const validPurchaseRate = safeRate(numberValue(summary, ["purchase_count"]), validSearchCount);
-    const maxSearch = Math.max(10, ...rows.map(row => row.searchCount));
-    const maxRate = Math.max(1, ...rows.map(row => row.purchaseRate));
 
     return `
       <section class="ctdash-card ctdash-section">
@@ -2079,68 +2107,37 @@
                   <th>구매율</th>
                 </tr>
               </thead>
-              <tbody>
-                ${rows.map(row => `
-                  <tr>
-                    <td style="padding:13px 10px; font-weight:900; color:#c96b37;">${escapeHtml(row.label)}</td>
-                    <td align="right" style="padding:13px 10px;">${formatNumber(row.searchCount)}</td>
+	              <tbody>
+	                ${rows.length ? rows.map(row => `
+	                  <tr>
+	                    <td style="padding:13px 10px; font-weight:900; color:#c96b37;">${escapeHtml(row.label)}</td>
+	                    <td align="right" style="padding:13px 10px;">${formatNumber(row.searchCount)}</td>
                     <td align="right" style="padding:13px 10px;">${formatNumber(row.uniqueBibCount)}</td>
                     <td align="right" style="padding:13px 10px;">${formatNumber(row.cartCount)}</td>
                     <td align="right" style="padding:13px 10px;">${formatNumber(row.purchaseCount)}</td>
                     <td align="right" style="padding:13px 8px;">${formatNumber(row.soldPhotoCount)}</td>
                     <td align="right" style="padding:13px 8px;">${formatWon(row.revenue)}</td>
-                    <td align="right" style="padding:13px 8px; font-weight:900; ${row.purchaseRate >= 10 ? "color:#0c8b88;" : ""}">${formatPercent(row.purchaseRate)}</td>
-                  </tr>
-                `).join("")}
-              </tbody>
+	                    <td align="right" style="padding:13px 8px; font-weight:900; ${row.purchaseRate >= 10 ? "color:#0c8b88;" : ""}">${formatPercent(row.purchaseRate)}</td>
+	                  </tr>
+	                `).join("") : `<tr><td colspan="8">사진 수 구간별 구매 분석 데이터가 없습니다.</td></tr>`}
+	              </tbody>
             </table>
           </div>
           <p style="margin:12px 0 0; font-size:13px; line-height:1.65; color:#6f6256;">
             판단: 사진 노출이 있는 구간에서 구매율과 매출이 어떻게 변하는지 확인하는 섹션입니다.
           </p>
         </article>
-        <article class="ctdash-sub-card" style="margin-top:18px;">
-          <div style="padding:4px 0 12px;">
-            <div class="ctdash-kicker">Bucket Flow</div>
-            <h4 style="margin-top:8px;">사진 수와 구매율 흐름</h4>
-            <p style="margin:8px 0 0; color:#6f6256;">막대는 검색 횟수, 선은 구매율입니다. 사진 수가 구매를 밀어 올리는지 확인합니다.</p>
-          </div>
-          <div class="ctdash-chart-box" style="margin-top:10px;">
-            <svg viewBox="0 0 632 330" xmlns="http://www.w3.org/2000/svg" style="display:block; width:100%; height:auto;">
-              <rect x="0" y="0" width="632" height="330" rx="18" fill="#fffdf9"></rect>
-              <circle cx="25" cy="24" r="6" fill="#c96b37"></circle>
-              <text x="38" y="29" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#5e5146">검색 횟수</text>
-              <circle cx="122" cy="24" r="6" fill="#0c8b88"></circle>
-              <text x="135" y="29" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#5e5146">구매율</text>
-              <line x1="64" y1="68" x2="604" y2="68" stroke="#e8dfd6" stroke-width="1"></line>
-              <line x1="64" y1="116" x2="604" y2="116" stroke="#e8dfd6" stroke-width="1"></line>
-              <line x1="64" y1="164" x2="604" y2="164" stroke="#e8dfd6" stroke-width="1"></line>
-              <line x1="64" y1="212" x2="604" y2="212" stroke="#e8dfd6" stroke-width="1"></line>
-              <line x1="64" y1="260" x2="604" y2="260" stroke="#d8cec4" stroke-width="1"></line>
-              ${rows.map((row, index) => {
-                const x = 78 + index * 76;
-                const barHeight = Math.max(8, Math.round((row.searchCount / maxSearch) * 170));
-                const lineY = Math.round(240 - (row.purchaseRate / maxRate) * 110);
-                return `
-                  <g>
-                    <title>${escapeHtml(row.label)} / 검색 ${formatNumber(row.searchCount)} / 구매율 ${formatPercent(row.purchaseRate)}</title>
-                    <rect x="${x}" y="${240 - barHeight}" width="42" height="${barHeight}" rx="6" fill="${index === 0 ? "#f4dfcf" : index === 4 ? "#d98957" : index === 5 ? "#c96b37" : "#e4a674"}"></rect>
-                    <text x="${x + 21}" y="275" font-family="Arial, sans-serif" font-size="12" fill="#6f6256" text-anchor="middle">${escapeHtml(row.label)}</text>
-                    <circle cx="${x + 21}" cy="${lineY}" r="5" fill="#0c8b88"></circle>
-                  </g>
-                `;
-              }).join("")}
-              <polyline points="${rows.map((row, index) => {
-                const x = 99 + index * 76;
-                const y = Math.round(240 - (row.purchaseRate / maxRate) * 110);
-                return `${x},${y}`;
-              }).join(" ")}" fill="none" stroke="#0c8b88" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></polyline>
-            </svg>
-          </div>
-        </article>
-      </section>
-    `;
-  }
+	        <article class="ctdash-sub-card" style="margin-top:18px;">
+		          <div style="padding:4px 0 12px;">
+		            <div class="ctdash-kicker">Bucket Flow</div>
+		            <h4 style="margin-top:8px;">사진 수와 구매율 흐름</h4>
+		            <p style="margin:8px 0 0; color:#6f6256;">막대는 구매율, 선은 검색 수입니다. 사진 수가 구매를 밀어 올리는지 확인합니다.</p>
+		          </div>
+	          ${renderPhotoCountPurchaseChart(rows)}
+	        </article>
+	      </section>
+	    `;
+	  }
 
   function summaryTable(rows) {
     return `<div class="ctdash-table-wrap"><table class="ctdash-table"><thead><tr><th>대회명</th><th>참가자 수</th><th>매출</th><th>객단가</th><th>검색→구매</th></tr></thead><tbody>${rows.map(row => `<tr><td>${escapeHtml(row.event_name || row.event_code || "-")}</td><td>${formatNumber(eventPeople(row.event_code))}</td><td>${formatWon(numberValue(row, ["revenue"]))}</td><td>${formatWon(avgOrderValue(row))}</td><td>${formatPercent(safeRate(numberValue(row, ["purchase_count"]), numberValue(row, ["search_count"])))}</td></tr>`).join("")}</tbody></table></div>`;
@@ -2443,14 +2440,126 @@
       const index = Math.min(data.length - 1, Math.max(0, Math.round(ratio * Math.max(1, data.length - 1))));
       setTooltip(index, event.clientX);
     });
-    overlay.addEventListener("mouseleave", () => {
-      tooltip.classList.remove("is-visible");
-      focusLine.setAttribute("opacity", "0");
-      Object.values(focusDots).forEach(dot => dot.setAttribute("opacity", "0"));
-    });
-  }
+	    overlay.addEventListener("mouseleave", () => {
+	      tooltip.classList.remove("is-visible");
+	      focusLine.setAttribute("opacity", "0");
+	      Object.values(focusDots).forEach(dot => dot.setAttribute("opacity", "0"));
+	    });
+	  }
 
-  function firstText(row, fields) {
+	  function drawPhotoCountBucketChart({ chart, tooltip, rows }) {
+	    const data = Array.isArray(rows) ? rows : [];
+	    const svgNS = "http://www.w3.org/2000/svg";
+	    const width = 1080;
+	    const height = 360;
+	    const margin = { top: 34, right: 48, bottom: 58, left: 70 };
+	    const innerWidth = width - margin.left - margin.right;
+	    const innerHeight = height - margin.top - margin.bottom;
+	    const maxRate = Math.max(1, ...data.map(row => Number(row.purchaseRate || 0)));
+	    const maxSearch = Math.max(1, ...data.map(row => Number(row.searchCount || 0)));
+	    chart.innerHTML = "";
+	    chart.setAttribute("viewBox", `0 0 ${width} ${height}`);
+	    if (!data.length) return;
+
+	    const createSvg = (tag, attrs) => {
+	      const el = document.createElementNS(svgNS, tag);
+	      Object.entries(attrs || {}).forEach(([key, value]) => el.setAttribute(key, value));
+	      return el;
+	    };
+	    const stepWidth = innerWidth / Math.max(1, data.length);
+	    const scaleX = index => margin.left + stepWidth * index + stepWidth / 2;
+	    const scaleRateY = value => margin.top + innerHeight - (Number(value || 0) / maxRate) * innerHeight;
+	    const scaleSearchY = value => margin.top + innerHeight - (Number(value || 0) / maxSearch) * innerHeight;
+
+	    for (let step = 0; step <= 4; step += 1) {
+	      const value = (maxRate / 4) * step;
+	      const y = scaleRateY(value);
+	      chart.appendChild(createSvg("line", { x1: margin.left, y1: y, x2: width - margin.right, y2: y, stroke: "rgba(33,24,18,0.1)", "stroke-width": "1" }));
+	      const label = createSvg("text", { x: margin.left - 18, y: y + 4, fill: "#6f6256", "font-size": "12", "text-anchor": "end" });
+	      label.textContent = `${value.toFixed(1)}%`;
+	      chart.appendChild(label);
+	    }
+	    chart.appendChild(createSvg("line", { x1: margin.left, y1: margin.top, x2: margin.left, y2: height - margin.bottom, stroke: "rgba(33,24,18,0.12)" }));
+	    chart.appendChild(createSvg("line", { x1: margin.left, y1: height - margin.bottom, x2: width - margin.right, y2: height - margin.bottom, stroke: "rgba(33,24,18,0.12)" }));
+
+	    data.forEach((row, index) => {
+	      const x = scaleX(index);
+	      const barWidth = Math.min(74, Math.max(34, stepWidth * 0.48));
+	      const barY = scaleRateY(row.purchaseRate);
+	      const barHeight = height - margin.bottom - barY;
+	      chart.appendChild(createSvg("rect", {
+	        x: x - barWidth / 2,
+	        y: barY,
+	        width: barWidth,
+	        height: Math.max(2, barHeight),
+	        rx: "12",
+	        fill: "rgba(201,107,55,0.72)"
+	      }));
+	      const tick = createSvg("text", { x, y: height - 22, fill: "#6f6256", "font-size": "12", "text-anchor": "middle" });
+	      tick.textContent = row.label || "-";
+	      chart.appendChild(tick);
+	    });
+
+	    const searchPoints = data.map((row, index) => `${scaleX(index)},${scaleSearchY(row.searchCount)}`).join(" ");
+	    chart.appendChild(createSvg("polyline", { points: searchPoints, fill: "none", stroke: "#0c8b88", "stroke-width": "4", "stroke-linecap": "round", "stroke-linejoin": "round" }));
+	    data.forEach((row, index) => {
+	      chart.appendChild(createSvg("circle", { cx: scaleX(index), cy: scaleSearchY(row.searchCount), r: "5", fill: "#0c8b88" }));
+	    });
+
+	    const focusLine = createSvg("line", { x1: scaleX(0), y1: margin.top, x2: scaleX(0), y2: height - margin.bottom, stroke: "rgba(33,24,18,0.18)", "stroke-width": "1.5", "stroke-dasharray": "4 4", opacity: "0" });
+	    const focusDot = createSvg("circle", { r: "6", fill: "#c96b37", opacity: "0" });
+	    chart.appendChild(focusLine);
+	    chart.appendChild(focusDot);
+	    const overlay = createSvg("rect", { x: margin.left, y: margin.top, width: innerWidth, height: innerHeight, fill: "transparent", style: "cursor: crosshair;" });
+	    chart.appendChild(overlay);
+
+	    function setTooltip(index, clientX) {
+	      const row = data[index];
+	      const x = scaleX(index);
+	      focusLine.setAttribute("x1", x);
+	      focusLine.setAttribute("x2", x);
+	      focusLine.setAttribute("opacity", "1");
+	      focusDot.setAttribute("cx", x);
+	      focusDot.setAttribute("cy", scaleRateY(row.purchaseRate));
+	      focusDot.setAttribute("opacity", "1");
+	      tooltip.innerHTML = `
+	        <p class="ctdash-tooltip-time">${escapeHtml(row.label || "-")}</p>
+	        <div class="ctdash-tooltip-row"><span>검색 수</span><b>${formatNumber(row.searchCount)}</b></div>
+	        <div class="ctdash-tooltip-row"><span>구매 수</span><b>${formatNumber(row.purchaseCount)}</b></div>
+	        <div class="ctdash-tooltip-row"><span>구매율</span><b>${formatPercent(row.purchaseRate)}</b></div>
+	        <div class="ctdash-tooltip-row"><span>매출</span><b>${formatWon(row.revenue)}</b></div>
+	        <div class="ctdash-tooltip-row"><span>판매 사진 수</span><b>${formatNumber(row.soldPhotoCount)}</b></div>
+	        <div class="ctdash-tooltip-row"><span>객단가</span><b>${formatWon(row.avgOrderValue)}</b></div>
+	      `;
+	      tooltip.classList.add("is-visible");
+	      const box = chart.getBoundingClientRect();
+	      const localX = clientX - box.left;
+	      const preferredLeft = Math.min(Math.max(localX + 18, 14), box.width - 240);
+	      tooltip.style.left = `${preferredLeft}px`;
+	      tooltip.style.top = "52px";
+	    }
+
+	    overlay.addEventListener("mousemove", event => {
+	      let svgX = margin.left;
+	      const matrix = chart.getScreenCTM && chart.getScreenCTM();
+	      if (matrix) {
+	        const point = chart.createSVGPoint();
+	        point.x = event.clientX;
+	        point.y = event.clientY;
+	        svgX = point.matrixTransform(matrix.inverse()).x;
+	      }
+	      const ratio = (svgX - margin.left) / innerWidth;
+	      const index = Math.min(data.length - 1, Math.max(0, Math.floor(ratio * data.length)));
+	      setTooltip(index, event.clientX);
+	    });
+	    overlay.addEventListener("mouseleave", () => {
+	      tooltip.classList.remove("is-visible");
+	      focusLine.setAttribute("opacity", "0");
+	      focusDot.setAttribute("opacity", "0");
+	    });
+	  }
+
+	  function firstText(row, fields) {
     for (const field of fields || []) {
       if (row && row[field] !== null && row[field] !== undefined && row[field] !== "") return String(row[field]);
     }
