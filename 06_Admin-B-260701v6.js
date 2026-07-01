@@ -2003,11 +2003,12 @@
   }
 
   function renderCurrentDashSpotCard(spot) {
-    const label = firstText(spot, ["spot_name", "spot_code", "label"]) || "스팟";
-    const purchaseCount = numberValue(spot, ["purchase_count"]);
-    const revenue = numberValue(spot, ["revenue"]);
-    const photoCount = numberValue(spot, ["photo_count", "purchase_photo_count", "cart_photo_count"]);
-    return `<article class="ctdash-spot-card"><h4>${escapeHtml(label)}</h4><strong>${formatNumber(purchaseCount)}건 판매</strong><div class="ctdash-spot-row"><span>매출</span><b>${formatWon(revenue)}</b></div><div class="ctdash-spot-row"><span>사진 수</span><b>${formatNumber(photoCount)}</b></div></article>`;
+    const label = firstText(spot, ["spot_label", "spot_name", "spot_key", "prefix", "spot_code", "label"]) || "스팟";
+    const orderCount = numberValue(spot, ["order_count", "purchase_count"]);
+    const revenue = numberValue(spot, ["allocated_revenue", "revenue"]);
+    const photoCount = numberValue(spot, ["sold_photo_count", "purchase_photo_count", "photo_count", "cart_photo_count"]);
+    const revenueShare = numberValue(spot, ["revenue_share"]);
+    return `<article class="ctdash-spot-card"><h4>${escapeHtml(label)}</h4><strong>${formatNumber(photoCount)}장 판매</strong><div class="ctdash-spot-row"><span>매출</span><b>${formatWon(revenue)}</b></div><div class="ctdash-spot-row"><span>주문 수</span><b>${formatNumber(orderCount)}</b></div><div class="ctdash-spot-row"><span>매출 비중</span><b>${formatPercent(revenueShare)}</b></div></article>`;
   }
 
   function renderPhotoExposurePendingSection() {
