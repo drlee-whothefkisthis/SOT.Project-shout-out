@@ -2047,16 +2047,51 @@
 	    if (!Array.isArray(rows) || !rows.length) {
 	      return `<div class="ctdash-callout">사진 수 구간별 구매 분석 데이터가 없습니다.</div>`;
 	    }
+	    const topRate = photoCountTopRow(rows, "purchaseRate");
+	    const topSearch = photoCountTopRow(rows, "searchCount");
+	    const topRevenue = photoCountTopRow(rows, "revenue");
 	    return `
+	      <div class="ctdash-conv-grid" style="margin:0 0 14px;">
+	        ${metricCard("최고 구매율 구간", `${escapeHtml(topRate.label)} / ${formatPercent(topRate.purchaseRate)}`, "purchase_count / search_count")}
+	        ${metricCard("검색수 최다 구간", `${escapeHtml(topSearch.label)} / ${formatNumber(topSearch.searchCount)}회`, "표본 크기")}
+	        ${metricCard("매출 최다 구간", `${escapeHtml(topRevenue.label)} / ${formatWon(topRevenue.revenue)}`, "구간별 revenue")}
+	      </div>
+	      <div class="ctdash-callout" style="margin-bottom:14px;">${escapeHtml(photoCountInsight(rows))}</div>
 	      <div class="ctdash-chart-box" style="margin-top:10px;">
 	        <div class="ctdash-legend">
-	          <span><i style="background:#c96b37;border-radius:4px"></i>구매율</span>
-	          <span><i style="background:#0c8b88"></i>검색 수</span>
+	          <span><i style="background:rgba(12,139,136,.28);border-radius:4px"></i>검색수</span>
+	          <span><i style="background:#c96b37"></i>구매율</span>
 	        </div>
 	        <svg id="ctdashPhotoCountChart" viewBox="0 0 1080 360" aria-label="사진 수 구간별 구매율 차트"></svg>
 	        <div class="ctdash-tooltip" id="ctdashPhotoCountTooltip"></div>
+	        <div class="ctdash-callout" style="margin-top:12px;">
+	          <div style="display:grid; grid-template-columns:repeat(${rows.length}, minmax(72px,1fr)); gap:8px; font-size:12px; text-align:center; color:#6f6256;">
+	            ${rows.map(row => `<div><b style="display:block; color:#211812;">${escapeHtml(row.label)}</b><span>${escapeHtml(formatCompactWon(row.revenue))}</span></div>`).join("")}
+	          </div>
+	        </div>
 	      </div>
 	    `;
+	  }
+
+	  function photoCountTopRow(rows, field) {
+	    return [...(rows || [])].sort((a, b) => Number(b[field] || 0) - Number(a[field] || 0))[0] || { label: "-", purchaseRate: 0, searchCount: 0, revenue: 0 };
+	  }
+
+	  function photoCountInsight(rows) {
+	    const topRate = photoCountTopRow(rows, "purchaseRate");
+	    const topRevenue = photoCountTopRow(rows, "revenue");
+	    if (topRate.label && topRate.label === topRevenue.label) {
+	      return "사진 수가 많은 구간에서 구매율과 매출이 함께 높게 나타납니다.";
+	    }
+	    return "검색수는 많지만 구매율이 낮은 구간이 있어 추가 확인이 필요합니다.";
+	  }
+
+	  function formatCompactWon(value) {
+	    const amount = Math.round(Number(value || 0));
+	    if (amount >= 100000000) return `₩${(amount / 100000000).toFixed(1).replace(/\.0$/, "")}억`;
+	    if (amount >= 10000) return `₩${(amount / 10000).toFixed(1).replace(/\.0$/, "")}만`;
+	    if (amount >= 1000) return `₩${(amount / 1000).toFixed(1).replace(/\.0$/, "")}천`;
+	    return formatWon(amount);
 	  }
 
   function renderPhotoExposureSection(summaryOverride, scopeLabel) {
@@ -2097,30 +2132,24 @@
             <table class="ctdash-table">
               <thead>
                 <tr>
-                  <th>노출 사진 수</th>
-                  <th>검색</th>
-                  <th>고유 배번호</th>
-                  <th>카트</th>
-                  <th>구매</th>
-                  <th>판매사진</th>
-                  <th>매출</th>
-                  <th>구매율</th>
-                </tr>
-              </thead>
-	              <tbody>
-	                ${rows.length ? rows.map(row => `
-	                  <tr>
-	                    <td style="padding:13px 10px; font-weight:900; color:#c96b37;">${escapeHtml(row.label)}</td>
-	                    <td align="right" style="padding:13px 10px;">${formatNumber(row.searchCount)}</td>
-                    <td align="right" style="padding:13px 10px;">${formatNumber(row.uniqueBibCount)}</td>
-                    <td align="right" style="padding:13px 10px;">${formatNumber(row.cartCount)}</td>
-                    <td align="right" style="padding:13px 10px;">${formatNumber(row.purchaseCount)}</td>
-                    <td align="right" style="padding:13px 8px;">${formatNumber(row.soldPhotoCount)}</td>
-                    <td align="right" style="padding:13px 8px;">${formatWon(row.revenue)}</td>
-	                    <td align="right" style="padding:13px 8px; font-weight:900; ${row.purchaseRate >= 10 ? "color:#0c8b88;" : ""}">${formatPercent(row.purchaseRate)}</td>
-	                  </tr>
-	                `).join("") : `<tr><td colspan="8">사진 수 구간별 구매 분석 데이터가 없습니다.</td></tr>`}
-	              </tbody>
+	                  <th>구간</th>
+	                  <th>검색수</th>
+	                  <th>구매수</th>
+	                  <th>구매율</th>
+	                  <th>매출</th>
+	                </tr>
+	              </thead>
+		              <tbody>
+		                ${rows.length ? rows.map(row => `
+		                  <tr>
+		                    <td style="padding:13px 10px; font-weight:900; color:#c96b37;">${escapeHtml(row.label)}</td>
+		                    <td align="right" style="padding:13px 10px;">${formatNumber(row.searchCount)}</td>
+	                    <td align="right" style="padding:13px 10px;">${formatNumber(row.purchaseCount)}</td>
+		                    <td align="right" style="padding:13px 8px; font-weight:900; ${row.purchaseRate >= 10 ? "color:#0c8b88;" : ""}">${formatPercent(row.purchaseRate)}</td>
+	                    <td align="right" style="padding:13px 8px;">${formatWon(row.revenue)}</td>
+		                  </tr>
+		                `).join("") : `<tr><td colspan="5">사진 수 구간별 구매 분석 데이터가 없습니다.</td></tr>`}
+		              </tbody>
             </table>
           </div>
           <p style="margin:12px 0 0; font-size:13px; line-height:1.65; color:#6f6256;">
@@ -2130,8 +2159,8 @@
 	        <article class="ctdash-sub-card" style="margin-top:18px;">
 		          <div style="padding:4px 0 12px;">
 		            <div class="ctdash-kicker">Bucket Flow</div>
-		            <h4 style="margin-top:8px;">사진 수와 구매율 흐름</h4>
-		            <p style="margin:8px 0 0; color:#6f6256;">막대는 구매율, 선은 검색 수입니다. 사진 수가 구매를 밀어 올리는지 확인합니다.</p>
+		            <h4 style="margin-top:8px;">사진 수 구간별 구매율 분석</h4>
+		            <p style="margin:8px 0 0; color:#6f6256;">검색 결과에 노출된 사진 수가 많을수록 구매 확률이 높아지는지 확인합니다. 검색수는 표본 크기, 매출은 보조 지표로 함께 확인합니다.</p>
 		          </div>
 	          ${renderPhotoCountPurchaseChart(rows)}
 	        </article>
@@ -2452,7 +2481,7 @@
 	    const svgNS = "http://www.w3.org/2000/svg";
 	    const width = 1080;
 	    const height = 360;
-	    const margin = { top: 34, right: 48, bottom: 58, left: 70 };
+	    const margin = { top: 34, right: 78, bottom: 58, left: 70 };
 	    const innerWidth = width - margin.left - margin.right;
 	    const innerHeight = height - margin.top - margin.bottom;
 	    const maxRate = Math.max(1, ...data.map(row => Number(row.purchaseRate || 0)));
@@ -2472,20 +2501,32 @@
 	    const scaleSearchY = value => margin.top + innerHeight - (Number(value || 0) / maxSearch) * innerHeight;
 
 	    for (let step = 0; step <= 4; step += 1) {
-	      const value = (maxRate / 4) * step;
-	      const y = scaleRateY(value);
+	      const searchValue = Math.round((maxSearch / 4) * step);
+	      const y = scaleSearchY(searchValue);
 	      chart.appendChild(createSvg("line", { x1: margin.left, y1: y, x2: width - margin.right, y2: y, stroke: "rgba(33,24,18,0.1)", "stroke-width": "1" }));
-	      const label = createSvg("text", { x: margin.left - 18, y: y + 4, fill: "#6f6256", "font-size": "12", "text-anchor": "end" });
-	      label.textContent = `${value.toFixed(1)}%`;
-	      chart.appendChild(label);
+	      const searchLabel = createSvg("text", { x: margin.left - 18, y: y + 4, fill: "#6f6256", "font-size": "12", "text-anchor": "end" });
+	      searchLabel.textContent = formatNumber(searchValue);
+	      chart.appendChild(searchLabel);
+
+	      const rateValue = (maxRate / 4) * step;
+	      const rateLabel = createSvg("text", { x: width - margin.right + 18, y: scaleRateY(rateValue) + 4, fill: "#c96b37", "font-size": "12" });
+	      rateLabel.textContent = `${rateValue.toFixed(1)}%`;
+	      chart.appendChild(rateLabel);
 	    }
 	    chart.appendChild(createSvg("line", { x1: margin.left, y1: margin.top, x2: margin.left, y2: height - margin.bottom, stroke: "rgba(33,24,18,0.12)" }));
 	    chart.appendChild(createSvg("line", { x1: margin.left, y1: height - margin.bottom, x2: width - margin.right, y2: height - margin.bottom, stroke: "rgba(33,24,18,0.12)" }));
+	    chart.appendChild(createSvg("line", { x1: width - margin.right, y1: margin.top, x2: width - margin.right, y2: height - margin.bottom, stroke: "rgba(201,107,55,0.28)" }));
+	    const leftAxisTitle = createSvg("text", { x: margin.left, y: 18, fill: "#6f6256", "font-size": "12", "font-weight": "800" });
+	    leftAxisTitle.textContent = "검색수";
+	    chart.appendChild(leftAxisTitle);
+	    const rightAxisTitle = createSvg("text", { x: width - margin.right, y: 18, fill: "#c96b37", "font-size": "12", "font-weight": "800", "text-anchor": "end" });
+	    rightAxisTitle.textContent = "구매율(%)";
+	    chart.appendChild(rightAxisTitle);
 
 	    data.forEach((row, index) => {
 	      const x = scaleX(index);
 	      const barWidth = Math.min(74, Math.max(34, stepWidth * 0.48));
-	      const barY = scaleRateY(row.purchaseRate);
+	      const barY = scaleSearchY(row.searchCount);
 	      const barHeight = height - margin.bottom - barY;
 	      chart.appendChild(createSvg("rect", {
 	        x: x - barWidth / 2,
@@ -2493,17 +2534,17 @@
 	        width: barWidth,
 	        height: Math.max(2, barHeight),
 	        rx: "12",
-	        fill: "rgba(201,107,55,0.72)"
+	        fill: "rgba(12,139,136,0.22)"
 	      }));
 	      const tick = createSvg("text", { x, y: height - 22, fill: "#6f6256", "font-size": "12", "text-anchor": "middle" });
 	      tick.textContent = row.label || "-";
 	      chart.appendChild(tick);
 	    });
 
-	    const searchPoints = data.map((row, index) => `${scaleX(index)},${scaleSearchY(row.searchCount)}`).join(" ");
-	    chart.appendChild(createSvg("polyline", { points: searchPoints, fill: "none", stroke: "#0c8b88", "stroke-width": "4", "stroke-linecap": "round", "stroke-linejoin": "round" }));
+	    const ratePoints = data.map((row, index) => `${scaleX(index)},${scaleRateY(row.purchaseRate)}`).join(" ");
+	    chart.appendChild(createSvg("polyline", { points: ratePoints, fill: "none", stroke: "#c96b37", "stroke-width": "5", "stroke-linecap": "round", "stroke-linejoin": "round" }));
 	    data.forEach((row, index) => {
-	      chart.appendChild(createSvg("circle", { cx: scaleX(index), cy: scaleSearchY(row.searchCount), r: "5", fill: "#0c8b88" }));
+	      chart.appendChild(createSvg("circle", { cx: scaleX(index), cy: scaleRateY(row.purchaseRate), r: "7", fill: "#c96b37", stroke: "#fffdf9", "stroke-width": "3" }));
 	    });
 
 	    const focusLine = createSvg("line", { x1: scaleX(0), y1: margin.top, x2: scaleX(0), y2: height - margin.bottom, stroke: "rgba(33,24,18,0.18)", "stroke-width": "1.5", "stroke-dasharray": "4 4", opacity: "0" });
@@ -2523,13 +2564,11 @@
 	      focusDot.setAttribute("cy", scaleRateY(row.purchaseRate));
 	      focusDot.setAttribute("opacity", "1");
 	      tooltip.innerHTML = `
-	        <p class="ctdash-tooltip-time">${escapeHtml(row.label || "-")}</p>
-	        <div class="ctdash-tooltip-row"><span>검색 수</span><b>${formatNumber(row.searchCount)}</b></div>
-	        <div class="ctdash-tooltip-row"><span>구매 수</span><b>${formatNumber(row.purchaseCount)}</b></div>
+	        <p class="ctdash-tooltip-time">구간: ${escapeHtml(row.label || "-")}</p>
 	        <div class="ctdash-tooltip-row"><span>구매율</span><b>${formatPercent(row.purchaseRate)}</b></div>
+	        <div class="ctdash-tooltip-row"><span>검색수</span><b>${formatNumber(row.searchCount)}</b></div>
 	        <div class="ctdash-tooltip-row"><span>매출</span><b>${formatWon(row.revenue)}</b></div>
-	        <div class="ctdash-tooltip-row"><span>판매 사진 수</span><b>${formatNumber(row.soldPhotoCount)}</b></div>
-	        <div class="ctdash-tooltip-row"><span>객단가</span><b>${formatWon(row.avgOrderValue)}</b></div>
+	        <div class="ctdash-tooltip-row"><span>구매수</span><b>${formatNumber(row.purchaseCount)}</b></div>
 	      `;
 	      tooltip.classList.add("is-visible");
 	      const box = chart.getBoundingClientRect();
