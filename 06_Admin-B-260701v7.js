@@ -2008,7 +2008,7 @@
     const revenue = numberValue(spot, ["allocated_revenue", "revenue"]);
     const photoCount = numberValue(spot, ["sold_photo_count", "purchase_photo_count", "photo_count", "cart_photo_count"]);
     const revenueShare = numberValue(spot, ["revenue_share"]);
-    return `<article class="ctdash-spot-card"><h4>${escapeHtml(label)}</h4><strong>${formatNumber(photoCount)}장 판매</strong><div class="ctdash-spot-row"><span>매출</span><b>${formatWon(revenue)}</b></div><div class="ctdash-spot-row"><span>주문 수</span><b>${formatNumber(orderCount)}</b></div><div class="ctdash-spot-row"><span>매출 비중</span><b>${formatPercent(revenueShare)}</b></div></article>`;
+    return `<article class="ctdash-spot-card"><h4>${escapeHtml(label)}</h4><strong>${formatNumber(photoCount)}장</strong><div class="ctdash-spot-row"><span>매출</span><b>${formatWon(revenue)}</b></div><div class="ctdash-spot-row"><span>주문 수</span><b>${formatNumber(orderCount)}</b></div><div class="ctdash-spot-row"><span>매출 비중</span><b>${formatPercent(revenueShare)}</b></div></article>`;
   }
 
   function renderPhotoExposurePendingSection() {
