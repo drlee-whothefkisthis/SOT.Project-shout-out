@@ -1882,12 +1882,23 @@
   }
 
   function renderPhotoCountPurchaseCharts() {
-    const chart = document.getElementById("ctdashPhotoCountChart");
-    const tooltip = document.getElementById("ctdashPhotoCountTooltip");
+    const root = document.getElementById("sotCurrentTestDashboard") || document;
+    const chart = root.querySelector(`[data-photo-bucket-chart="${currentDashView}"]`);
+    const tooltip = root.querySelector(`[data-photo-bucket-tooltip="${currentDashView}"]`);
     if (!chart || !tooltip) return;
 
     const dataset = currentDashView === "event-analysis" ? currentDashEventDataset() : sotCurrentTestData;
-    const rows = photoExposureRows(dataset, dataset.state || dataset.summary || dataset);
+    const rows = photoExposureRows(dataset, dataset.state || dataset.summary || dataset, {
+      view: currentDashView,
+      selectedEvent: currentDashSelectedEvent
+    });
+    console.log("[PhotoBuckets]", {
+      view: currentDashView,
+      selectedEvent: currentDashSelectedEvent,
+      bucketCount: rows.length,
+      labels: rows.map(row => row.label),
+      rows
+    });
     drawPhotoCountBucketChart({ chart, tooltip, rows });
   }
 
@@ -2015,32 +2026,66 @@
     `;
   }
 
-	  function photoExposureRows(payload, summaryOverride) {
+	  const PHOTO_BUCKET_ORDER = ["0장", "1장", "2~3장", "4~5장", "6~10장", "11~20장", "21장+"];
+
+	  function normalizePhotoBucketLabel(row) {
+	    return String(row?.bucket_label || row?.range || row?.bucket || row?.label || row?.photo_count_range || row?.photo_count || row?.photo_bucket || "-").trim();
+	  }
+
+	  function normalizePhotoBucketRows(rows, opts) {
+	    const byLabel = new Map();
+	    (rows || []).forEach(row => {
+	      const rowEventCode = row?.event_code || row?.eventCode || "";
+	      if (opts?.view === "event-analysis" && opts?.selectedEvent && opts.selectedEvent !== "all" && rowEventCode && rowEventCode !== opts.selectedEvent) return;
+
+	      const label = normalizePhotoBucketLabel(row);
+	      if (!label || label === "-") return;
+	      if (!byLabel.has(label)) {
+	        byLabel.set(label, {
+	          label,
+	          searchCount: 0,
+	          uniqueBibCount: 0,
+	          cartCount: 0,
+	          purchaseCount: 0,
+	          soldPhotoCount: 0,
+	          revenue: 0
+	        });
+	      }
+	      const aggregate = byLabel.get(label);
+	      aggregate.searchCount += numberValue(row, ["search_count", "count", "searches"]);
+	      aggregate.uniqueBibCount += numberValue(row, ["unique_query_count", "bib_count", "bibs", "search_bib_count", "unique_bib_count"]);
+	      aggregate.cartCount += numberValue(row, ["cart_count", "cart"]);
+	      aggregate.purchaseCount += numberValue(row, ["purchase_count", "purchase"]);
+	      aggregate.soldPhotoCount += numberValue(row, ["sold_photo_count", "sold_photo", "purchase_photo_count"]);
+	      aggregate.revenue += numberValue(row, ["revenue", "purchase_amount", "revenue_total"]);
+	    });
+
+	    return [...byLabel.values()]
+	      .map(row => ({
+	        ...row,
+	        purchaseRate: safeRate(row.purchaseCount, row.searchCount),
+	        cartRate: safeRate(row.cartCount, row.searchCount),
+	        cartToPurchaseRate: safeRate(row.purchaseCount, row.cartCount),
+	        avgOrderValue: row.purchaseCount ? Math.round(row.revenue / row.purchaseCount) : 0
+	      }))
+	      .sort((a, b) => {
+	        const ai = PHOTO_BUCKET_ORDER.indexOf(a.label);
+	        const bi = PHOTO_BUCKET_ORDER.indexOf(b.label);
+	        if (ai !== -1 || bi !== -1) return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+	        return a.label.localeCompare(b.label, "ko");
+	      });
+	  }
+
+	  function photoExposureRows(payload, summaryOverride, opts) {
 	    const summaryRows = Array.isArray(summaryOverride?.photo_counts)
 	      ? summaryOverride.photo_counts
-      : Array.isArray(summaryOverride?.photo_count_buckets)
+	      : Array.isArray(summaryOverride?.photo_count_buckets)
         ? summaryOverride.photo_count_buckets
         : Array.isArray(summaryOverride?.photo_count_stats)
           ? summaryOverride.photo_count_stats
           : [];
-    const rows = summaryRows.length ? summaryRows : Array.isArray(payload.photo_counts) ? payload.photo_counts : [];
-	    if (rows.length) {
-	      return rows.map(row => {
-	        const label = row.bucket_label || row.range || row.bucket || row.label || row.photo_count_range || row.photo_count || row.photo_bucket || "-";
-	        const searchCount = numberValue(row, ["search_count", "count", "searches"]);
-	        const uniqueBibCount = numberValue(row, ["unique_query_count", "bib_count", "bibs", "search_bib_count", "unique_bib_count"]);
-	        const cartCount = numberValue(row, ["cart_count", "cart"]);
-	        const purchaseCount = numberValue(row, ["purchase_count", "purchase"]);
-	        const soldPhotoCount = numberValue(row, ["sold_photo_count", "sold_photo", "purchase_photo_count", "purchase_photo_count"]);
-	        const revenue = numberValue(row, ["revenue", "purchase_amount", "revenue_total"]);
-	        const purchaseRate = Number.isFinite(Number(row.purchase_rate)) ? Number(row.purchase_rate) : safeRate(purchaseCount, searchCount);
-	        const cartRate = Number.isFinite(Number(row.cart_rate)) ? Number(row.cart_rate) : safeRate(cartCount, searchCount);
-	        const cartToPurchaseRate = Number.isFinite(Number(row.cart_to_purchase_rate)) ? Number(row.cart_to_purchase_rate) : safeRate(purchaseCount, cartCount);
-	        const avgOrderValue = numberValue(row, ["avg_order_value", "aov"]) || (purchaseCount ? Math.round(revenue / purchaseCount) : 0);
-	        return { label: String(label), searchCount, uniqueBibCount, cartCount, purchaseCount, soldPhotoCount, revenue, purchaseRate, cartRate, cartToPurchaseRate, avgOrderValue };
-	      });
-	    }
-	    return [];
+	    const rows = summaryRows.length ? summaryRows : Array.isArray(payload.photo_counts) ? payload.photo_counts : [];
+	    return normalizePhotoBucketRows(rows, opts);
 	  }
 
 	  function renderPhotoCountPurchaseChart(rows) {
@@ -2062,8 +2107,8 @@
 	          <span><i style="background:rgba(12,139,136,.28);border-radius:4px"></i>검색수</span>
 	          <span><i style="background:#c96b37"></i>구매율</span>
 	        </div>
-	        <svg id="ctdashPhotoCountChart" viewBox="0 0 1080 360" aria-label="사진 수 구간별 구매율 차트"></svg>
-	        <div class="ctdash-tooltip" id="ctdashPhotoCountTooltip"></div>
+	        <svg data-photo-bucket-chart="${escapeHtml(currentDashView)}" viewBox="0 0 1080 360" aria-label="사진 수 구간별 구매율 차트"></svg>
+	        <div class="ctdash-tooltip" data-photo-bucket-tooltip="${escapeHtml(currentDashView)}"></div>
 	        <div class="ctdash-callout" style="margin-top:12px;">
 	          <div style="display:grid; grid-template-columns:repeat(${rows.length}, minmax(72px,1fr)); gap:8px; font-size:12px; text-align:center; color:#6f6256;">
 	            ${rows.map(row => `<div><b style="display:block; color:#211812;">${escapeHtml(row.label)}</b><span>${escapeHtml(formatCompactWon(row.revenue))}</span></div>`).join("")}
@@ -2099,7 +2144,10 @@
       ? summaryOverride
       : sotCurrentTestData;
     const summary = summaryOverride?.state || summaryOverride?.summary || summaryOverride || sotCurrentTestData.state || {};
-    const rows = photoExposureRows(payload, summary);
+    const rows = photoExposureRows(payload, summary, {
+      view: currentDashView,
+      selectedEvent: currentDashSelectedEvent
+    });
     const totalSearch = numberValue(summary, ["search_count"]);
     const zeroExposureSearch = numberValue(summary, ["zero_exposure_count"]);
     const uniqueZeroExposure = numberValue(summary, ["zero_exposure_unique", "zero_exposure_unique_count"]);
@@ -2484,11 +2532,17 @@
 	    const margin = { top: 34, right: 78, bottom: 58, left: 70 };
 	    const innerWidth = width - margin.left - margin.right;
 	    const innerHeight = height - margin.top - margin.bottom;
-	    const maxRate = Math.max(1, ...data.map(row => Number(row.purchaseRate || 0)));
-	    const maxSearch = Math.max(1, ...data.map(row => Number(row.searchCount || 0)));
+	    const finiteRateValues = data.map(row => Number(row.purchaseRate || 0)).filter(Number.isFinite);
+	    const finiteSearchValues = data.map(row => Number(row.searchCount || 0)).filter(Number.isFinite);
+	    const maxRate = Math.max(1, ...finiteRateValues);
+	    const maxSearch = Math.max(1, ...finiteSearchValues);
 	    chart.innerHTML = "";
 	    chart.setAttribute("viewBox", `0 0 ${width} ${height}`);
 	    if (!data.length) return;
+	    if (!Number.isFinite(maxRate) || !Number.isFinite(maxSearch)) {
+	      console.warn("[PhotoBuckets] invalid scale", { maxRate, maxSearch, rows: data });
+	      return;
+	    }
 
 	    const createSvg = (tag, attrs) => {
 	      const el = document.createElementNS(svgNS, tag);
@@ -2541,7 +2595,16 @@
 	      chart.appendChild(tick);
 	    });
 
-	    const ratePoints = data.map((row, index) => `${scaleX(index)},${scaleRateY(row.purchaseRate)}`).join(" ");
+	    const ratePointValues = data.map((row, index) => {
+	      const x = scaleX(index);
+	      const y = scaleRateY(row.purchaseRate);
+	      return { x, y };
+	    });
+	    if (ratePointValues.some(point => !Number.isFinite(point.x) || !Number.isFinite(point.y))) {
+	      console.warn("[PhotoBuckets] invalid polyline points", { points: ratePointValues, rows: data });
+	      return;
+	    }
+	    const ratePoints = ratePointValues.map(point => `${point.x},${point.y}`).join(" ");
 	    chart.appendChild(createSvg("polyline", { points: ratePoints, fill: "none", stroke: "#c96b37", "stroke-width": "5", "stroke-linecap": "round", "stroke-linejoin": "round" }));
 	    data.forEach((row, index) => {
 	      chart.appendChild(createSvg("circle", { cx: scaleX(index), cy: scaleRateY(row.purchaseRate), r: "7", fill: "#c96b37", stroke: "#fffdf9", "stroke-width": "3" }));
