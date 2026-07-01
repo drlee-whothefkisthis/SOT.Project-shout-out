@@ -2046,24 +2046,26 @@
 	          searchCount: 0,
 	          uniqueBibCount: 0,
 	          cartCount: 0,
-	          purchaseCount: 0,
-	          soldPhotoCount: 0,
-	          revenue: 0
+          purchaseCount: 0,
+          orderCount: 0,
+          soldPhotoCount: 0,
+          revenue: 0
 	        });
 	      }
 	      const aggregate = byLabel.get(label);
 	      aggregate.searchCount += numberValue(row, ["search_count", "count", "searches"]);
 	      aggregate.uniqueBibCount += numberValue(row, ["unique_query_count", "bib_count", "bibs", "search_bib_count", "unique_bib_count"]);
-	      aggregate.cartCount += numberValue(row, ["cart_count", "cart"]);
-	      aggregate.purchaseCount += numberValue(row, ["purchase_count", "purchase"]);
-	      aggregate.soldPhotoCount += numberValue(row, ["sold_photo_count", "sold_photo", "purchase_photo_count"]);
+      aggregate.cartCount += numberValue(row, ["cart_count", "cart"]);
+      aggregate.purchaseCount += numberValue(row, ["purchase_count", "purchase"]);
+      aggregate.orderCount += numberValue(row, ["order_count", "order_purchase_count"]);
+      aggregate.soldPhotoCount += numberValue(row, ["sold_photo_count", "sold_photo", "purchase_photo_count"]);
 	      aggregate.revenue += numberValue(row, ["revenue", "purchase_amount", "revenue_total"]);
 	    });
 
 	    return [...byLabel.values()]
 	      .map(row => ({
 	        ...row,
-	        purchaseRate: safeRate(row.purchaseCount, row.searchCount),
+        purchaseRate: safeRate(row.purchaseCount, row.searchCount),
 	        cartRate: safeRate(row.cartCount, row.searchCount),
 	        cartToPurchaseRate: safeRate(row.purchaseCount, row.cartCount),
 	        avgOrderValue: row.purchaseCount ? Math.round(row.revenue / row.purchaseCount) : 0
@@ -2097,7 +2099,7 @@
 	    const topRevenue = photoCountTopRow(rows, "revenue");
 	    return `
 	      <div class="ctdash-conv-grid" style="margin:0 0 14px;">
-	        ${metricCard("최고 구매율 구간", `${escapeHtml(topRate.label)} / ${formatPercent(topRate.purchaseRate)}`, "purchase_count / search_count")}
+		        ${metricCard("최고 구매율 구간", `${escapeHtml(topRate.label)} / ${formatPercent(topRate.purchaseRate)}`, "구매 배번호수 / 검색수")}
 	        ${metricCard("검색수 최다 구간", `${escapeHtml(topSearch.label)} / ${formatNumber(topSearch.searchCount)}회`, "표본 크기")}
 	        ${metricCard("매출 최다 구간", `${escapeHtml(topRevenue.label)} / ${formatWon(topRevenue.revenue)}`, "구간별 revenue")}
 	      </div>
@@ -2182,7 +2184,8 @@
                 <tr>
 	                  <th>구간</th>
 	                  <th>검색수</th>
-	                  <th>구매수</th>
+		                  <th>구매 배번호수</th>
+		                  <th>주문수</th>
 	                  <th>구매율</th>
 	                  <th>매출</th>
 	                </tr>
@@ -2193,10 +2196,11 @@
 		                    <td style="padding:13px 10px; font-weight:900; color:#c96b37;">${escapeHtml(row.label)}</td>
 		                    <td align="right" style="padding:13px 10px;">${formatNumber(row.searchCount)}</td>
 	                    <td align="right" style="padding:13px 10px;">${formatNumber(row.purchaseCount)}</td>
-		                    <td align="right" style="padding:13px 8px; font-weight:900; ${row.purchaseRate >= 10 ? "color:#0c8b88;" : ""}">${formatPercent(row.purchaseRate)}</td>
+	                    <td align="right" style="padding:13px 10px;">${formatNumber(row.orderCount)}</td>
+			                    <td align="right" style="padding:13px 8px; font-weight:900; ${row.purchaseRate >= 10 ? "color:#0c8b88;" : ""}">${formatPercent(row.purchaseRate)}</td>
 	                    <td align="right" style="padding:13px 8px;">${formatWon(row.revenue)}</td>
 		                  </tr>
-		                `).join("") : `<tr><td colspan="5">사진 수 구간별 구매 분석 데이터가 없습니다.</td></tr>`}
+			                `).join("") : `<tr><td colspan="6">사진 수 구간별 구매 분석 데이터가 없습니다.</td></tr>`}
 		              </tbody>
             </table>
           </div>
@@ -2631,7 +2635,8 @@
 	        <div class="ctdash-tooltip-row"><span>구매율</span><b>${formatPercent(row.purchaseRate)}</b></div>
 	        <div class="ctdash-tooltip-row"><span>검색수</span><b>${formatNumber(row.searchCount)}</b></div>
 	        <div class="ctdash-tooltip-row"><span>매출</span><b>${formatWon(row.revenue)}</b></div>
-	        <div class="ctdash-tooltip-row"><span>구매수</span><b>${formatNumber(row.purchaseCount)}</b></div>
+	        <div class="ctdash-tooltip-row"><span>구매 배번호수</span><b>${formatNumber(row.purchaseCount)}</b></div>
+	        <div class="ctdash-tooltip-row"><span>주문수</span><b>${formatNumber(row.orderCount)}</b></div>
 	      `;
 	      tooltip.classList.add("is-visible");
 	      const box = chart.getBoundingClientRect();
@@ -4038,8 +4043,3 @@
     const ok = await guardAdmin();
     if (ok) initUI();
   }
-
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bootAdmin);
-  else bootAdmin();
-
-})();
