@@ -7,17 +7,6 @@
   const SOT_BUBBLE_APP_BASE = "https://plp-62309.bubbleapps.io";
   const SOT_ADMIN_DASHBOARD_PROXY_PATH = "/api/1.1/wf/sot-admin-dashboard";
 
-  if (!document.getElementById("sot-admin-snapshot-style-patch")) {
-    const style = document.createElement("style");
-    style.id = "sot-admin-snapshot-style-patch";
-    style.textContent = `
-      .ctdash-summary-grid .ctdash-metric-card.is-wide{grid-column:span 2;min-width:0}
-      .ctdash-metric-card.is-wide strong{white-space:normal;word-break:keep-all;line-height:1.18}
-      .ctdash-spot-card p{margin:4px 0;color:#776b5e;font-size:12px;line-height:1.35}
-    `;
-    document.head.appendChild(style);
-  }
-
   const dashboardSections = [
     { id:"overview", group:"Core", label:"1. 전체 현황", desc:"전체 KPI, 퍼널, 검색/노출을 한 화면 안에서 탭으로 확인합니다." },
     { id:"period", group:"Core", label:"2. 기간별 분석", desc:"토요일 시작 주차별 요약, 선택 주차의 일자별 상세, 선택 날짜의 00~23시 시간대별 정보를 확인합니다." },
@@ -2469,8 +2458,11 @@
   }
 
   function metricCard(label, value, note) {
-    const extraClass = label === "대회명" ? " is-wide" : "";
-    return `<article class="ctdash-metric-card${extraClass}"><h4>${label}</h4><strong>${value}</strong><p>${note || ""}</p></article>`;
+    const labelText = String(label || "");
+    const classes = ["ctdash-metric-card"];
+    if (labelText === "대회명") classes.push("is-wide", "is-event-name");
+    if (labelText.includes("매출") || labelText === "객단가") classes.push("is-money");
+    return `<article class="${classes.join(" ")}"><h4>${label}</h4><strong>${value}</strong><p>${note || ""}</p></article>`;
   }
 
   function conversionCard(label, numerator, denominator) {
