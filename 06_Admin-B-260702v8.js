@@ -1780,6 +1780,10 @@
             ${metricCard("구매수", formatNumber(numberValue(state, ["purchase_count"])), "결제 완료")}
           </div>
         </article>
+        <article class="ctdash-card ctdash-section ctdash-wide-section">
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Summary</div><h3>대회별 구간 요약</h3><p>선택한 구간에 실제 기록이 있는 대회만 표시합니다.</p></div><span class="ctdash-tag">Period Events</span></div>
+          ${reportEventSummaryTable(currentDashReportEventRows())}
+        </article>
         <article class="ctdash-card ctdash-section">
           <div class="ctdash-section-head">
             <div>
@@ -1819,10 +1823,6 @@
           <div class="ctdash-sales-grid">
             ${renderRevenueCards(state, people, { labelPrefix: "기간", spots: sotCurrentTestData.spots || [] })}
           </div>
-        </article>
-        <article class="ctdash-card ctdash-section">
-          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Summary</div><h3>대회별 요약</h3></div><span class="ctdash-tag">Snapshot</span></div>
-          ${summaryTable((sotCurrentTestData.event_summaries || []).slice(0, 12))}
         </article>
         <article class="ctdash-card ctdash-section">
           <div class="ctdash-section-head"><div><div class="ctdash-kicker">Traffic</div><h3>유입별</h3></div><span class="ctdash-tag">Campaign / Source</span></div>
@@ -2813,6 +2813,82 @@
 	      </section>
 	    `;
 	  }
+
+  function currentDashReportEventRows() {
+    const primaryRows = Array.isArray(sotCurrentTestData.event_summaries) && sotCurrentTestData.event_summaries.length
+      ? sotCurrentTestData.event_summaries
+      : (Array.isArray(sotCurrentTestData.events) ? sotCurrentTestData.events : []);
+    const metricRows = primaryRows.filter(row => row && row.event_code && row.event_code !== "all");
+    const rows = metricRows.some(reportEventHasActivity)
+      ? metricRows
+      : aggregateRowsByEventCode([...(sotCurrentTestData.daily || []), ...(sotCurrentTestData.hourly || [])]);
+
+    return rows
+      .map(row => enrichReportEventRow(row))
+      .filter(row => row.event_code && row.event_code !== "all")
+      .filter(isStartedEventOption)
+      .filter(reportEventHasActivity)
+      .sort((a, b) => {
+        const revenueDiff = numberValue(b, ["revenue"]) - numberValue(a, ["revenue"]);
+        if (revenueDiff) return revenueDiff;
+        const purchaseDiff = numberValue(b, ["purchase_count"]) - numberValue(a, ["purchase_count"]);
+        if (purchaseDiff) return purchaseDiff;
+        const searchDiff = numberValue(b, ["search_count"]) - numberValue(a, ["search_count"]);
+        if (searchDiff) return searchDiff;
+        const aDate = eventDateKeyForOption(a);
+        const bDate = eventDateKeyForOption(b);
+        if (aDate !== null || bDate !== null) {
+          if (aDate === null) return 1;
+          if (bDate === null) return -1;
+          if (aDate !== bDate) return bDate - aDate;
+        }
+        return String(currentDashEventLabel(a)).localeCompare(String(currentDashEventLabel(b)), "ko");
+      });
+  }
+
+  function reportEventHasActivity(row) {
+    return dashboardSessionCount(row) > 0
+      || dashboardSearchUserCount(row) > 0
+      || numberValue(row, ["search_count"]) > 0
+      || numberValue(row, ["cart_count"]) > 0
+      || numberValue(row, ["purchase_count"]) > 0
+      || numberValue(row, ["revenue"]) > 0;
+  }
+
+  function enrichReportEventRow(row) {
+    const eventCode = String(row && row.event_code || "").trim();
+    const eventMeta = (allEvents || []).find(item => String(item && item.event_code || "") === eventCode) || {};
+    return {
+      ...eventMeta,
+      ...(row || {}),
+      event_code: eventCode,
+      event_name: currentDashEventLabel(row) || currentDashEventLabel(eventMeta) || eventCode
+    };
+  }
+
+  function aggregateRowsByEventCode(rows) {
+    const byCode = new Map();
+    (Array.isArray(rows) ? rows : []).forEach(row => {
+      const eventCode = String(row && row.event_code || "").trim();
+      if (!eventCode || eventCode === "all") return;
+      const existing = byCode.get(eventCode) || { event_code: eventCode };
+      Object.keys(row || {}).forEach(key => {
+        const value = row[key];
+        if (typeof value === "number") {
+          existing[key] = (existing[key] || 0) + value;
+        } else if (existing[key] === undefined && value !== undefined && value !== null && value !== "") {
+          existing[key] = value;
+        }
+      });
+      byCode.set(eventCode, existing);
+    });
+    return Array.from(byCode.values());
+  }
+
+  function reportEventSummaryTable(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    return `<div class="ctdash-table-wrap"><table class="ctdash-table"><thead><tr><th>대회명</th><th>접속</th><th>검색자</th><th>검색수</th><th>장바구니수</th><th>구매수</th><th>매출액</th><th>검색→구매</th></tr></thead><tbody>${list.length ? list.map(row => `<tr><td>${escapeHtml(currentDashEventLabel(row) || row.event_code || "-")}</td><td>${formatNumber(dashboardSessionCount(row))}</td><td>${formatNumber(dashboardSearchUserCount(row))}</td><td>${formatNumber(numberValue(row, ["search_count"]))}</td><td>${formatNumber(numberValue(row, ["cart_count"]))}</td><td>${formatNumber(numberValue(row, ["purchase_count"]))}</td><td>${formatWon(numberValue(row, ["revenue"]))}</td><td>${formatPercent(safeRate(numberValue(row, ["purchase_count"]), numberValue(row, ["search_count"])))}</td></tr>`).join("") : `<tr><td colspan="8">선택한 구간에 기록이 있는 대회가 없습니다.</td></tr>`}</tbody></table></div>`;
+  }
 
   function summaryTable(rows) {
     return `<div class="ctdash-table-wrap"><table class="ctdash-table"><thead><tr><th>대회명</th><th>참가자 수</th><th>매출</th><th>객단가</th><th>검색→구매</th></tr></thead><tbody>${rows.map(row => `<tr><td>${escapeHtml(row.event_name || row.event_code || "-")}</td><td>${formatNumber(eventPeople(row.event_code))}</td><td>${formatWon(numberValue(row, ["revenue"]))}</td><td>${formatWon(avgOrderValue(row))}</td><td>${formatPercent(safeRate(numberValue(row, ["purchase_count"]), numberValue(row, ["search_count"])))}</td></tr>`).join("")}</tbody></table></div>`;
