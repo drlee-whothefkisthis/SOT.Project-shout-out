@@ -7,7 +7,6 @@
   const SOT_BUBBLE_APP_BASE = "https://plp-62309.bubbleapps.io";
   const SOT_ADMIN_DASHBOARD_PROXY_PATH = "/api/1.1/wf/sot-admin-dashboard";
 
-
   const dashboardSections = [
     { id:"overview", group:"Core", label:"1. 전체 현황", desc:"전체 KPI, 퍼널, 검색/노출을 한 화면 안에서 탭으로 확인합니다." },
     { id:"period", group:"Core", label:"2. 기간별 분석", desc:"토요일 시작 주차별 요약, 선택 주차의 일자별 상세, 선택 날짜의 00~23시 시간대별 정보를 확인합니다." },
@@ -725,34 +724,6 @@
     return row.event_name || row.event_display_name || row.display_name || row.name || row.event_code || "";
   }
 
-  function eventDateSortValue(row) {
-    if (!row || typeof row !== "object") return 0;
-    const candidates = [
-      row.event_date,
-      row.event_at,
-      row.start_date,
-      row.start_at,
-      row.date_key,
-      row.period_key
-    ];
-    for (let i = 0; i < candidates.length; i += 1) {
-      const value = candidates[i];
-      if (!value) continue;
-      const date = new Date(String(value).length === 10 ? `${value}T00:00:00+09:00` : value);
-      if (!Number.isNaN(date.getTime())) return date.getTime();
-    }
-    return 0;
-  }
-
-  function sortEventOptionsByLatestDate(list) {
-    return (Array.isArray(list) ? list : []).slice().sort((a, b) => {
-      const aDate = eventDateSortValue(a);
-      const bDate = eventDateSortValue(b);
-      if (aDate !== bDate) return bDate - aDate;
-      return String(currentDashEventLabel(a)).localeCompare(String(currentDashEventLabel(b)), "ko");
-    });
-  }
-
   function mergeCurrentDashEventOptions(...sources) {
     const byCode = new Map();
     sources.flat().forEach(row => {
@@ -770,7 +741,9 @@
       }
       byCode.set(eventCode, merged);
     });
-    return sortEventOptionsByLatestDate(Array.from(byCode.values()));
+    return Array.from(byCode.values()).sort((a, b) => {
+      return String(currentDashEventLabel(a)).localeCompare(String(currentDashEventLabel(b)), "ko");
+    });
   }
 
   function currentDashEventOptions() {
@@ -1884,9 +1857,9 @@
               ${metricCard("참가자 대비 구매사진", formatPercent(safeRate(eventPurchasePhotoCount, people)), "purchase_photo / participants")}
             </div>
           </article>
-          <article class="ctdash-card ctdash-section ctdash-spot-section">
+          <article class="ctdash-card ctdash-section">
             <div class="ctdash-section-head"><div><div class="ctdash-kicker">Spots</div><h3>스팟별 데이터</h3></div><span class="ctdash-tag">Pending Mapping</span></div>
-            <div class="ctdash-spot-grid">
+            <div class="ctdash-spot-grid ctdash-balanced-grid is-count-${Math.min(spots.length || 1, 12)}">
               ${spots.length ? spots.map(spot => renderCurrentDashSpotCard(spot)).join("") : `<div class="ctdash-callout">스팟 데이터 준비 중</div>`}
             </div>
           </article>
@@ -2556,17 +2529,15 @@
       ${camera ? `<p>${escapeHtml(camera)}</p>` : ""}
       ${locationMemo ? `<p>${escapeHtml(locationMemo)}</p>` : ""}
       <strong>${formatNumber(photoCount)}장</strong>
-      <div class="ctdash-spot-row"><span>스토리지 상태</span><b>${storageStatus === "missing" ? "스토리지 카운트 미집계" : escapeHtml(storageStatus)}</b></div>
       <div class="ctdash-spot-row"><span>원본 / 메타 / 판매가능</span><b>${storageNumber("uploaded_original_count")} / ${storageNumber("captured_photo_count")} / ${storageNumber("valid_photo_count")}</b></div>
       <div class="ctdash-spot-row"><span>유효율</span><b>${storagePercent("valid_photo_rate")}</b></div>
-      <div class="ctdash-spot-row"><span>meta / master 누락</span><b>${storageNumber("missing_meta_count")} / ${storageNumber("missing_master_count")}</b></div>
-      <div class="ctdash-spot-row"><span>meta 중복</span><b>${storageNumber("meta_duplicate_count")}</b></div>
       <div class="ctdash-spot-row"><span>단품 / 패키지 사진</span><b>${formatNumber(singlePhotoCount)} / ${formatNumber(packagePhotoCount)}</b></div>
       <div class="ctdash-spot-row"><span>주문 수</span><b>${formatNumber(orderCount)}</b></div>
       <div class="ctdash-spot-row"><span>단품 / 패키지 주문</span><b>${formatNumber(singleOrderCount)} / ${formatNumber(packageOrderCount)}</b></div>
       <div class="ctdash-spot-row"><span>매출</span><b>${formatWon(revenue)}</b></div>
-      <div class="ctdash-spot-row"><span>단품 / 패키지 매출</span><b>${formatWon(singleRevenue)} / ${formatWon(packageRevenue)}</b></div>
-      <div class="ctdash-spot-row"><span>매출 / 사진 비중</span><b>${formatPercent(revenueShare)} / ${formatPercent(photoShare)}</b></div>
+      <div class="ctdash-spot-row"><span>단품 매출</span><b>${formatWon(singleRevenue)}</b></div>
+      <div class="ctdash-spot-row"><span>패키지 매출</span><b>${formatWon(packageRevenue)}</b></div>
+      <div class="ctdash-spot-row"><span>매출 비중</span><b>${formatPercent(revenueShare)}</b></div>
     </article>`;
   }
 
@@ -2728,7 +2699,7 @@
           </div>
           <span class="ctdash-tag">Photo Buckets</span>
         </div>
-        <div class="ctdash-metrics-grid">
+        <div class="ctdash-metrics-grid ctdash-balanced-grid is-count-6">
           ${metricCard("총 검색 횟수", formatNumber(totalSearch), "search_log row 기준")}
           ${metricCard("노출 0 검색", formatNumber(zeroExposureSearch), "사진 없음 검색 횟수")}
           ${metricCard("노출 0 고유 배번호", formatNumber(uniqueZeroExposure), "중복 검색 제거")}
@@ -2940,23 +2911,16 @@
     const eventSummaries = [...byEvent.entries()]
       .map(([eventCode, eventRows]) => {
         const aggregate = aggregateLegacyMetricRows(eventRows);
-        const eventMeta = (allEvents || []).find(item => String(item.event_code || "") === String(eventCode || "")) || {};
         return {
           event_code: eventCode,
           event_name: legacyEventName(eventCode, eventRows),
-          event_date: eventMeta.event_date || firstText(eventRows[0], ["event_date", "date_key", "period_key"]),
           aggregate,
           purchase_rate: aggregate.has.search_count && aggregate.has.purchase_count && aggregate.values.search_count
             ? safeRate(aggregate.values.purchase_count, aggregate.values.search_count)
             : null
         };
       })
-      .sort((a, b) => {
-        const aDate = eventDateSortValue(a);
-        const bDate = eventDateSortValue(b);
-        if (aDate !== bDate) return bDate - aDate;
-        return Number(b.aggregate.values.revenue || 0) - Number(a.aggregate.values.revenue || 0);
-      });
+      .sort((a, b) => Number(b.aggregate.values.revenue || 0) - Number(a.aggregate.values.revenue || 0));
     const selectedEvent = options && options.selectedEvent ? options.selectedEvent : "all";
     const selectedRows = selectedEvent === "all" ? sourceRows : sourceRows.filter(row => String(row.event_code || "") === selectedEvent);
     const selectedEventRows = Array.isArray(byAgg.event_hour) && byAgg.event_hour.length
@@ -3064,8 +3028,7 @@
   function legacyEventScopeControls(eventSummaries) {
     const monthlyValue = legacyAnalysisEventSelectedMonthKey || monthKeyFromDateKey(todayKSTDateKey());
     const weeklyOptions = buildWeeksForMonth(monthlyValue);
-    const sortedSummaries = sortEventOptionsByLatestDate(eventSummaries || []);
-    const options = [{ event_code:"all", event_name:"전체 대회" }].concat(sortedSummaries);
+    const options = [{ event_code:"all", event_name:"전체 대회" }].concat(eventSummaries || []);
     return `
       <label><span>대회 선택</span><select class="ctdash-select" id="legacy_analysis_event_select">${options.map(row => `<option value="${escapeHtml(row.event_code)}" ${row.event_code === legacyAnalysisSelectedEvent ? "selected" : ""}>${escapeHtml(row.event_name || row.event_code)}</option>`).join("")}</select></label>
       ${legacyAnalysisEventPeriod === "total"
