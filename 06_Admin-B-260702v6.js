@@ -724,6 +724,39 @@
     return row.event_name || row.event_display_name || row.display_name || row.name || row.event_code || "";
   }
 
+  function eventDateKeyForOption(row) {
+    const source = row && typeof row === "object" ? row : {};
+    const ownDate = source.event_date || source.eventDate || source.event_start_at || source.event_start || source.start_at || source.start_date || source.publish_at || "";
+    if (ownDate) return kstDateKeyFromValue(ownDate);
+    const eventCode = String(source.event_code || "").trim();
+    if (!eventCode) return null;
+    const event = (allEvents || []).find(item => String(item.event_code || "") === eventCode);
+    if (!event) return null;
+    const eventDate = event.event_date || event.eventDate || event.event_start_at || event.event_start || event.start_at || event.start_date || event.publish_at || "";
+    return eventDate ? kstDateKeyFromValue(eventDate) : null;
+  }
+
+  function isStartedEventOption(row) {
+    const dateKey = eventDateKeyForOption(row);
+    if (dateKey === null) return true;
+    return dateKey <= getTodayKSTKey();
+  }
+
+  function sortEventOptionsByDateDesc(rows) {
+    return [...(rows || [])]
+      .filter(isStartedEventOption)
+      .sort((a, b) => {
+        const aDate = eventDateKeyForOption(a);
+        const bDate = eventDateKeyForOption(b);
+        if (aDate !== null || bDate !== null) {
+          if (aDate === null) return 1;
+          if (bDate === null) return -1;
+          if (aDate !== bDate) return bDate - aDate;
+        }
+        return String(currentDashEventLabel(a) || a.event_name || a.event_code || "").localeCompare(String(currentDashEventLabel(b) || b.event_name || b.event_code || ""), "ko");
+      });
+  }
+
   function mergeCurrentDashEventOptions(...sources) {
     const byCode = new Map();
     sources.flat().forEach(row => {
@@ -741,9 +774,7 @@
       }
       byCode.set(eventCode, merged);
     });
-    return Array.from(byCode.values()).sort((a, b) => {
-      return String(currentDashEventLabel(a)).localeCompare(String(currentDashEventLabel(b)), "ko");
-    });
+    return sortEventOptionsByDateDesc(Array.from(byCode.values()));
   }
 
   function currentDashEventOptions() {
@@ -1857,7 +1888,7 @@
               ${metricCard("참가자 대비 구매사진", formatPercent(safeRate(eventPurchasePhotoCount, people)), "purchase_photo / participants")}
             </div>
           </article>
-          <article class="ctdash-card ctdash-section">
+          <article class="ctdash-card ctdash-section ctdash-spot-section">
             <div class="ctdash-section-head"><div><div class="ctdash-kicker">Spots</div><h3>스팟별 데이터</h3></div><span class="ctdash-tag">Pending Mapping</span></div>
             <div class="ctdash-spot-grid ctdash-balanced-grid is-count-${Math.min(spots.length || 1, 12)}">
               ${spots.length ? spots.map(spot => renderCurrentDashSpotCard(spot)).join("") : `<div class="ctdash-callout">스팟 데이터 준비 중</div>`}
@@ -3028,7 +3059,8 @@
   function legacyEventScopeControls(eventSummaries) {
     const monthlyValue = legacyAnalysisEventSelectedMonthKey || monthKeyFromDateKey(todayKSTDateKey());
     const weeklyOptions = buildWeeksForMonth(monthlyValue);
-    const options = [{ event_code:"all", event_name:"전체 대회" }].concat(eventSummaries || []);
+    const eventOptions = sortEventOptionsByDateDesc(eventSummaries || []);
+    const options = [{ event_code:"all", event_name:"전체 대회" }].concat(eventOptions);
     return `
       <label><span>대회 선택</span><select class="ctdash-select" id="legacy_analysis_event_select">${options.map(row => `<option value="${escapeHtml(row.event_code)}" ${row.event_code === legacyAnalysisSelectedEvent ? "selected" : ""}>${escapeHtml(row.event_name || row.event_code)}</option>`).join("")}</select></label>
       ${legacyAnalysisEventPeriod === "total"
