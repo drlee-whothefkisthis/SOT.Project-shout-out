@@ -619,6 +619,10 @@
   const API_DATA_EVENT = "/api/1.1/obj/event";
   const API_AUTH_LOGIN = "/api/1.1/wf/auth-kakao-login"; 
   const BIB_MIN_DIGITS_DEFAULT = 4;
+  const SOT_LOADER_DEFAULT_MESSAGE = "데이터를 가져오는 중입니다!!";
+  const SOT_LOADER_LOTTIE_SRC = "data:application/octet-stream;base64,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";
+  const SOT_DOT_LOTTIE_PLAYER_SRC = "https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs";
+  let sotGlobalLoaderDepth = 0;
   const SOT_HEAD = window.SotAdminHead;
   if (!SOT_HEAD) {
     console.error("[SOT Dashboard] head helper not loaded");
@@ -1057,6 +1061,78 @@
     return "";
   }
 
+
+  function ensureSotDotLottiePlayer() {
+    if (document.getElementById("sot_dotlottie_player_script")) return;
+    const script = document.createElement("script");
+    script.id = "sot_dotlottie_player_script";
+    script.type = "module";
+    script.src = SOT_DOT_LOTTIE_PLAYER_SRC;
+    document.head.appendChild(script);
+  }
+
+  function ensureSotGlobalLoader() {
+    ensureSotDotLottiePlayer();
+
+    let loader = document.getElementById("sotGlobalLoader");
+    if (loader) return loader;
+
+    loader = document.createElement("div");
+    loader.id = "sotGlobalLoader";
+    loader.className = "sot-loader-overlay";
+    loader.hidden = true;
+    loader.setAttribute("role", "status");
+    loader.setAttribute("aria-live", "polite");
+    loader.innerHTML = `
+      <div class="sot-loader-card" role="dialog" aria-modal="true" aria-label="데이터 로딩 중">
+        <dotlottie-player
+          id="sotLoaderLottie"
+          class="sot-loader-lottie"
+          src="${SOT_LOADER_LOTTIE_SRC}"
+          background="transparent"
+          speed="1"
+          loop
+          autoplay>
+        </dotlottie-player>
+        <div id="sotLoaderTitle" class="sot-loader-title">${escapeHtml(SOT_LOADER_DEFAULT_MESSAGE)}</div>
+        <div class="sot-loader-sub">잠시만 기다려주세요</div>
+      </div>
+    `;
+    document.body.appendChild(loader);
+    return loader;
+  }
+
+  function showSotLoader(message) {
+    const loader = ensureSotGlobalLoader();
+    const title = document.getElementById("sotLoaderTitle");
+    const player = document.getElementById("sotLoaderLottie");
+
+    sotGlobalLoaderDepth += 1;
+    if (title) title.textContent = message || SOT_LOADER_DEFAULT_MESSAGE;
+    loader.hidden = false;
+    document.body.classList.add("sot-loader-active");
+
+    if (player && typeof player.play === "function") {
+      try { player.play(); } catch (error) { /* dotlottie-player may not be upgraded yet */ }
+    }
+  }
+
+  function hideSotLoader(force) {
+    const loader = document.getElementById("sotGlobalLoader");
+    if (!loader) return;
+
+    sotGlobalLoaderDepth = force ? 0 : Math.max(0, sotGlobalLoaderDepth - 1);
+    if (sotGlobalLoaderDepth > 0) return;
+
+    loader.hidden = true;
+    document.body.classList.remove("sot-loader-active");
+
+    const player = document.getElementById("sotLoaderLottie");
+    if (player && typeof player.pause === "function") {
+      try { player.pause(); } catch (error) { /* ignore */ }
+    }
+  }
+
   function initUI(){
 
     const mount = document.createElement("div");
@@ -1412,6 +1488,7 @@
     sotCurrentTestLoading = true;
     sotCurrentTestLastError = "";
     sotCurrentTestMissingSnapshot = null;
+    showSotLoader(SOT_LOADER_DEFAULT_MESSAGE);
     renderCurrentTestDashboard();
 
     try {
@@ -1468,6 +1545,7 @@
       });
     } finally {
       sotCurrentTestLoading = false;
+      hideSotLoader();
       renderCurrentTestDashboard();
     }
   }
@@ -1542,31 +1620,15 @@
     }
 
     if (sotCurrentTestLoading) {
-      if (currentDashStatusSnapshot) {
-        target.innerHTML = currentTestDashboardFrame(renderCurrentDashShellState("snapshot 데이터를 불러오는 중입니다.", "info"), "불러오는 중");
-        renderCurrentDashCharts();
-        return;
-      }
-      target.innerHTML = currentTestDashboardFrame(renderCurrentDashFallbackView("Loading", "Bubble Admin 프록시를 통해 snapshot 데이터를 불러오는 중입니다."), "불러오는 중");
       return;
     }
-    if (sotCurrentTestMissingSnapshot) {
-      target.innerHTML = currentTestDashboardFrame(renderCurrentDashShellState(sotCurrentTestMissingSnapshot.message, "warn"), "snapshot 없음");
-      renderCurrentDashCharts();
-      return;
-    }
-    if (sotCurrentTestLastError) {
-      target.innerHTML = currentTestDashboardFrame(renderCurrentDashShellState(`snapshot API 연결 실패: ${sotCurrentTestLastError}`, "warn"), "연결 실패");
+    if (sotCurrentTestMissingSnapshot || sotCurrentTestLastError) {
+      if (!sotCurrentTestLoaded) target.innerHTML = "";
       renderCurrentDashCharts();
       return;
     }
     if (!sotCurrentTestLoaded) {
-      if (currentDashStatusSnapshot) {
-        target.innerHTML = currentTestDashboardFrame(renderCurrentDashShellState("snapshot 데이터를 아직 불러오지 않았습니다. 탭 진입 시 자동 조회됩니다.", "warn"), "대기 중");
-        renderCurrentDashCharts();
-        return;
-      }
-      target.innerHTML = currentTestDashboardFrame(renderCurrentDashFallbackView("Waiting", "snapshot 데이터를 아직 불러오지 않았습니다. 탭 진입 시 자동 조회됩니다."), "대기 중");
+      target.innerHTML = "";
       return;
     }
     syncCurrentDashSelections();
@@ -1605,6 +1667,7 @@
     currentDashEventDetailData = SOT_HEAD.emptyDashboardData();
     currentDashEventDetailError = "";
     currentDashEventDetailMissingSnapshot = null;
+    showSotLoader(SOT_LOADER_DEFAULT_MESSAGE);
     renderCurrentTestDashboard();
     try {
       const payload = await SOT_HEAD.fetchDashboardSnapshot({
@@ -1647,6 +1710,7 @@
       });
     } finally {
       currentDashEventDetailLoading = false;
+      hideSotLoader();
       renderCurrentTestDashboard();
     }
   }
