@@ -104,6 +104,48 @@
     return rows;
   }
 
+  function dashboardDataApiUrlForSource(apiBase, cursor, dataSource, eventCode) {
+    const params = new URLSearchParams();
+    params.set("limit", String(DASHBOARD_PAGE_LIMIT));
+    params.set("cursor", String(cursor || 0));
+    const constraints = [{ key:"data_source", constraint_type:"equals", value:dataSource || "legacy_backfill" }];
+    if (eventCode) constraints.push({ key:"event_code", constraint_type:"equals", value:eventCode });
+    params.set("constraints", JSON.stringify(constraints));
+    return apiBase + dashboardDataApiPath(window.location.pathname) + "?" + params.toString();
+  }
+
+  async function fetchDashboardRowsForDataSource(apiBase, dataSource, eventCode) {
+    const rows = [];
+    let cursor = 0;
+    let remaining = 1;
+
+    while (remaining > 0) {
+      const res = await fetch(dashboardDataApiUrlForSource(apiBase, cursor, dataSource, eventCode), { method:"GET" });
+      const text = await res.text();
+      if (!res.ok) {
+        console.error("[SOT Legacy Analysis V2] API failed", { status: res.status, dataSource, body: text.slice(0, 500) });
+        throw new Error("Legacy Analysis API failed: " + res.status);
+      }
+
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (e) {
+        console.error("[SOT Legacy Analysis V2] API JSON parse failed", { status: res.status, dataSource, body: text.slice(0, 500) });
+        throw e;
+      }
+
+      const response = data.response || data;
+      const results = Array.isArray(response.results) ? response.results : [];
+      rows.push(...results);
+      remaining = numberValue(response, ["remaining"]);
+      cursor += results.length || DASHBOARD_PAGE_LIMIT;
+      if (!results.length && remaining > 0) break;
+    }
+
+    return rows;
+  }
+
   function getDashboardApiConfig(options) {
     const opts = options || {};
     return {
@@ -433,6 +475,7 @@
     SOT_ADMIN_DASHBOARD_PROXY_PATH,
     emptyDashboardData,
     fetchAllDashboardRows,
+    fetchDashboardRowsForDataSource,
     getDashboardApiConfig,
     fetchDashboardSummaryFromCloudRun,
     fetchDashboardDetailFromCloudRun,
@@ -655,6 +698,22 @@
   let fieldReportDrafts = [];
   let fieldReportActiveId = "";
   let fieldReportShowJson = false;
+  let legacyAnalysisView = "report";
+  let legacyAnalysisReportPeriod = "weekly";
+  let legacyAnalysisReportSelectedWeekKey = sotWeekKeyFromDateKey(yesterdayKSTDateKey());
+  let legacyAnalysisReportSelectedDateKey = yesterdayKSTDateKey();
+  let legacyAnalysisReportSelectedMonthKey = monthKeyFromDateKey(todayKSTDateKey());
+  let legacyAnalysisEventPeriod = "weekly";
+  let legacyAnalysisSelectedEvent = "all";
+  let legacyAnalysisEventSelectedWeekKey = sotWeekKeyFromDateKey(yesterdayKSTDateKey());
+  let legacyAnalysisEventSelectedDateKey = yesterdayKSTDateKey();
+  let legacyAnalysisEventSelectedMonthKey = monthKeyFromDateKey(todayKSTDateKey());
+  let legacyAnalysisResolvedDataSource = "";
+  let legacyAnalysisRows = [];
+  let legacyAnalysisByAggType = {};
+  let legacyAnalysisLoadState = "idle";
+  let legacyAnalysisError = "";
+  let legacyAnalysisFallbackReason = "";
 
   function invalidateCurrentDashReportCache() {
     sotCurrentTestLoaded = false;
@@ -986,7 +1045,7 @@
         <div class="sh-admin-hero-main hero-main card">
           <div class="sh-admin-eyebrow">SOT Data API Admin Console</div>
           <h1 class="sh-admin-title">Shout-out Admin Dashboard</h1>
-          <p class="sh-admin-sub">대회 관리, 리포트, 대회별 분석, 일지 작성, 레거시데이터를 한 화면에서 확인합니다.</p>
+          <p class="sh-admin-sub">대회 관리, 리포트, 대회별 분석, 레거시데이터, 레거시 분석 v2, 일지 작성을 한 화면에서 확인합니다.</p>
         </div>
         <div class="sh-admin-status-card hero-side card">
           <div><b id="sh_hero_status">상태: 대기 중</b></div>
@@ -1000,8 +1059,9 @@
         <button class="sh-admin-tab tab-btn is-active" type="button" data-admin-view="events" aria-selected="true">대회 관리</button>
         <button class="sh-admin-tab tab-btn" type="button" data-admin-view="report" aria-selected="false">리포트</button>
         <button class="sh-admin-tab tab-btn" type="button" data-admin-view="event-analysis" aria-selected="false">대회별 분석</button>
-        <button class="sh-admin-tab tab-btn" type="button" data-admin-view="diary" aria-selected="false">일지 작성</button>
         <button class="sh-admin-tab tab-btn" type="button" data-admin-view="legacy" aria-selected="false">레거시데이터</button>
+        <button class="sh-admin-tab tab-btn" type="button" data-admin-view="legacy-analysis-v2" aria-selected="false">레거시 분석 v2</button>
+        <button class="sh-admin-tab tab-btn" type="button" data-admin-view="diary" aria-selected="false">일지 작성</button>
       </div>
 
       <section class="sh-admin-panel" data-admin-panel="events">
@@ -1088,6 +1148,10 @@
             <div class="sot-dash-content" id="sot_dash_content"></div>
           </main>
         </div>
+      </section>
+
+      <section class="sh-admin-panel is-hidden" data-admin-panel="legacy-analysis-v2" hidden>
+        <div class="sot-current-test-content" id="legacy_analysis_v2_content"></div>
       </section>
     `;
     
@@ -2448,9 +2512,19 @@
     const photoCount = numberValue(spot, ["sold_photo_count", "purchase_photo_count", "photo_count", "cart_photo_count"]);
     const revenueShare = numberValue(spot, ["revenue_share"]);
     const photoShare = numberValue(spot, ["photo_share"]);
-    const capturedPhotoCount = numberValue(spot, ["captured_photo_count"]);
-    const validPhotoCount = numberValue(spot, ["valid_photo_count"]);
-    const validPhotoRate = numberValue(spot, ["valid_photo_rate"]);
+    const storageStatus = firstText(spot, ["storage_inventory_status"]) || "missing";
+    const storageNumber = field => {
+      const value = spot && spot[field];
+      if (value === undefined || value === null || value === "") return "미집계";
+      const num = Number(value);
+      return Number.isFinite(num) ? formatNumber(num) : "미집계";
+    };
+    const storagePercent = field => {
+      const value = spot && spot[field];
+      if (value === undefined || value === null || value === "") return "미집계";
+      const num = Number(value);
+      return Number.isFinite(num) ? formatPercent(num) : "미집계";
+    };
     const singlePhotoCount = numberValue(spot, ["single_sold_photo_count"]);
     const packagePhotoCount = numberValue(spot, ["package_sold_photo_count"]);
     const singleOrderCount = numberValue(spot, ["single_order_count"]);
@@ -2463,8 +2537,11 @@
       ${camera ? `<p>${escapeHtml(camera)}</p>` : ""}
       ${locationMemo ? `<p>${escapeHtml(locationMemo)}</p>` : ""}
       <strong>${formatNumber(photoCount)}장</strong>
-      <div class="ctdash-spot-row"><span>촬영 / 유효</span><b>${formatNumber(capturedPhotoCount)} / ${formatNumber(validPhotoCount)}</b></div>
-      <div class="ctdash-spot-row"><span>유효율</span><b>${formatPercent(validPhotoRate)}</b></div>
+      <div class="ctdash-spot-row"><span>스토리지 상태</span><b>${storageStatus === "missing" ? "스토리지 카운트 미집계" : escapeHtml(storageStatus)}</b></div>
+      <div class="ctdash-spot-row"><span>원본 / 메타 / 판매가능</span><b>${storageNumber("uploaded_original_count")} / ${storageNumber("captured_photo_count")} / ${storageNumber("valid_photo_count")}</b></div>
+      <div class="ctdash-spot-row"><span>유효율</span><b>${storagePercent("valid_photo_rate")}</b></div>
+      <div class="ctdash-spot-row"><span>meta / master 누락</span><b>${storageNumber("missing_meta_count")} / ${storageNumber("missing_master_count")}</b></div>
+      <div class="ctdash-spot-row"><span>meta 중복</span><b>${storageNumber("meta_duplicate_count")}</b></div>
       <div class="ctdash-spot-row"><span>단품 / 패키지 사진</span><b>${formatNumber(singlePhotoCount)} / ${formatNumber(packagePhotoCount)}</b></div>
       <div class="ctdash-spot-row"><span>주문 수</span><b>${formatNumber(orderCount)}</b></div>
       <div class="ctdash-spot-row"><span>단품 / 패키지 주문</span><b>${formatNumber(singleOrderCount)} / ${formatNumber(packageOrderCount)}</b></div>
@@ -2690,6 +2767,521 @@
 
   function detailTableSection(title, headers, rows) {
     return `<article class="ctdash-card ctdash-section"><div class="ctdash-section-head"><div><div class="ctdash-kicker">Detail</div><h3>${title}</h3></div></div><div class="ctdash-table-wrap"><table class="ctdash-table"><thead><tr>${headers.map(header => `<th>${header}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${headers.length}">데이터가 없습니다.</td></tr>`}</tbody></table></div></article>`;
+  }
+
+  const LEGACY_V2_DISPLAY_AGG_TYPES = ["event_hour", "query_range", "sales_amount_hour"];
+  const LEGACY_V2_NUMERIC_FIELDS = [
+    "search_count",
+    "cart_count",
+    "cart_photo_count",
+    "purchase_count",
+    "order_count",
+    "purchase_photo_count",
+    "sold_photo_count",
+    "revenue",
+    "purchase_amount",
+    "sales_amount"
+  ];
+
+  function groupLegacyRowsByAggType(rows) {
+    return (Array.isArray(rows) ? rows : []).reduce((grouped, row) => {
+      const aggType = String(row && row.agg_type || "unknown").toLowerCase();
+      if (!grouped[aggType]) grouped[aggType] = [];
+      grouped[aggType].push(row);
+      return grouped;
+    }, {});
+  }
+
+  function legacyBackfillHasDisplayRows(grouped) {
+    const byAgg = grouped || {};
+    return LEGACY_V2_DISPLAY_AGG_TYPES.some(aggType => Array.isArray(byAgg[aggType]) && byAgg[aggType].length > 0);
+  }
+
+  function legacyFiniteNumber(row, keys) {
+    const keyList = Array.isArray(keys) ? keys : [keys];
+    for (let i = 0; i < keyList.length; i += 1) {
+      const value = row && row[keyList[i]];
+      if (value === undefined || value === null || value === "") continue;
+      const num = Number(value);
+      if (Number.isFinite(num)) return num;
+    }
+    return null;
+  }
+
+  function aggregateLegacyMetricRows(rows) {
+    const result = { values: {}, has: {} };
+    (Array.isArray(rows) ? rows : []).forEach(row => {
+      LEGACY_V2_NUMERIC_FIELDS.forEach(field => {
+        const value = legacyFiniteNumber(row, field);
+        if (value === null) return;
+        result.values[field] = (result.values[field] || 0) + value;
+        result.has[field] = true;
+      });
+    });
+    if (result.has.purchase_amount && !result.has.revenue) {
+      result.values.revenue = result.values.purchase_amount;
+      result.has.revenue = true;
+    }
+    if (result.has.sales_amount && !result.has.revenue) {
+      result.values.revenue = result.values.sales_amount;
+      result.has.revenue = true;
+    }
+    if (result.has.order_count && !result.has.purchase_count) {
+      result.values.purchase_count = result.values.order_count;
+      result.has.purchase_count = true;
+    }
+    if (result.has.sold_photo_count && !result.has.purchase_photo_count) {
+      result.values.purchase_photo_count = result.values.sold_photo_count;
+      result.has.purchase_photo_count = true;
+    }
+    return result;
+  }
+
+  function legacyMetricValue(aggregate, field, formatter, emptyText) {
+    if (!aggregate || !aggregate.has || !aggregate.has[field]) return `<span class="legacy-v2-status">${escapeHtml(emptyText || "데이터 없음")}</span>`;
+    const value = aggregate.values[field];
+    if (!Number.isFinite(Number(value))) return `<span class="legacy-v2-status">데이터 없음</span>`;
+    return formatter ? formatter(value) : formatNumber(value);
+  }
+
+  function legacyMetricCard(label, aggregate, field, note, formatter, emptyText) {
+    return metricCard(label, legacyMetricValue(aggregate, field, formatter, emptyText), note || "레거시 기준");
+  }
+
+  function legacyUnsupportedCard(label, status, note) {
+    return metricCard(label, `<span class="legacy-v2-status">${escapeHtml(status || "레거시 미지원")}</span>`, note || "0으로 대체하지 않음");
+  }
+
+  function legacyDateKey(row) {
+    return firstText(row, ["date_key", "period_key", "event_date", "created_date", "Created Date"]).slice(0, 10);
+  }
+
+  function legacyHourKey(row) {
+    const value = firstText(row, ["hour_key", "hour", "event_hour", "created_hour"]);
+    if (value === "") return "";
+    const num = Number(value);
+    if (Number.isFinite(num)) return String(Math.max(0, Math.min(23, Math.floor(num)))).padStart(2, "0") + ":00";
+    return String(value).slice(0, 5);
+  }
+
+  function aggregateLegacyRowsByKey(rows, keyFn) {
+    const byKey = new Map();
+    (Array.isArray(rows) ? rows : []).forEach(row => {
+      const key = keyFn(row);
+      if (!key) return;
+      if (!byKey.has(key)) byKey.set(key, []);
+      byKey.get(key).push(row);
+    });
+    return [...byKey.entries()]
+      .map(([key, group]) => ({ key, aggregate: aggregateLegacyMetricRows(group) }))
+      .sort((a, b) => a.key.localeCompare(b.key));
+  }
+
+  function legacyEventName(eventCode, rows) {
+    const event = (allEvents || []).find(item => String(item.event_code || "") === String(eventCode || ""));
+    if (event) return event.event_display_name || event.display_name || event.event_name || event.event_code || eventCode;
+    const row = (rows || []).find(item => String(item.event_code || "") === String(eventCode || ""));
+    return firstText(row, ["event_name", "event_display_name", "display_name"]) || eventCode || "-";
+  }
+
+  function buildLegacyV2ReportModel(rows, options) {
+    const sourceRows = Array.isArray(rows) ? rows : [];
+    const byAgg = groupLegacyRowsByAggType(sourceRows);
+    const summaryRows = Array.isArray(byAgg.state) && byAgg.state.length ? byAgg.state : sourceRows;
+    const flowRows = Array.isArray(byAgg.event_hour) && byAgg.event_hour.length ? byAgg.event_hour : sourceRows;
+    const daily = aggregateLegacyRowsByKey(flowRows, legacyDateKey);
+    const hourly = aggregateLegacyRowsByKey(Array.isArray(byAgg.event_hour) ? byAgg.event_hour : [], legacyHourKey);
+    const amountRows = Array.isArray(byAgg.sales_amount_hour) ? byAgg.sales_amount_hour : [];
+    const hasAmountBucket = amountRows.some(row => firstText(row, ["amount_bucket", "amount_range", "bucket", "price_bucket", "label"]));
+    const amountBuckets = hasAmountBucket
+      ? aggregateLegacyRowsByKey(amountRows, row => firstText(row, ["amount_bucket", "amount_range", "bucket", "price_bucket", "label"]))
+      : [];
+    return {
+      mode: "legacy",
+      dataSource: options && options.dataSource || "",
+      aggregateSource: "dashboard",
+      summary: aggregateLegacyMetricRows(summaryRows),
+      daily,
+      hourly,
+      amountBuckets,
+      hasAmountBucket
+    };
+  }
+
+  function buildLegacyV2EventAnalysisModel(rows, options) {
+    const sourceRows = Array.isArray(rows) ? rows : [];
+    const byAgg = groupLegacyRowsByAggType(sourceRows);
+    const byEvent = new Map();
+    sourceRows.forEach(row => {
+      const eventCode = firstText(row, ["event_code"]);
+      if (!eventCode || eventCode === "all") return;
+      if (!byEvent.has(eventCode)) byEvent.set(eventCode, []);
+      byEvent.get(eventCode).push(row);
+    });
+    const eventSummaries = [...byEvent.entries()]
+      .map(([eventCode, eventRows]) => {
+        const aggregate = aggregateLegacyMetricRows(eventRows);
+        return {
+          event_code: eventCode,
+          event_name: legacyEventName(eventCode, eventRows),
+          aggregate,
+          purchase_rate: aggregate.has.search_count && aggregate.has.purchase_count && aggregate.values.search_count
+            ? safeRate(aggregate.values.purchase_count, aggregate.values.search_count)
+            : null
+        };
+      })
+      .sort((a, b) => Number(b.aggregate.values.revenue || 0) - Number(a.aggregate.values.revenue || 0));
+    const selectedEvent = options && options.selectedEvent ? options.selectedEvent : "all";
+    const selectedRows = selectedEvent === "all" ? sourceRows : sourceRows.filter(row => String(row.event_code || "") === selectedEvent);
+    const selectedEventRows = Array.isArray(byAgg.event_hour) && byAgg.event_hour.length
+      ? byAgg.event_hour.filter(row => selectedEvent === "all" || String(row.event_code || "") === selectedEvent)
+      : selectedRows;
+    return {
+      mode: "legacy",
+      dataSource: options && options.dataSource || "",
+      aggregateSource: "dashboard",
+      selectedEvent,
+      eventSummaries,
+      selectedSummary: aggregateLegacyMetricRows(selectedRows),
+      daily: aggregateLegacyRowsByKey(selectedEventRows, legacyDateKey),
+      hourly: aggregateLegacyRowsByKey(selectedEventRows, legacyHourKey)
+    };
+  }
+
+  function legacyV2StatusBanner() {
+    const source = legacyAnalysisResolvedDataSource || "legacy_backfill";
+    const sourceLabel = source === "legacy_backfill" ? "legacy_backfill" : "legacy";
+    const fallback = legacyAnalysisFallbackReason
+      ? `<div class="legacy-v2-banner is-warn">${escapeHtml(legacyAnalysisFallbackReason)}</div>`
+      : "";
+    return `
+      <div class="legacy-v2-banner">
+        <strong>레거시 분석 v2</strong>
+        <span>Data Source: ${escapeHtml(sourceLabel)}</span>
+        <span>Aggregate Source: dashboard</span>
+        <span>기존 로그 기반 집계라 일부 지표는 현재 집계 방식과 다를 수 있음</span>
+      </div>
+      ${fallback}
+    `;
+  }
+
+  function legacyAggregateTableRow(label, aggregate) {
+    return [
+      escapeHtml(label),
+      legacyMetricValue(aggregate, "search_count", formatNumber),
+      legacyMetricValue(aggregate, "cart_count", formatNumber),
+      legacyMetricValue(aggregate, "purchase_count", formatNumber),
+      legacyMetricValue(aggregate, "purchase_photo_count", formatNumber),
+      legacyMetricValue(aggregate, "revenue", formatWon)
+    ];
+  }
+
+  function legacyFlowTableRows(rows) {
+    return (Array.isArray(rows) ? rows : []).map(row => legacyAggregateTableRow(row.key, row.aggregate));
+  }
+
+  function legacyRowsForPeriod(rows, period, dateKey, monthKey, weekKey) {
+    const list = Array.isArray(rows) ? rows : [];
+    if (period === "total") return list;
+    if (period === "monthly") {
+      const selectedMonth = monthKey || monthKeyFromDateKey(todayKSTDateKey());
+      return list.filter(row => legacyDateKey(row).slice(0, 7) === selectedMonth);
+    }
+    if (period === "weekly") {
+      const selectedWeek = weekKey || sotWeekKeyFromDateKey(dateKey || yesterdayKSTDateKey());
+      const week = buildWeeksForMonth(monthKey || monthKeyFromDateKey(dateKey || todayKSTDateKey())).find(row => row.week_key === selectedWeek);
+      if (!week) return list;
+      return list.filter(row => {
+        const key = legacyDateKey(row);
+        return key >= week.start_date_key && key <= week.end_date_key;
+      });
+    }
+    const selectedDate = dateKey || yesterdayKSTDateKey();
+    return list.filter(row => legacyDateKey(row) === selectedDate);
+  }
+
+  function legacyReportRowsForSelectedPeriod() {
+    return legacyRowsForPeriod(
+      legacyAnalysisRows,
+      legacyAnalysisReportPeriod,
+      legacyAnalysisReportSelectedDateKey,
+      legacyAnalysisReportSelectedMonthKey,
+      legacyAnalysisReportSelectedWeekKey
+    );
+  }
+
+  function legacyEventRowsForSelectedPeriod() {
+    return legacyRowsForPeriod(
+      legacyAnalysisRows,
+      legacyAnalysisEventPeriod,
+      legacyAnalysisEventSelectedDateKey,
+      legacyAnalysisEventSelectedMonthKey,
+      legacyAnalysisEventSelectedWeekKey
+    );
+  }
+
+  function legacyReportScopeControls() {
+    if (legacyAnalysisReportPeriod === "monthly") {
+      return `<label><span>월 선택</span><input class="ctdash-input" type="month" id="legacy_report_month_input" value="${escapeHtml(legacyAnalysisReportSelectedMonthKey || monthKeyFromDateKey(todayKSTDateKey()))}"></label>`;
+    }
+    if (legacyAnalysisReportPeriod === "weekly") {
+      const monthKey = legacyAnalysisReportSelectedMonthKey || monthKeyFromDateKey(todayKSTDateKey());
+      const weeks = buildWeeksForMonth(monthKey);
+      return `
+        <label><span>기준월</span><input class="ctdash-input" type="month" id="legacy_report_week_month_input" value="${escapeHtml(monthKey)}"></label>
+        <label><span>주차 선택</span><select class="ctdash-select" id="legacy_report_week_select">${weeks.map(row => `<option value="${escapeHtml(row.week_key)}" ${row.week_key === legacyAnalysisReportSelectedWeekKey ? "selected" : ""}>${escapeHtml(row.label)}</option>`).join("")}</select></label>
+      `;
+    }
+    return `<label><span>일자 선택</span><input class="ctdash-input" type="date" id="legacy_report_date_input" value="${escapeHtml(legacyAnalysisReportSelectedDateKey || "")}"></label>`;
+  }
+
+  function legacyEventScopeControls(eventSummaries) {
+    const monthlyValue = legacyAnalysisEventSelectedMonthKey || monthKeyFromDateKey(todayKSTDateKey());
+    const weeklyOptions = buildWeeksForMonth(monthlyValue);
+    const options = [{ event_code:"all", event_name:"전체 대회" }].concat(eventSummaries || []);
+    return `
+      <label><span>대회 선택</span><select class="ctdash-select" id="legacy_analysis_event_select">${options.map(row => `<option value="${escapeHtml(row.event_code)}" ${row.event_code === legacyAnalysisSelectedEvent ? "selected" : ""}>${escapeHtml(row.event_name || row.event_code)}</option>`).join("")}</select></label>
+      ${legacyAnalysisEventPeriod === "total"
+        ? `<label><span>전체 기준</span><input class="ctdash-input" type="text" value="total" disabled></label>`
+        : legacyAnalysisEventPeriod === "monthly"
+          ? `<label><span>월 선택</span><input class="ctdash-input" type="month" id="legacy_event_month_input" value="${escapeHtml(monthlyValue)}"></label>`
+          : legacyAnalysisEventPeriod === "weekly"
+            ? `<label><span>기준월</span><input class="ctdash-input" type="month" id="legacy_event_week_month_input" value="${escapeHtml(monthlyValue)}"></label><label><span>주차 선택</span><select class="ctdash-select" id="legacy_event_week_select">${weeklyOptions.map(row => `<option value="${escapeHtml(row.week_key)}" ${row.week_key === legacyAnalysisEventSelectedWeekKey ? "selected" : ""}>${escapeHtml(row.label)}</option>`).join("")}</select></label>`
+            : `<label><span>일자 선택</span><input class="ctdash-input" type="date" id="legacy_event_date_input" value="${escapeHtml(legacyAnalysisEventSelectedDateKey || "")}"></label>`}
+    `;
+  }
+
+  function legacyChartPlaceholder(title) {
+    return `<div class="ctdash-chart-box"><div class="ctdash-chart-placeholder">${escapeHtml(title)} - 레거시 기준 집계 표시</div></div>`;
+  }
+
+  function legacyPhotoExposureUnsupportedSection() {
+    return `
+      <section class="ctdash-card ctdash-section">
+        <div class="ctdash-section-head">
+          <div>
+            <div class="ctdash-kicker">Exposure</div>
+            <h3>노출 사진 수 분석</h3>
+            <p>현재 UI와 같은 위치에 유지하되, 레거시에서 정확 계산이 어려운 값은 상태로 표시합니다.</p>
+          </div>
+          <span class="ctdash-tag">Legacy Unsupported</span>
+        </div>
+        <div class="ctdash-metrics-grid">
+          ${legacyUnsupportedCard("평균 노출", "레거시 미지원", "노출 원장 기준 불일치")}
+          ${legacyUnsupportedCard("유효 평균 노출", "레거시 미지원", "노출 1건 이상 기준 계산 필요")}
+          ${legacyUnsupportedCard("노출 0건", "레거시 미지원", "정확 계산 어려움")}
+          ${legacyUnsupportedCard("사진 수 구간별 구매 분석", "레거시 미지원", "구조상 정확 계산 어려움")}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderLegacyV2ReportView() {
+    const model = buildLegacyV2ReportModel(legacyReportRowsForSelectedPeriod(), { dataSource: legacyAnalysisResolvedDataSource });
+    return `
+      ${legacyV2StatusBanner()}
+      <section class="ctdash-screen">
+        <article class="ctdash-card ctdash-section">
+          <div class="ctdash-section-head">
+            <div>
+              <div class="ctdash-kicker">Report</div>
+              <h3>리포트</h3>
+              <p>선택한 기간 기준 legacy dashboard row를 조회합니다.</p>
+            </div>
+            <div class="ctdash-period-tabs">
+              <button class="ctdash-chip ${legacyAnalysisReportPeriod === "daily" ? "is-active" : ""}" type="button" data-legacy-report-period="daily">일별</button>
+              <button class="ctdash-chip ${legacyAnalysisReportPeriod === "weekly" ? "is-active" : ""}" type="button" data-legacy-report-period="weekly">주차별</button>
+              <button class="ctdash-chip ${legacyAnalysisReportPeriod === "monthly" ? "is-active" : ""}" type="button" data-legacy-report-period="monthly">월별</button>
+            </div>
+          </div>
+          <div class="ctdash-inline-fields">${legacyReportScopeControls()}</div>
+          <div class="ctdash-metrics-grid">
+            ${legacyUnsupportedCard("접속수", "데이터 없음", "레거시 기준 세션 원장 없음")}
+            ${legacyUnsupportedCard("검색자", "데이터 없음", "정확한 고유 사용자 계산 필요")}
+            ${legacyMetricCard("검색수", model.summary, "search_count", "레거시 기준", formatNumber)}
+            ${legacyMetricCard("장바구니수", model.summary, "cart_count", "레거시 기준", formatNumber)}
+            ${legacyMetricCard("구매수", model.summary, "purchase_count", "레거시 기준", formatNumber)}
+          </div>
+        </article>
+        <article class="ctdash-card ctdash-section">
+          <div class="ctdash-section-head">
+            <div>
+              <div class="ctdash-kicker">Hourly</div>
+              <h3>${currentDashChartTitle(legacyAnalysisReportPeriod)}</h3>
+              <p>현재 리포트와 같은 위치에 시간/기간 흐름을 표시합니다.</p>
+            </div>
+            <span class="ctdash-tag">Legacy</span>
+          </div>
+          ${legacyChartPlaceholder("검색 / 카트 / 구매 / 매출")}
+        </article>
+        <div class="ctdash-two-col">
+          <article class="ctdash-card ctdash-section">
+            <div class="ctdash-section-head"><div><div class="ctdash-kicker">Conversion</div><h3>전환율</h3></div><span class="ctdash-tag">Percent</span></div>
+            <div class="ctdash-conv-grid">
+              ${metricCard("접속 → 검색", `<span class="legacy-v2-status">데이터 없음</span>`, "레거시 기준 세션 없음")}
+              ${model.summary.has.search_count && model.summary.has.cart_count && model.summary.values.search_count ? conversionCard("검색 → 카트", model.summary.values.cart_count, model.summary.values.search_count) : legacyUnsupportedCard("검색 → 카트", "데이터 없음", "검색수와 장바구니수 필요")}
+              ${model.summary.has.cart_count && model.summary.has.purchase_count && model.summary.values.cart_count ? conversionCard("카트 → 구매", model.summary.values.purchase_count, model.summary.values.cart_count) : legacyUnsupportedCard("카트 → 구매", "데이터 없음", "장바구니수와 구매수 필요")}
+            </div>
+          </article>
+        </div>
+        <div class="ctdash-two-col">
+          <article class="ctdash-card ctdash-section">
+            <div class="ctdash-section-head"><div><div class="ctdash-kicker">Traffic</div><h3>유입별</h3></div><span class="ctdash-tag">Campaign / Source</span></div>
+            <div class="ctdash-sub-grid">
+              ${rankSection("캠페인", [])}
+              ${rankSection("소스", [])}
+              ${rankSection("디바이스", [])}
+              ${rankSection("OS", [])}
+            </div>
+          </article>
+          <article class="ctdash-card ctdash-section">
+            <div class="ctdash-section-head"><div><div class="ctdash-kicker">Sales</div><h3>매출</h3></div><span class="ctdash-tag">Revenue</span></div>
+            <div class="ctdash-sales-grid">
+              ${legacyUnsupportedCard("참가자 수", "데이터 없음", "legacy dashboard row 기준 없음")}
+              ${model.summary.has.revenue && model.summary.has.purchase_count && model.summary.values.purchase_count ? metricCard("객단가", formatWon(model.summary.values.revenue / model.summary.values.purchase_count), "구매 1건당") : legacyUnsupportedCard("객단가", "데이터 없음", "매출과 구매수 필요")}
+              ${legacyMetricCard("일매출", model.summary, "revenue", "선택 기간 합계", formatWon)}
+              ${legacyUnsupportedCard("참가자 대비 사진 구매율", "데이터 없음", "참가자 수 기준 필요")}
+            </div>
+          </article>
+        </div>
+        ${legacyPhotoExposureUnsupportedSection()}
+        ${detailTableSection("일자별 검색/구매/매출", ["일자", "검색수", "장바구니수", "구매수", "구매 사진 수", "매출"], legacyFlowTableRows(model.daily))}
+        ${detailTableSection("시간대별 검색/구매", ["시간", "검색수", "장바구니수", "구매수", "구매 사진 수", "매출"], legacyFlowTableRows(model.hourly))}
+        ${detailTableSection("결제 금액별 구매 분포", ["금액 구간", "검색수", "장바구니수", "구매수", "구매 사진 수", "매출"], model.hasAmountBucket ? legacyFlowTableRows(model.amountBuckets) : [["계산 필요", "계산 필요", "계산 필요", "계산 필요", "계산 필요", "sales_amount_hour 금액 구간 필드 필요"]])}
+      </section>
+    `;
+  }
+
+  function renderLegacyV2EventAnalysisView() {
+    const model = buildLegacyV2EventAnalysisModel(legacyEventRowsForSelectedPeriod(), {
+      dataSource: legacyAnalysisResolvedDataSource,
+      selectedEvent: legacyAnalysisSelectedEvent
+    });
+    const summaryRows = model.eventSummaries.map(row => [
+      escapeHtml(row.event_code),
+      escapeHtml(row.event_name || row.event_code),
+      legacyMetricValue(row.aggregate, "search_count", formatNumber),
+      legacyMetricValue(row.aggregate, "cart_count", formatNumber),
+      legacyMetricValue(row.aggregate, "purchase_count", formatNumber),
+      legacyMetricValue(row.aggregate, "revenue", formatWon),
+      legacyMetricValue(row.aggregate, "purchase_photo_count", formatNumber),
+      row.purchase_rate === null ? `<span class="legacy-v2-status">데이터 없음</span>` : formatPercent(row.purchase_rate)
+    ]);
+    const eventName = legacyAnalysisSelectedEvent === "all"
+      ? "전체 대회"
+      : legacyEventName(legacyAnalysisSelectedEvent, legacyAnalysisRows);
+    return `
+      ${legacyV2StatusBanner()}
+      <section class="ctdash-screen">
+        <article class="ctdash-card ctdash-section">
+          <div class="ctdash-section-head">
+            <div>
+              <div class="ctdash-kicker">Event Analysis</div>
+              <h3>대회별 분석</h3>
+              <p>대회와 기간을 선택하면 해당 legacy dashboard row를 다시 집계합니다.</p>
+            </div>
+          </div>
+          <div class="ctdash-event-toolbar">
+            <div class="ctdash-period-tabs">
+              <button class="ctdash-chip ${legacyAnalysisEventPeriod === "daily" ? "is-active" : ""}" type="button" data-legacy-event-period="daily">일별</button>
+              <button class="ctdash-chip ${legacyAnalysisEventPeriod === "weekly" ? "is-active" : ""}" type="button" data-legacy-event-period="weekly">주차별</button>
+              <button class="ctdash-chip ${legacyAnalysisEventPeriod === "monthly" ? "is-active" : ""}" type="button" data-legacy-event-period="monthly">월별</button>
+              <button class="ctdash-chip ${legacyAnalysisEventPeriod === "total" ? "is-active" : ""}" type="button" data-legacy-event-period="total">전체</button>
+            </div>
+            <div class="ctdash-inline-fields">${legacyEventScopeControls(buildLegacyV2EventAnalysisModel(legacyAnalysisRows, { dataSource: legacyAnalysisResolvedDataSource, selectedEvent: "all" }).eventSummaries)}</div>
+          </div>
+        </article>
+        <div class="ctdash-two-col">
+          <article class="ctdash-card ctdash-section">
+            <div class="ctdash-section-head"><div><div class="ctdash-kicker">Overview</div><h3>기본 요약</h3></div><span class="ctdash-tag">Legacy</span></div>
+            <div class="ctdash-summary-grid">
+              ${metricCard("대회명", escapeHtml(eventName), legacyAnalysisSelectedEvent === "all" ? "전체 합산" : legacyAnalysisSelectedEvent)}
+              ${legacyUnsupportedCard("참가자 수", "데이터 없음", "legacy dashboard row 기준 없음")}
+              ${legacyUnsupportedCard("검색자", "데이터 없음", "정확한 고유 사용자 계산 필요")}
+              ${legacyUnsupportedCard("접속수", "데이터 없음", "레거시 기준 세션 원장 없음")}
+              ${legacyMetricCard("검색수", model.selectedSummary, "search_count", "레거시 기준", formatNumber)}
+              ${legacyMetricCard("장바구니수", model.selectedSummary, "cart_count", "레거시 기준", formatNumber)}
+              ${legacyMetricCard("구매수", model.selectedSummary, "purchase_count", "레거시 기준", formatNumber)}
+            </div>
+          </article>
+          <article class="ctdash-card ctdash-section">
+            <div class="ctdash-section-head"><div><div class="ctdash-kicker">Revenue</div><h3>매출 분석</h3></div><span class="ctdash-tag">Sales</span></div>
+            <div class="ctdash-sales-grid">
+              ${legacyMetricCard("대회매출", model.selectedSummary, "revenue", "선택 기간 기준", formatWon)}
+              ${model.selectedSummary.has.revenue && model.selectedSummary.has.purchase_count && model.selectedSummary.values.purchase_count ? metricCard("객단가", formatWon(model.selectedSummary.values.revenue / model.selectedSummary.values.purchase_count), "구매 1건당") : legacyUnsupportedCard("객단가", "데이터 없음", "매출과 구매수 필요")}
+              ${legacyUnsupportedCard("참가자 대비 구매율", "데이터 없음", "참가자 수 기준 필요")}
+              ${legacyMetricCard("구매사진수", model.selectedSummary, "purchase_photo_count", "purchase_photo_count", formatNumber)}
+              ${legacyUnsupportedCard("참가자 대비 구매사진", "데이터 없음", "참가자 수 기준 필요")}
+            </div>
+          </article>
+          <article class="ctdash-card ctdash-section">
+            <div class="ctdash-section-head"><div><div class="ctdash-kicker">Spots</div><h3>스팟별 데이터</h3></div><span class="ctdash-tag">Legacy Unsupported</span></div>
+            <div class="ctdash-spot-grid"><div class="ctdash-callout">스팟 분석은 레거시 미지원입니다.</div></div>
+          </article>
+        </div>
+        <article class="ctdash-card ctdash-section">
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Graph</div><h3>${currentDashChartTitle(legacyAnalysisEventPeriod)}</h3></div><span class="ctdash-tag">Revenue + Search/Cart/Order</span></div>
+          ${legacyChartPlaceholder("매출 / 검색 / 카트 / 오더")}
+        </article>
+        ${detailTableSection("대회별 event_code 요약", ["event_code", "대회명", "검색수", "장바구니수", "구매수", "매출", "구매 사진 수", "구매전환율"], summaryRows)}
+        ${detailTableSection("선택 대회 일자별 흐름", ["일자", "검색수", "장바구니수", "구매수", "구매 사진 수", "매출"], legacyFlowTableRows(model.daily))}
+        ${detailTableSection("선택 대회 시간대별 흐름", ["시간", "검색수", "장바구니수", "구매수", "구매 사진 수", "매출"], legacyFlowTableRows(model.hourly))}
+        ${legacyPhotoExposureUnsupportedSection()}
+      </section>
+    `;
+  }
+
+  function renderLegacyAnalysisV2() {
+    const mount = $("#legacy_analysis_v2_content");
+    if (!mount) return;
+    if (legacyAnalysisLoadState === "loading") {
+      mount.innerHTML = `<div class="ctdash-fallback-screen"><div class="ctdash-card ctdash-section"><h3>레거시 분석 v2 로딩 중</h3><p>legacy_backfill 집계 row를 확인하고 있습니다.</p></div></div>`;
+      return;
+    }
+    if (legacyAnalysisLoadState === "error") {
+      mount.innerHTML = `<div class="ctdash-fallback-screen"><div class="ctdash-card ctdash-section"><h3>레거시 분석 v2 로드 실패</h3><p>${escapeHtml(legacyAnalysisError || "알 수 없는 오류")}</p><button class="sh-btn-sm" type="button" id="legacy_analysis_refresh_btn">다시 불러오기</button></div></div>`;
+      return;
+    }
+    const body = legacyAnalysisView === "event-analysis" ? renderLegacyV2EventAnalysisView() : renderLegacyV2ReportView();
+    mount.innerHTML = `
+      <div class="legacy-v2-shell">
+        <div class="legacy-v2-subtabs" role="tablist" aria-label="Legacy analysis v2 views">
+          <button class="sh-admin-tab tab-btn ${legacyAnalysisView === "report" ? "is-active" : ""}" type="button" data-legacy-analysis-view="report">리포트</button>
+          <button class="sh-admin-tab tab-btn ${legacyAnalysisView === "event-analysis" ? "is-active" : ""}" type="button" data-legacy-analysis-view="event-analysis">대회별 분석</button>
+          <button class="sh-btn-sm" type="button" id="legacy_analysis_refresh_btn">데이터 새로고침</button>
+        </div>
+        ${body}
+      </div>
+    `;
+  }
+
+  async function loadLegacyAnalysisV2() {
+    legacyAnalysisLoadState = "loading";
+    legacyAnalysisError = "";
+    renderLegacyAnalysisV2();
+    try {
+      const backfillRows = await SOT_HEAD.fetchDashboardRowsForDataSource(BUBBLE_API_BASE, "legacy_backfill");
+      const backfillByAgg = groupLegacyRowsByAggType(backfillRows);
+      if (legacyBackfillHasDisplayRows(backfillByAgg)) {
+        legacyAnalysisRows = backfillRows;
+        legacyAnalysisByAggType = backfillByAgg;
+        legacyAnalysisResolvedDataSource = "legacy_backfill";
+        legacyAnalysisFallbackReason = "";
+      } else {
+        const legacyRows = await SOT_HEAD.fetchDashboardRowsForDataSource(BUBBLE_API_BASE, "legacy");
+        legacyAnalysisRows = legacyRows;
+        legacyAnalysisByAggType = groupLegacyRowsByAggType(legacyRows);
+        legacyAnalysisResolvedDataSource = "legacy";
+        legacyAnalysisFallbackReason = "legacy_backfill 미생성 또는 표시 가능한 집계 부족, legacy 집계 기준";
+      }
+      legacyAnalysisLoadState = "ready";
+      renderLegacyAnalysisV2();
+    } catch (e) {
+      console.error("[SOT Legacy Analysis V2] load failed", e);
+      legacyAnalysisLoadState = "error";
+      legacyAnalysisError = e && e.message ? e.message : String(e || "로드 실패");
+      renderLegacyAnalysisV2();
+    }
   }
 
   function eventDailyRows(detail) {
@@ -4192,6 +4784,10 @@
         if (["report", "event-analysis", "diary"].includes(activeAdminView)) currentDashView = activeAdminView;
         syncAdminView();
         if (activeAdminView === "legacy") renderSotDashboard();
+        if (activeAdminView === "legacy-analysis-v2") {
+          renderLegacyAnalysisV2();
+          if (legacyAnalysisLoadState === "idle") loadLegacyAnalysisV2();
+        }
         if (["report", "event-analysis"].includes(activeAdminView)) {
           renderCurrentTestDashboard();
           if (!sotCurrentTestLoading) loadCurrentTestDashboard();
@@ -4227,6 +4823,34 @@
       if (currentTestRefreshButton) {
         console.log("[SOT Current Test] refresh button clicked");
         refreshCurrentDashSelection();
+        return;
+      }
+
+      const legacyAnalysisRefreshButton = e.target.closest("#legacy_analysis_refresh_btn");
+      if (legacyAnalysisRefreshButton) {
+        loadLegacyAnalysisV2();
+        return;
+      }
+
+      const legacyAnalysisViewButton = e.target.closest("[data-legacy-analysis-view]");
+      if (legacyAnalysisViewButton) {
+        legacyAnalysisView = legacyAnalysisViewButton.dataset.legacyAnalysisView || "report";
+        renderLegacyAnalysisV2();
+        if (legacyAnalysisLoadState === "idle") loadLegacyAnalysisV2();
+        return;
+      }
+
+      const legacyReportPeriodButton = e.target.closest("[data-legacy-report-period]");
+      if (legacyReportPeriodButton) {
+        legacyAnalysisReportPeriod = legacyReportPeriodButton.dataset.legacyReportPeriod || "weekly";
+        renderLegacyAnalysisV2();
+        return;
+      }
+
+      const legacyEventPeriodButton = e.target.closest("[data-legacy-event-period]");
+      if (legacyEventPeriodButton) {
+        legacyAnalysisEventPeriod = legacyEventPeriodButton.dataset.legacyEventPeriod || "weekly";
+        renderLegacyAnalysisV2();
         return;
       }
 
@@ -4384,6 +5008,67 @@
         } else {
           ensureCurrentDashEventDetail(currentDashSelectedEvent);
         }
+        return;
+      }
+      if (e.target && e.target.id === "legacy_analysis_event_select") {
+        legacyAnalysisSelectedEvent = e.target.value || "all";
+        renderLegacyAnalysisV2();
+        return;
+      }
+      if (e.target && e.target.id === "legacy_report_date_input") {
+        legacyAnalysisReportSelectedDateKey = e.target.value || yesterdayKSTDateKey();
+        legacyAnalysisReportSelectedWeekKey = sotWeekKeyFromDateKey(legacyAnalysisReportSelectedDateKey);
+        legacyAnalysisReportSelectedMonthKey = monthKeyFromDateKey(legacyAnalysisReportSelectedDateKey);
+        renderLegacyAnalysisV2();
+        return;
+      }
+      if (e.target && e.target.id === "legacy_report_week_month_input") {
+        legacyAnalysisReportSelectedMonthKey = e.target.value || monthKeyFromDateKey(todayKSTDateKey());
+        const picked = pickWeekForMonth(legacyAnalysisReportSelectedMonthKey, legacyAnalysisReportSelectedWeekKey, legacyAnalysisReportSelectedDateKey);
+        legacyAnalysisReportSelectedWeekKey = picked.week_key;
+        legacyAnalysisReportSelectedDateKey = picked.start_date_key;
+        renderLegacyAnalysisV2();
+        return;
+      }
+      if (e.target && e.target.id === "legacy_report_week_select") {
+        legacyAnalysisReportSelectedWeekKey = e.target.value || "";
+        const picked = pickWeekForMonth(legacyAnalysisReportSelectedMonthKey, legacyAnalysisReportSelectedWeekKey, legacyAnalysisReportSelectedDateKey);
+        legacyAnalysisReportSelectedDateKey = picked.start_date_key;
+        renderLegacyAnalysisV2();
+        return;
+      }
+      if (e.target && e.target.id === "legacy_report_month_input") {
+        legacyAnalysisReportSelectedMonthKey = e.target.value || monthKeyFromDateKey(todayKSTDateKey());
+        legacyAnalysisReportSelectedDateKey = `${legacyAnalysisReportSelectedMonthKey}-01`;
+        renderLegacyAnalysisV2();
+        return;
+      }
+      if (e.target && e.target.id === "legacy_event_date_input") {
+        legacyAnalysisEventSelectedDateKey = e.target.value || yesterdayKSTDateKey();
+        legacyAnalysisEventSelectedWeekKey = sotWeekKeyFromDateKey(legacyAnalysisEventSelectedDateKey);
+        legacyAnalysisEventSelectedMonthKey = monthKeyFromDateKey(legacyAnalysisEventSelectedDateKey);
+        renderLegacyAnalysisV2();
+        return;
+      }
+      if (e.target && e.target.id === "legacy_event_week_month_input") {
+        legacyAnalysisEventSelectedMonthKey = e.target.value || monthKeyFromDateKey(todayKSTDateKey());
+        const picked = pickWeekForMonth(legacyAnalysisEventSelectedMonthKey, legacyAnalysisEventSelectedWeekKey, legacyAnalysisEventSelectedDateKey);
+        legacyAnalysisEventSelectedWeekKey = picked.week_key;
+        legacyAnalysisEventSelectedDateKey = picked.start_date_key;
+        renderLegacyAnalysisV2();
+        return;
+      }
+      if (e.target && e.target.id === "legacy_event_week_select") {
+        legacyAnalysisEventSelectedWeekKey = e.target.value || "";
+        const picked = pickWeekForMonth(legacyAnalysisEventSelectedMonthKey, legacyAnalysisEventSelectedWeekKey, legacyAnalysisEventSelectedDateKey);
+        legacyAnalysisEventSelectedDateKey = picked.start_date_key;
+        renderLegacyAnalysisV2();
+        return;
+      }
+      if (e.target && e.target.id === "legacy_event_month_input") {
+        legacyAnalysisEventSelectedMonthKey = e.target.value || monthKeyFromDateKey(todayKSTDateKey());
+        legacyAnalysisEventSelectedDateKey = `${legacyAnalysisEventSelectedMonthKey}-01`;
+        renderLegacyAnalysisV2();
         return;
       }
       if (e.target && e.target.id === "ctdash_date_input") {
