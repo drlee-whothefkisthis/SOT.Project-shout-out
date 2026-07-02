@@ -7,6 +7,7 @@
   const SOT_BUBBLE_APP_BASE = "https://plp-62309.bubbleapps.io";
   const SOT_ADMIN_DASHBOARD_PROXY_PATH = "/api/1.1/wf/sot-admin-dashboard";
 
+
   const dashboardSections = [
     { id:"overview", group:"Core", label:"1. 전체 현황", desc:"전체 KPI, 퍼널, 검색/노출을 한 화면 안에서 탭으로 확인합니다." },
     { id:"period", group:"Core", label:"2. 기간별 분석", desc:"토요일 시작 주차별 요약, 선택 주차의 일자별 상세, 선택 날짜의 00~23시 시간대별 정보를 확인합니다." },
@@ -724,6 +725,34 @@
     return row.event_name || row.event_display_name || row.display_name || row.name || row.event_code || "";
   }
 
+  function eventDateSortValue(row) {
+    if (!row || typeof row !== "object") return 0;
+    const candidates = [
+      row.event_date,
+      row.event_at,
+      row.start_date,
+      row.start_at,
+      row.date_key,
+      row.period_key
+    ];
+    for (let i = 0; i < candidates.length; i += 1) {
+      const value = candidates[i];
+      if (!value) continue;
+      const date = new Date(String(value).length === 10 ? `${value}T00:00:00+09:00` : value);
+      if (!Number.isNaN(date.getTime())) return date.getTime();
+    }
+    return 0;
+  }
+
+  function sortEventOptionsByLatestDate(list) {
+    return (Array.isArray(list) ? list : []).slice().sort((a, b) => {
+      const aDate = eventDateSortValue(a);
+      const bDate = eventDateSortValue(b);
+      if (aDate !== bDate) return bDate - aDate;
+      return String(currentDashEventLabel(a)).localeCompare(String(currentDashEventLabel(b)), "ko");
+    });
+  }
+
   function mergeCurrentDashEventOptions(...sources) {
     const byCode = new Map();
     sources.flat().forEach(row => {
@@ -741,9 +770,7 @@
       }
       byCode.set(eventCode, merged);
     });
-    return Array.from(byCode.values()).sort((a, b) => {
-      return String(currentDashEventLabel(a)).localeCompare(String(currentDashEventLabel(b)), "ko");
-    });
+    return sortEventOptionsByLatestDate(Array.from(byCode.values()));
   }
 
   function currentDashEventOptions() {
@@ -1857,7 +1884,7 @@
               ${metricCard("참가자 대비 구매사진", formatPercent(safeRate(eventPurchasePhotoCount, people)), "purchase_photo / participants")}
             </div>
           </article>
-          <article class="ctdash-card ctdash-section">
+          <article class="ctdash-card ctdash-section ctdash-spot-section">
             <div class="ctdash-section-head"><div><div class="ctdash-kicker">Spots</div><h3>스팟별 데이터</h3></div><span class="ctdash-tag">Pending Mapping</span></div>
             <div class="ctdash-spot-grid">
               ${spots.length ? spots.map(spot => renderCurrentDashSpotCard(spot)).join("") : `<div class="ctdash-callout">스팟 데이터 준비 중</div>`}
@@ -2913,16 +2940,23 @@
     const eventSummaries = [...byEvent.entries()]
       .map(([eventCode, eventRows]) => {
         const aggregate = aggregateLegacyMetricRows(eventRows);
+        const eventMeta = (allEvents || []).find(item => String(item.event_code || "") === String(eventCode || "")) || {};
         return {
           event_code: eventCode,
           event_name: legacyEventName(eventCode, eventRows),
+          event_date: eventMeta.event_date || firstText(eventRows[0], ["event_date", "date_key", "period_key"]),
           aggregate,
           purchase_rate: aggregate.has.search_count && aggregate.has.purchase_count && aggregate.values.search_count
             ? safeRate(aggregate.values.purchase_count, aggregate.values.search_count)
             : null
         };
       })
-      .sort((a, b) => Number(b.aggregate.values.revenue || 0) - Number(a.aggregate.values.revenue || 0));
+      .sort((a, b) => {
+        const aDate = eventDateSortValue(a);
+        const bDate = eventDateSortValue(b);
+        if (aDate !== bDate) return bDate - aDate;
+        return Number(b.aggregate.values.revenue || 0) - Number(a.aggregate.values.revenue || 0);
+      });
     const selectedEvent = options && options.selectedEvent ? options.selectedEvent : "all";
     const selectedRows = selectedEvent === "all" ? sourceRows : sourceRows.filter(row => String(row.event_code || "") === selectedEvent);
     const selectedEventRows = Array.isArray(byAgg.event_hour) && byAgg.event_hour.length
@@ -3030,7 +3064,8 @@
   function legacyEventScopeControls(eventSummaries) {
     const monthlyValue = legacyAnalysisEventSelectedMonthKey || monthKeyFromDateKey(todayKSTDateKey());
     const weeklyOptions = buildWeeksForMonth(monthlyValue);
-    const options = [{ event_code:"all", event_name:"전체 대회" }].concat(eventSummaries || []);
+    const sortedSummaries = sortEventOptionsByLatestDate(eventSummaries || []);
+    const options = [{ event_code:"all", event_name:"전체 대회" }].concat(sortedSummaries);
     return `
       <label><span>대회 선택</span><select class="ctdash-select" id="legacy_analysis_event_select">${options.map(row => `<option value="${escapeHtml(row.event_code)}" ${row.event_code === legacyAnalysisSelectedEvent ? "selected" : ""}>${escapeHtml(row.event_name || row.event_code)}</option>`).join("")}</select></label>
       ${legacyAnalysisEventPeriod === "total"
