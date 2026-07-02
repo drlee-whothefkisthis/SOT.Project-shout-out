@@ -2773,7 +2773,7 @@
         <article class="ctdash-sub-card" style="margin-top:18px;">
           <h4>사진 수 구간별 구매 분석</h4>
           <div class="ctdash-table-wrap">
-            <table class="ctdash-table">
+            <table class="ctdash-table ctdash-photo-bucket-table">
               <thead>
                 <tr>
 	                  <th>구간</th>
@@ -2855,14 +2855,39 @@
       || numberValue(row, ["revenue"]) > 0;
   }
 
+  function reportEventMetaForCode(eventCode) {
+    const code = String(eventCode || "").trim();
+    if (!code) return {};
+    const sources = [
+      ...(allEvents || []),
+      ...(currentDashEventListSnapshot?.events || []),
+      ...(sotCurrentTestData.events || []),
+      ...(sotCurrentTestData.event_summaries || [])
+    ];
+    return sources.find(item => String(item && item.event_code || "").trim() === code) || {};
+  }
+
+  function reportEventDisplayName(row) {
+    const eventCode = String(row && row.event_code || "").trim();
+    const meta = reportEventMetaForCode(eventCode);
+    return currentDashEventLabel(meta)
+      || firstText(row, ["display_name", "event_display_name", "name"])
+      || firstText(row, ["event_name"])
+      || eventCode
+      || "-";
+  }
+
   function enrichReportEventRow(row) {
     const eventCode = String(row && row.event_code || "").trim();
-    const eventMeta = (allEvents || []).find(item => String(item && item.event_code || "") === eventCode) || {};
+    const eventMeta = reportEventMetaForCode(eventCode);
+    const displayName = reportEventDisplayName({ ...(row || {}), event_code: eventCode });
     return {
       ...eventMeta,
       ...(row || {}),
       event_code: eventCode,
-      event_name: currentDashEventLabel(row) || currentDashEventLabel(eventMeta) || eventCode
+      event_name: displayName,
+      display_name: displayName,
+      event_display_name: displayName
     };
   }
 
@@ -2887,7 +2912,7 @@
 
   function reportEventSummaryTable(rows) {
     const list = Array.isArray(rows) ? rows : [];
-    return `<div class="ctdash-table-wrap"><table class="ctdash-table"><thead><tr><th>대회명</th><th>접속</th><th>검색자</th><th>검색수</th><th>장바구니수</th><th>구매수</th><th>매출액</th><th>검색→구매</th></tr></thead><tbody>${list.length ? list.map(row => `<tr><td>${escapeHtml(currentDashEventLabel(row) || row.event_code || "-")}</td><td>${formatNumber(dashboardSessionCount(row))}</td><td>${formatNumber(dashboardSearchUserCount(row))}</td><td>${formatNumber(numberValue(row, ["search_count"]))}</td><td>${formatNumber(numberValue(row, ["cart_count"]))}</td><td>${formatNumber(numberValue(row, ["purchase_count"]))}</td><td>${formatWon(numberValue(row, ["revenue"]))}</td><td>${formatPercent(safeRate(numberValue(row, ["purchase_count"]), numberValue(row, ["search_count"])))}</td></tr>`).join("") : `<tr><td colspan="8">선택한 구간에 기록이 있는 대회가 없습니다.</td></tr>`}</tbody></table></div>`;
+    return `<div class="ctdash-table-wrap"><table class="ctdash-table ctdash-report-event-summary-table"><thead><tr><th>대회명</th><th>접속</th><th>검색자</th><th>검색수</th><th>장바구니수</th><th>구매수</th><th>매출액</th><th>검색→구매</th></tr></thead><tbody>${list.length ? list.map(row => `<tr><td>${escapeHtml(reportEventDisplayName(row))}</td><td>${formatNumber(dashboardSessionCount(row))}</td><td>${formatNumber(dashboardSearchUserCount(row))}</td><td>${formatNumber(numberValue(row, ["search_count"]))}</td><td>${formatNumber(numberValue(row, ["cart_count"]))}</td><td>${formatNumber(numberValue(row, ["purchase_count"]))}</td><td>${formatWon(numberValue(row, ["revenue"]))}</td><td>${formatPercent(safeRate(numberValue(row, ["purchase_count"]), numberValue(row, ["search_count"])))}</td></tr>`).join("") : `<tr><td colspan="8">선택한 구간에 기록이 있는 대회가 없습니다.</td></tr>`}</tbody></table></div>`;
   }
 
   function summaryTable(rows) {
