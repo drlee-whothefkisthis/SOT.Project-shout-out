@@ -7,6 +7,17 @@
   const SOT_BUBBLE_APP_BASE = "https://plp-62309.bubbleapps.io";
   const SOT_ADMIN_DASHBOARD_PROXY_PATH = "/api/1.1/wf/sot-admin-dashboard";
 
+  if (!document.getElementById("sot-admin-snapshot-style-patch")) {
+    const style = document.createElement("style");
+    style.id = "sot-admin-snapshot-style-patch";
+    style.textContent = `
+      .ctdash-summary-grid .ctdash-metric-card.is-wide{grid-column:span 2;min-width:0}
+      .ctdash-metric-card.is-wide strong{white-space:normal;word-break:keep-all;line-height:1.18}
+      .ctdash-spot-card p{margin:4px 0;color:#776b5e;font-size:12px;line-height:1.35}
+    `;
+    document.head.appendChild(style);
+  }
+
   const dashboardSections = [
     { id:"overview", group:"Core", label:"1. 전체 현황", desc:"전체 KPI, 퍼널, 검색/노출을 한 화면 안에서 탭으로 확인합니다." },
     { id:"period", group:"Core", label:"2. 기간별 분석", desc:"토요일 시작 주차별 요약, 선택 주차의 일자별 상세, 선택 날짜의 00~23시 시간대별 정보를 확인합니다." },
@@ -638,6 +649,12 @@
   let currentDashStatusSnapshot = null;
   let currentDashEventListSnapshot = null;
   let currentDashInitialDateResolved = false;
+  const FIELD_REPORT_TEST_TYPE = "SOT:FieldReportTest";
+  const FIELD_REPORT_JSON_FIELD = "report_json";
+  const FIELD_REPORT_STORAGE_KEY = "shout_field_report_v2_test_drafts";
+  let fieldReportDrafts = [];
+  let fieldReportActiveId = "";
+  let fieldReportShowJson = false;
 
   function invalidateCurrentDashReportCache() {
     sotCurrentTestLoaded = false;
@@ -1090,6 +1107,7 @@
       const res = await fetch(BUBBLE_API_BASE + API_DATA_EVENT);
       const data = await res.json();
       allEvents = data.response.results || [];
+      syncFieldReportDraftsFromEvents(allEvents);
       syncMonthFilterOptions();
       applyEventFilters();
       if (refreshDashboard && sotDashLoaded) {
@@ -1097,6 +1115,7 @@
         syncSotDashboardFilters();
         if (activeAdminView === "legacy") renderSotDashboard();
       }
+      if (activeAdminView === "diary") renderCurrentTestDashboard();
     } catch(e) { $("#sh_tbody").innerHTML = "<tr><td colspan='6' style='color:red;'>로드 실패</td></tr>"; }
   }
 
@@ -1205,6 +1224,9 @@
           <input class="sh-input" type="text" id="edit_display_name_${ev._id}" value="${escapeHtml(ev.event_display_name || ev.display_name || "")}" placeholder="디스플레이 네임">
           <div style="height:8px"></div>
           <input class="sh-input" type="text" id="edit_event_code_${ev._id}" value="${escapeHtml(ev.event_code || "")}" placeholder="event_code">
+          <div style="height:8px"></div>
+          <label class="sh-label" for="edit_spots_config_json_${ev._id}">스팟 설정 JSON</label>
+          <textarea class="sh-input" id="edit_spots_config_json_${ev._id}" rows="6" placeholder="AM/BM/CM prefix별 spot_name, camera, location_memo, sort_order를 JSON 배열로 입력">${escapeHtml(ev.spots_config_json || "")}</textarea>
         </td>
         <td><input class="sh-input" type="text" inputmode="numeric" id="edit_people_${ev._id}" value="${escapeHtml(ev.people ?? "")}" placeholder="미입력"></td>
         <td>
@@ -1737,6 +1759,7 @@
     const rows = sortMetricRows(detail.daily || []);
     const detailTable = renderEventDetailTable(rows);
     const eventPurchaseCount = numberValue(summary, ["purchase_count"]);
+    const eventPurchasePhotoCount = numberValue(summary, ["purchase_photo_count"]);
     return `
       <section class="ctdash-screen">
         <article class="ctdash-card ctdash-section">
@@ -1763,15 +1786,22 @@
             <div class="ctdash-section-head"><div><div class="ctdash-kicker">Overview</div><h3>기본 요약</h3></div><span class="ctdash-tag">Snapshot</span></div>
             <div class="ctdash-summary-grid">
               ${metricCard("대회명", escapeHtml(eventName), currentDashSelectedEvent === "all" ? "전체 합산" : currentDashSelectedEvent)}
-              ${metricCard("접속수", formatNumber(dashboardSessionCount(summary)), "session_count 우선")}
+              ${metricCard("참가자 수", formatNumber(people), "Bubble 이벤트 데이터")}
               ${metricCard("검색자", formatNumber(dashboardSearchUserCount(summary)), "로컬 개수")}
+              ${metricCard("접속수", formatNumber(dashboardSessionCount(summary)), "session_count 우선")}
               ${metricCard("검색수", formatNumber(numberValue(summary, ["search_count"])), "세션 수")}
               ${metricCard("장바구니수", formatNumber(numberValue(summary, ["cart_count"])), "카트 진입")}
               ${metricCard("구매수", formatNumber(eventPurchaseCount), "결제 완료")}
-              ${metricCard("참가자 수", formatNumber(people), "Bubble 이벤트 데이터")}
+            </div>
+          </article>
+          <article class="ctdash-card ctdash-section">
+            <div class="ctdash-section-head"><div><div class="ctdash-kicker">Revenue</div><h3>매출 분석</h3></div><span class="ctdash-tag">Sales</span></div>
+            <div class="ctdash-sales-grid">
               ${metricCard("대회매출", formatWon(numberValue(summary, ["revenue"])), "선택 기간 기준")}
               ${metricCard("객단가", formatWon(avgOrderValue(summary)), "구매 1건당")}
               ${metricCard("참가자 대비 구매율", formatPercent(safeRate(eventPurchaseCount, people)), "purchase / participants")}
+              ${metricCard("구매사진수", formatNumber(eventPurchasePhotoCount), "purchase_photo_count")}
+              ${metricCard("참가자 대비 구매사진", formatPercent(safeRate(eventPurchasePhotoCount, people)), "purchase_photo / participants")}
             </div>
           </article>
           <article class="ctdash-card ctdash-section">
@@ -1812,31 +1842,435 @@
       </section>`;
   }
 
-  function renderCurrentDashDiaryView() {
+  function fieldReportNowISO() {
+    return new Date().toISOString();
+  }
+
+  function fieldReportId(seed) {
+    const key = String(seed || "").trim() || `manual-${Date.now()}`;
+    return `field-report-v2-${key}`.replace(/[^a-zA-Z0-9_-]+/g, "-");
+  }
+
+  function fieldReportWeekday(dateKey) {
+    if (!dateKey) return "";
+    const date = new Date(`${dateKey}T00:00:00+09:00`);
+    if (Number.isNaN(date.getTime())) return "";
+    return ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"][date.getDay()];
+  }
+
+  function fieldReportDateFromEvent(event) {
+    const raw = event?.event_date || event?.date || event?.report_date || event?.start_date || "";
+    if (!raw) return "";
+    const match = String(raw).match(/\d{4}-\d{2}-\d{2}/);
+    return match ? match[0] : "";
+  }
+
+  function fieldReportEventName(event) {
+    return currentDashEventLabel(event) || event?.event_display_name || event?.display_name || event?.name || "";
+  }
+
+  function cloneFieldReport(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function fieldReportDefaultEquipment() {
+    return {
+      basic: [
+        { item: "AUTO-A", owner: "이대로", spot: "START", status: "정상", note: "자동 카메라" },
+        { item: "HAND-A", owner: "박찬희", spot: "5K", status: "정상", note: "핸드 촬영" },
+        { item: "AUTO-B", owner: "규식", spot: "10K", status: "정상", note: "자동 카메라" },
+        { item: "HAND-B", owner: "이인혁", spot: "HALF", status: "정상", note: "핸드 촬영" },
+        { item: "본딩 라우터", owner: "이대로", spot: "운영본부", status: "확인 필요", note: "" }
+      ],
+      extra: [],
+      summary: [
+        { item: "DSLR-바디", count: 7 },
+        { item: "DSLR-렌즈", count: 7 },
+        { item: "DSLR-세로", count: 4 },
+        { item: "DSLR-배터리", count: 11 },
+        { item: "DSLR-스트랩", count: 4 },
+        { item: "DSLR-SD", count: 7 },
+        { item: "본딩 라우터", count: 1 },
+        { item: "보조배터리", count: 5 },
+        { item: "CtoC-케이블", count: 4 },
+        { item: "DSLR-삼각대", count: 3 },
+        { item: "라우터 스탠드", count: 1 }
+      ]
+    };
+  }
+
+  function fieldReportBaseDraft(event) {
+    const eventCode = String(event?.event_code || "").trim();
+    const reportDate = fieldReportDateFromEvent(event) || "2026-04-05";
+    const now = fieldReportNowISO();
+    return {
+      id: fieldReportId(eventCode || "sample"),
+      event_code: eventCode,
+      event_name: fieldReportEventName(event) || "2026 영주 소백산 마라톤대회",
+      source: eventCode ? "event" : "sample",
+      saved_at: "",
+      report_json: {
+        schema_version: "field_report_v2_test",
+        type: FIELD_REPORT_TEST_TYPE,
+        meta: {
+          event_code: eventCode,
+          event_name: fieldReportEventName(event) || "2026 영주 소백산 마라톤대회",
+          report_date: reportDate,
+          weekday: fieldReportWeekday(reportDate) || "일요일",
+          writer: "이대로",
+          contact: event?.contact || event?.phone || "01055330048",
+          location: event?.location || event?.place || event?.venue || "영주시민운동장",
+          weather: "",
+          temperature: "",
+          staff_text: "이대로, 박찬희, 이인혁, 규식",
+          created_at: now,
+          updated_at: now
+        },
+        staff: [
+          { name: "이대로", role: "매니저", spot: "START", start_time: "", end_time: "" },
+          { name: "박찬희", role: "포토그래퍼", spot: "5K", start_time: "", end_time: "" },
+          { name: "규식", role: "포토그래퍼", spot: "10K", start_time: "", end_time: "" },
+          { name: "이인혁", role: "포토그래퍼", spot: "HALF", start_time: "", end_time: "" }
+        ],
+        map: { image_url: "", description: "" },
+        spots: [
+          { location: "START", name: "시민운동장", concept: "준비,피니시", expected_people: "1", camera_count: "2", note: "" },
+          { location: "5K", name: "삼거리", concept: "턴", expected_people: "1", camera_count: "2", note: "" },
+          { location: "10K", name: "서천교", concept: "턴", expected_people: "1", camera_count: "2", note: "" },
+          { location: "HALF", name: "사천교", concept: "주로", expected_people: "1", camera_count: "1", note: "" }
+        ],
+        equipment: fieldReportDefaultEquipment(),
+        operation_logs: [
+          { spot: "START", start_time: "", end_time: "", shoot_count: "", memo: "" },
+          { spot: "5K", start_time: "", end_time: "", shoot_count: "", memo: "" }
+        ],
+        payments: { rows: [], total_amount: 0 },
+        issues: [],
+        daily_summary: { total_shoot_count: "", customer_response: "", improvement_note: "", general_comment: "" },
+        signatures: {
+          writer: { name: "이대로", checked: false, note: "" },
+          field_manager: { name: "", checked: false, note: "" },
+          office_confirm: { name: "", checked: false, note: "" }
+        }
+      }
+    };
+  }
+
+  function buildFieldReportDraftFromEvent(event) {
+    const draft = fieldReportBaseDraft(event);
+    const meta = draft.report_json.meta;
+    meta.event_code = String(event?.event_code || meta.event_code || "").trim();
+    meta.event_name = fieldReportEventName(event) || meta.event_name;
+    meta.report_date = fieldReportDateFromEvent(event) || meta.report_date;
+    meta.weekday = fieldReportWeekday(meta.report_date) || meta.weekday;
+    meta.location = event?.location || event?.place || event?.venue || meta.location;
+    draft.id = fieldReportId(meta.event_code || meta.event_name);
+    draft.event_code = meta.event_code;
+    draft.event_name = meta.event_name;
+    return draft;
+  }
+
+  function readStoredFieldReports() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(FIELD_REPORT_STORAGE_KEY) || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.warn("[FieldReport v2] local draft read failed", error);
+      return [];
+    }
+  }
+
+  function writeStoredFieldReports() {
+    localStorage.setItem(FIELD_REPORT_STORAGE_KEY, JSON.stringify(fieldReportDrafts));
+  }
+
+  function ensureFieldReportDraftForEvent(event) {
+    const draft = buildFieldReportDraftFromEvent(event);
+    const existingIndex = fieldReportDrafts.findIndex(item => item.id === draft.id || (draft.event_code && item.event_code === draft.event_code));
+    if (existingIndex >= 0) {
+      const existing = fieldReportDrafts[existingIndex];
+      existing.event_code = existing.event_code || draft.event_code;
+      existing.event_name = existing.event_name || draft.event_name;
+      existing.report_json.meta.event_code = existing.report_json.meta.event_code || draft.report_json.meta.event_code;
+      existing.report_json.meta.event_name = existing.report_json.meta.event_name || draft.report_json.meta.event_name;
+      existing.report_json.meta.report_date = existing.report_json.meta.report_date || draft.report_json.meta.report_date;
+      existing.report_json.meta.location = existing.report_json.meta.location || draft.report_json.meta.location;
+      return existing;
+    }
+    fieldReportDrafts.push(draft);
+    return draft;
+  }
+
+  function syncFieldReportDraftsFromEvents(events) {
+    if (!fieldReportDrafts.length) fieldReportDrafts = readStoredFieldReports();
+    (events || []).forEach(event => ensureFieldReportDraftForEvent(event));
+    if (!fieldReportDrafts.length) fieldReportDrafts.push(fieldReportBaseDraft());
+    if (!fieldReportActiveId || !fieldReportDrafts.some(draft => draft.id === fieldReportActiveId)) {
+      fieldReportActiveId = fieldReportDrafts[0].id;
+    }
+  }
+
+  function selectedFieldReportDraft() {
+    syncFieldReportDraftsFromEvents(allEvents);
+    return fieldReportDrafts.find(draft => draft.id === fieldReportActiveId) || fieldReportDrafts[0] || fieldReportBaseDraft();
+  }
+
+  function fieldReportValue(path) {
+    const draft = selectedFieldReportDraft();
+    return String(path || "").split(".").reduce((acc, key) => acc && acc[key], draft.report_json);
+  }
+
+  function setFieldReportValue(path, value) {
+    const draft = selectedFieldReportDraft();
+    const parts = String(path || "").split(".");
+    let target = draft.report_json;
+    parts.slice(0, -1).forEach(part => {
+      if (target[part] === undefined || target[part] === null) target[part] = {};
+      target = target[part];
+    });
+    target[parts[parts.length - 1]] = value;
+    draft.report_json.meta.updated_at = fieldReportNowISO();
+    updateFieldReportDerivedValues(draft);
+  }
+
+  function updateFieldReportDerivedValues(draft) {
+    const report = draft.report_json;
+    report.meta.weekday = fieldReportWeekday(report.meta.report_date) || report.meta.weekday;
+    report.meta.staff_text = (report.staff || []).map(row => row.name).filter(Boolean).join(", ");
+    report.payments.total_amount = (report.payments.rows || []).reduce((sum, row) => sum + numberValue(row, ["amount"]), 0);
+    const shootTotal = (report.operation_logs || []).reduce((sum, row) => sum + numberValue(row, ["shoot_count"]), 0);
+    if (shootTotal && !report.daily_summary.total_shoot_count) report.daily_summary.total_shoot_count = String(shootTotal);
+    draft.event_code = report.meta.event_code;
+    draft.event_name = report.meta.event_name;
+  }
+
+  function fieldReportOptions(values) {
+    return values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+  }
+
+  function fieldReportField(path, label, type, placeholder) {
+    const value = fieldReportValue(path) || "";
+    return `<label><span>${escapeHtml(label)}</span><input class="ctdash-input fr-input" data-fr-path="${escapeHtml(path)}" type="${type || "text"}" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder || "")}"></label>`;
+  }
+
+  function fieldReportTextarea(path, label, rows) {
+    const value = fieldReportValue(path) || "";
+    return `<label><span>${escapeHtml(label)}</span><textarea class="ctdash-textarea ${rows === "tall" ? "tall" : ""} fr-input" data-fr-path="${escapeHtml(path)}">${escapeHtml(value)}</textarea></label>`;
+  }
+
+  function fieldReportSelect(path, label, values) {
+    const value = fieldReportValue(path) || "";
+    return `<label><span>${escapeHtml(label)}</span><select class="ctdash-select fr-input" data-fr-path="${escapeHtml(path)}"><option value="">선택</option>${values.map(item => `<option value="${escapeHtml(item)}" ${String(value) === String(item) ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}<option value="기타" ${value === "기타" ? "selected" : ""}>기타</option></select></label>`;
+  }
+
+  function fieldReportTable(title, collectionPath, columns, options) {
+    const rows = fieldReportValue(collectionPath) || [];
+    const headers = columns.map(col => `<th>${escapeHtml(col.label)}</th>`).join("") + "<th>관리</th>";
+    const body = rows.length ? rows.map((row, index) => {
+      const cells = columns.map(col => {
+        const path = `${collectionPath}.${index}.${col.key}`;
+        if (col.type === "select") return `<td><select class="ctdash-select fr-table-input" data-fr-path="${escapeHtml(path)}"><option value="">선택</option>${(col.options || []).map(item => `<option value="${escapeHtml(item)}" ${String(row[col.key] || "") === String(item) ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}<option value="기타" ${row[col.key] === "기타" ? "selected" : ""}>기타</option></select></td>`;
+        return `<td><input class="ctdash-input fr-table-input" data-fr-path="${escapeHtml(path)}" type="${col.type || "text"}" value="${escapeHtml(row[col.key] || "")}"></td>`;
+      }).join("");
+      return `<tr>${cells}<td><button class="sh-btn-sm" type="button" data-fr-delete="${escapeHtml(collectionPath)}" data-fr-index="${index}">삭제</button></td></tr>`;
+    }).join("") : `<tr><td colspan="${columns.length + 1}">데이터 없음</td></tr>`;
     return `
-      <section class="ctdash-screen">
-        <article class="ctdash-card ctdash-section">
+      <article class="ctdash-card ctdash-section fr-section">
+        <div class="ctdash-section-head"><div><div class="ctdash-kicker">${escapeHtml(options?.kicker || "Field Report")}</div><h3>${escapeHtml(title)}</h3></div><button class="sh-btn-sm" type="button" data-fr-add="${escapeHtml(collectionPath)}">행 추가</button></div>
+        <div class="ctdash-table-wrap"><table class="ctdash-table fr-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table></div>
+      </article>`;
+  }
+
+  function fieldReportBlankRow(collectionPath) {
+    const map = {
+      staff: { name: "", role: "", spot: "", start_time: "", end_time: "" },
+      spots: { location: "", name: "", concept: "", expected_people: "", camera_count: "", note: "" },
+      "equipment.basic": { item: "", owner: "", spot: "", status: "", note: "" },
+      "equipment.extra": { item: "", owner: "", spot: "", status: "", note: "" },
+      "equipment.summary": { item: "", count: "" },
+      operation_logs: { spot: "", start_time: "", end_time: "", shoot_count: "", memo: "" },
+      "payments.rows": { payer: "", method: "", amount: "", note: "" },
+      issues: { time: "", type: "", description: "", status: "", owner: "" }
+    };
+    return cloneFieldReport(map[collectionPath] || {});
+  }
+
+  function addFieldReportRow(collectionPath) {
+    const rows = fieldReportValue(collectionPath);
+    if (Array.isArray(rows)) rows.push(fieldReportBlankRow(collectionPath));
+    updateFieldReportDerivedValues(selectedFieldReportDraft());
+    renderCurrentTestDashboard();
+  }
+
+  function deleteFieldReportRow(collectionPath, index) {
+    const rows = fieldReportValue(collectionPath);
+    if (Array.isArray(rows)) rows.splice(Number(index), 1);
+    updateFieldReportDerivedValues(selectedFieldReportDraft());
+    renderCurrentTestDashboard();
+  }
+
+  function saveFieldReportTest() {
+    updateFieldReportDerivedValues(selectedFieldReportDraft());
+    selectedFieldReportDraft().saved_at = fieldReportNowISO();
+    writeStoredFieldReports();
+    renderCurrentTestDashboard();
+  }
+
+  function resetFieldReportTestDraft() {
+    const current = selectedFieldReportDraft();
+    const event = allEvents.find(row => row.event_code === current.event_code) || {};
+    const next = buildFieldReportDraftFromEvent(event);
+    const index = fieldReportDrafts.findIndex(row => row.id === current.id);
+    if (index >= 0) fieldReportDrafts[index] = next;
+    fieldReportActiveId = next.id;
+    renderCurrentTestDashboard();
+  }
+
+  function realSaveFieldReportTest(reportState) {
+    console.warn("[FieldReport v2] real save TODO", {
+      type: FIELD_REPORT_TEST_TYPE,
+      field: FIELD_REPORT_JSON_FIELD,
+      reportState
+    });
+  }
+
+  function renderCurrentDashDiaryView() {
+    syncFieldReportDraftsFromEvents(allEvents);
+    const draft = selectedFieldReportDraft();
+    updateFieldReportDerivedValues(draft);
+    const report = draft.report_json;
+    const staffOptions = (report.staff || []).map(row => row.name).filter(Boolean);
+    const spotOptions = (report.spots || []).map(row => row.location || row.name).filter(Boolean);
+    const draftOptions = fieldReportDrafts.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === fieldReportActiveId ? "selected" : ""}>${escapeHtml(item.event_name || item.event_code || "무제 일지")}</option>`).join("");
+    return `
+      <section class="ctdash-screen fr-shell">
+        <article class="ctdash-card ctdash-section fr-hero">
           <div class="ctdash-section-head">
             <div>
-              <div class="ctdash-kicker">Diary</div>
+              <div class="ctdash-kicker">Field Report v2 Test</div>
               <h3>일지 작성</h3>
-              <p>현재는 샤라웃 현장운영일지 베이스의 입력 와꾸만 넣었고, 저장 연동은 아직 연결하지 않았습니다.</p>
+              <p>SHOUT-OUT 현장운영일지 양식 기준의 테스트 복제본입니다. 실제 Bubble 저장은 호출하지 않고 ${escapeHtml(FIELD_REPORT_JSON_FIELD)} mock 상태만 생성합니다.</p>
             </div>
-            <span class="ctdash-tag">Layout Only</span>
+            <span class="ctdash-tag">복제본 전용</span>
           </div>
+          <div class="fr-toolbar">
+            <label><span>일지 선택</span><select class="ctdash-select" id="field_report_draft_select">${draftOptions}</select></label>
+            <button class="ctdash-refresh" type="button" data-fr-action="save">mock 저장</button>
+            <button class="sh-btn-sm" type="button" data-fr-action="toggle-json">${fieldReportShowJson ? "JSON 숨기기" : "JSON 보기"}</button>
+            <button class="sh-btn-sm" type="button" data-fr-action="reset">초기화</button>
+          </div>
+          <div class="ctdash-callout">Event 목록을 읽어 대회별 일지 초안을 자동 생성합니다. Event 생성 API와 Bubble schema는 변경하지 않습니다.</div>
+        </article>
+
+        <article class="ctdash-card ctdash-section fr-section">
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">1</div><h3>기본 정보</h3></div><span class="ctdash-tag">${escapeHtml(report.meta.weekday || "요일 미정")}</span></div>
           <div class="ctdash-form-grid">
-            <label><span>대회명</span><input class="ctdash-input" type="text" placeholder="대회명"></label>
-            <label><span>운영일자</span><input class="ctdash-input" type="date"></label>
-            <label><span>현장 책임자</span><input class="ctdash-input" type="text" placeholder="이름"></label>
-            <label><span>날씨 / 특이사항</span><input class="ctdash-input" type="text" placeholder="맑음, 우천 등"></label>
+            ${fieldReportField("meta.event_name", "이벤트명", "text", "대회명")}
+            ${fieldReportField("meta.event_code", "event_code", "text", "260000-aa")}
+            ${fieldReportField("meta.report_date", "날짜", "date")}
+            ${fieldReportField("meta.writer", "작성자", "text")}
+            ${fieldReportField("meta.contact", "연락처", "text")}
+            ${fieldReportField("meta.location", "장소", "text")}
+            ${fieldReportField("meta.weather", "날씨", "text")}
+            ${fieldReportField("meta.temperature", "기온", "text")}
+          </div>
+          ${fieldReportTextarea("meta.staff_text", "참여 스탭", "tall")}
+        </article>
+
+        ${fieldReportTable("2. 투입 인원", "staff", [
+          { key:"name", label:"이름" },
+          { key:"role", label:"역할", type:"select", options:["매니저", "포토그래퍼", "운영", "장비"] },
+          { key:"spot", label:"배치 스팟", type:"select", options:spotOptions },
+          { key:"start_time", label:"출근", type:"time" },
+          { key:"end_time", label:"퇴근", type:"time" }
+        ], { kicker:"Staff" })}
+
+        <article class="ctdash-card ctdash-section fr-section">
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">3</div><h3>당일 현장 배치도 MAP</h3></div><span class="ctdash-tag">URL 입력</span></div>
+          <div class="ctdash-form-grid">
+            ${fieldReportField("map.image_url", "이미지 URL", "url")}
+            ${fieldReportTextarea("map.description", "설명", "tall")}
+          </div>
+        </article>
+
+        ${fieldReportTable("4. 촬영 스팟", "spots", [
+          { key:"location", label:"위치" },
+          { key:"name", label:"명칭" },
+          { key:"concept", label:"촬영 컨셉", type:"select", options:["준비", "피니시", "턴", "주로", "포토월"] },
+          { key:"expected_people", label:"예상 인원" },
+          { key:"camera_count", label:"카메라 수" },
+          { key:"note", label:"비고" }
+        ], { kicker:"Spots" })}
+
+        <div class="fr-two-col">
+          ${fieldReportTable("5-1. 기본 장비", "equipment.basic", [
+            { key:"item", label:"장비명", type:"select", options:["AUTO-A", "HAND-A", "AUTO-B", "HAND-B", "본딩 라우터", "라우터 스탠드"] },
+            { key:"owner", label:"담당자", type:"select", options:staffOptions },
+            { key:"spot", label:"배치 스팟", type:"select", options:spotOptions },
+            { key:"status", label:"상태", type:"select", options:["정상", "확인 필요", "분실", "수리 필요"] },
+            { key:"note", label:"비고" }
+          ], { kicker:"Equipment" })}
+          ${fieldReportTable("5-2. 장비 합계", "equipment.summary", [
+            { key:"item", label:"품목" },
+            { key:"count", label:"수량", type:"number" }
+          ], { kicker:"Summary" })}
+        </div>
+        ${fieldReportTable("5-3. 추가 장비", "equipment.extra", [
+          { key:"item", label:"장비명" },
+          { key:"owner", label:"담당자", type:"select", options:staffOptions },
+          { key:"spot", label:"배치 스팟", type:"select", options:spotOptions },
+          { key:"status", label:"상태", type:"select", options:["정상", "확인 필요", "분실", "수리 필요"] },
+          { key:"note", label:"비고" }
+        ], { kicker:"Extra" })}
+
+        ${fieldReportTable("6. 스팟별 운영 시간 일지", "operation_logs", [
+          { key:"spot", label:"스팟", type:"select", options:spotOptions },
+          { key:"start_time", label:"시작", type:"time" },
+          { key:"end_time", label:"종료", type:"time" },
+          { key:"shoot_count", label:"촬영 건수", type:"number" },
+          { key:"memo", label:"메모" }
+        ], { kicker:"Operation" })}
+
+        ${fieldReportTable("7. 현장 결제 목록", "payments.rows", [
+          { key:"payer", label:"고객/배번호" },
+          { key:"method", label:"결제 방법", type:"select", options:["카드", "현금", "계좌이체", "기타"] },
+          { key:"amount", label:"금액", type:"number" },
+          { key:"note", label:"비고" }
+        ], { kicker:`합계 ${formatWon(report.payments.total_amount)}` })}
+
+        ${fieldReportTable("8. 이슈 및 돌발 상황", "issues", [
+          { key:"time", label:"시간", type:"time" },
+          { key:"type", label:"유형" },
+          { key:"description", label:"내용" },
+          { key:"status", label:"처리 상태", type:"select", options:["접수", "처리 중", "완료", "보류"] },
+          { key:"owner", label:"담당자", type:"select", options:staffOptions }
+        ], { kicker:"Issues" })}
+
+        <article class="ctdash-card ctdash-section fr-section">
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">9</div><h3>데일리 서머리</h3></div><span class="ctdash-tag">수동 수정 가능</span></div>
+          <div class="ctdash-form-grid">
+            ${fieldReportField("daily_summary.total_shoot_count", "총 촬영 건수", "number")}
+            ${fieldReportTextarea("daily_summary.customer_response", "고객 반응")}
+            ${fieldReportTextarea("daily_summary.improvement_note", "개선 사항")}
+            ${fieldReportTextarea("daily_summary.general_comment", "종합 메모", "tall")}
+          </div>
+        </article>
+
+        <article class="ctdash-card ctdash-section fr-section">
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">10</div><h3>확인 서명</h3></div><span class="ctdash-tag">체크</span></div>
+          <div class="ctdash-form-grid three">
+            ${fieldReportField("signatures.writer.name", "작성자", "text")}
+            ${fieldReportField("signatures.field_manager.name", "현장 책임자", "text")}
+            ${fieldReportField("signatures.office_confirm.name", "사무실 확인", "text")}
           </div>
           <div class="ctdash-form-grid three">
-            <label><span>스탭 구성</span><textarea class="ctdash-textarea" placeholder="AM / BM / CM 담당자"></textarea></label>
-            <label><span>장비 / 세팅</span><textarea class="ctdash-textarea" placeholder="카메라, 프린터, 네트워크"></textarea></label>
-            <label><span>이슈 / 조치</span><textarea class="ctdash-textarea" placeholder="이슈 기록"></textarea></label>
+            ${fieldReportTextarea("signatures.writer.note", "작성자 메모")}
+            ${fieldReportTextarea("signatures.field_manager.note", "현장 책임자 메모")}
+            ${fieldReportTextarea("signatures.office_confirm.note", "사무실 확인 메모")}
           </div>
-          <label><span>데일리 서머리</span><textarea class="ctdash-textarea tall" placeholder="운영 요약, 고객 반응, 개선 사항"></textarea></label>
         </article>
+
+        ${fieldReportShowJson ? `<article class="ctdash-card ctdash-section fr-section"><div class="ctdash-section-head"><div><div class="ctdash-kicker">JSON</div><h3>${escapeHtml(FIELD_REPORT_JSON_FIELD)}</h3></div><span class="ctdash-tag">${escapeHtml(FIELD_REPORT_TEST_TYPE)}</span></div><pre class="fr-json">${escapeHtml(JSON.stringify(report, null, 2))}</pre></article>` : ""}
       </section>`;
   }
 
@@ -1971,7 +2405,8 @@
   }
 
   function metricCard(label, value, note) {
-    return `<article class="ctdash-metric-card"><h4>${label}</h4><strong>${value}</strong><p>${note || ""}</p></article>`;
+    const extraClass = label === "대회명" ? " is-wide" : "";
+    return `<article class="ctdash-metric-card${extraClass}"><h4>${label}</h4><strong>${value}</strong><p>${note || ""}</p></article>`;
   }
 
   function conversionCard(label, numerator, denominator) {
@@ -2004,11 +2439,39 @@
 
   function renderCurrentDashSpotCard(spot) {
     const label = firstText(spot, ["spot_label", "spot_name", "spot_key", "prefix", "spot_code", "label"]) || "스팟";
+    const prefix = firstText(spot, ["prefix", "spot_key", "spot_code"]) || "-";
+    const camera = firstText(spot, ["camera"]) || "";
+    const locationMemo = firstText(spot, ["location_memo"]) || "";
+    const mappingStatus = firstText(spot, ["mapping_status"]) || "unmapped";
     const orderCount = numberValue(spot, ["order_count", "purchase_count"]);
     const revenue = numberValue(spot, ["allocated_revenue", "revenue"]);
     const photoCount = numberValue(spot, ["sold_photo_count", "purchase_photo_count", "photo_count", "cart_photo_count"]);
     const revenueShare = numberValue(spot, ["revenue_share"]);
-    return `<article class="ctdash-spot-card"><h4>${escapeHtml(label)}</h4><strong>${formatNumber(photoCount)}장</strong><div class="ctdash-spot-row"><span>매출</span><b>${formatWon(revenue)}</b></div><div class="ctdash-spot-row"><span>주문 수</span><b>${formatNumber(orderCount)}</b></div><div class="ctdash-spot-row"><span>매출 비중</span><b>${formatPercent(revenueShare)}</b></div></article>`;
+    const photoShare = numberValue(spot, ["photo_share"]);
+    const capturedPhotoCount = numberValue(spot, ["captured_photo_count"]);
+    const validPhotoCount = numberValue(spot, ["valid_photo_count"]);
+    const validPhotoRate = numberValue(spot, ["valid_photo_rate"]);
+    const singlePhotoCount = numberValue(spot, ["single_sold_photo_count"]);
+    const packagePhotoCount = numberValue(spot, ["package_sold_photo_count"]);
+    const singleOrderCount = numberValue(spot, ["single_order_count"]);
+    const packageOrderCount = numberValue(spot, ["package_order_count"]);
+    const singleRevenue = numberValue(spot, ["single_revenue"]);
+    const packageRevenue = numberValue(spot, ["package_allocated_revenue"]);
+    return `<article class="ctdash-spot-card">
+      <h4>${escapeHtml(label)}</h4>
+      <p>${escapeHtml(prefix)} · ${escapeHtml(mappingStatus)}</p>
+      ${camera ? `<p>${escapeHtml(camera)}</p>` : ""}
+      ${locationMemo ? `<p>${escapeHtml(locationMemo)}</p>` : ""}
+      <strong>${formatNumber(photoCount)}장</strong>
+      <div class="ctdash-spot-row"><span>촬영 / 유효</span><b>${formatNumber(capturedPhotoCount)} / ${formatNumber(validPhotoCount)}</b></div>
+      <div class="ctdash-spot-row"><span>유효율</span><b>${formatPercent(validPhotoRate)}</b></div>
+      <div class="ctdash-spot-row"><span>단품 / 패키지 사진</span><b>${formatNumber(singlePhotoCount)} / ${formatNumber(packagePhotoCount)}</b></div>
+      <div class="ctdash-spot-row"><span>주문 수</span><b>${formatNumber(orderCount)}</b></div>
+      <div class="ctdash-spot-row"><span>단품 / 패키지 주문</span><b>${formatNumber(singleOrderCount)} / ${formatNumber(packageOrderCount)}</b></div>
+      <div class="ctdash-spot-row"><span>매출</span><b>${formatWon(revenue)}</b></div>
+      <div class="ctdash-spot-row"><span>단품 / 패키지 매출</span><b>${formatWon(singleRevenue)} / ${formatWon(packageRevenue)}</b></div>
+      <div class="ctdash-spot-row"><span>매출 / 사진 비중</span><b>${formatPercent(revenueShare)} / ${formatPercent(photoShare)}</b></div>
+    </article>`;
   }
 
   function renderPhotoExposurePendingSection() {
@@ -3671,6 +4134,20 @@
     const people = document.getElementById(`edit_people_${id}`);
     const nameSearch = document.getElementById(`edit_name_search_enabled_${id}`);
     const isPublic = document.getElementById(`edit_is_public_${id}`);
+    const spotsConfig = document.getElementById(`edit_spots_config_json_${id}`);
+    const spotsConfigText = spotsConfig && spotsConfig.value ? spotsConfig.value.trim() : "";
+    if (spotsConfigText) {
+      try {
+        const parsed = JSON.parse(spotsConfigText);
+        if (!Array.isArray(parsed)) {
+          alert("스팟 설정 JSON은 배열 형태여야 합니다.");
+          return;
+        }
+      } catch (error) {
+        alert("스팟 설정 JSON 형식이 올바르지 않습니다.");
+        return;
+      }
+    }
 
     const payload = {
       event_date: kstDateInputToISO(eventDate && eventDate.value),
@@ -3678,11 +4155,13 @@
       event_code: (eventCode && eventCode.value.trim()) || "",
       publish_at: kstDateTimeInputToISO(publishAt && publishAt.value),
       name_search_enabled: nameSearch && nameSearch.value === "true",
-      is_public: isPublic && isPublic.value === "true"
+      is_public: isPublic && isPublic.value === "true",
+      spots_config_json: spotsConfigText
     };
     applyPeoplePayload(payload, people && people.value);
 
     Object.keys(payload).forEach(key => {
+      if (key === "spots_config_json") return;
       if (payload[key] === null || payload[key] === undefined || payload[key] === "") delete payload[key];
     });
 
@@ -3748,6 +4227,35 @@
       if (currentTestRefreshButton) {
         console.log("[SOT Current Test] refresh button clicked");
         refreshCurrentDashSelection();
+        return;
+      }
+
+      const fieldReportAction = e.target.closest("[data-fr-action]");
+      if (fieldReportAction) {
+        const action = fieldReportAction.dataset.frAction;
+        if (action === "save") {
+          saveFieldReportTest();
+          realSaveFieldReportTest(selectedFieldReportDraft().report_json);
+        }
+        if (action === "toggle-json") {
+          fieldReportShowJson = !fieldReportShowJson;
+          renderCurrentTestDashboard();
+        }
+        if (action === "reset") {
+          resetFieldReportTestDraft();
+        }
+        return;
+      }
+
+      const fieldReportAdd = e.target.closest("[data-fr-add]");
+      if (fieldReportAdd) {
+        addFieldReportRow(fieldReportAdd.dataset.frAdd);
+        return;
+      }
+
+      const fieldReportDelete = e.target.closest("[data-fr-delete]");
+      if (fieldReportDelete) {
+        deleteFieldReportRow(fieldReportDelete.dataset.frDelete, fieldReportDelete.dataset.frIndex);
         return;
       }
 
@@ -3824,8 +4332,17 @@
       renderSotDashboard();
       logDashboardCacheRebuild("source filter change");
     });
-    document.addEventListener("change", e => {
-      if (e.target && e.target.id === "ctdash_report_date_input") {
+	    document.addEventListener("change", e => {
+	      if (e.target && e.target.id === "field_report_draft_select") {
+	        fieldReportActiveId = e.target.value || "";
+	        renderCurrentTestDashboard();
+	        return;
+	      }
+	      if (e.target && e.target.matches(".fr-input,.fr-table-input")) {
+	        setFieldReportValue(e.target.dataset.frPath, e.target.type === "checkbox" ? e.target.checked : e.target.value);
+	        return;
+	      }
+	      if (e.target && e.target.id === "ctdash_report_date_input") {
         currentDashReportSelectedDateKey = e.target.value || yesterdayKSTDateKey();
         currentDashReportSelectedWeekKey = sotWeekKeyFromDateKey(currentDashReportSelectedDateKey);
         currentDashReportSelectedMonthKey = monthKeyFromDateKey(currentDashReportSelectedDateKey);
@@ -3939,8 +4456,13 @@
         ensureSelectedDateKey();
         renderSotDashboard();
         logDashboardCacheRebuild("revenue week filter change");
-      }
-    });
+	      }
+	    });
+	    document.addEventListener("input", e => {
+	      if (e.target && e.target.matches(".fr-input,.fr-table-input")) {
+	        setFieldReportValue(e.target.dataset.frPath, e.target.type === "checkbox" ? e.target.checked : e.target.value);
+	      }
+	    });
     $("#sh_month_filter").addEventListener("change", (e) => {
       activeEventMonth = e.target.value || "all";
       applyEventFilters();
@@ -3966,6 +4488,12 @@
           body: JSON.stringify(payload)
         });
         if(res.ok) {
+          ensureFieldReportDraftForEvent({
+            event_code: payload.event_code,
+            event_display_name: payload.event_display_name,
+            event_date: payload.event_date
+          });
+          writeStoredFieldReports();
           alert("생성 성공");
           $("#sh_people").value = "";
           fetchData({ refreshDashboard: true });
