@@ -1045,6 +1045,7 @@
     if (viewName === "report") {
       if (currentDashReportPeriod === "weekly") return weekLabelForMonth(currentDashReportSelectedMonthKey, currentDashReportSelectedWeekKey) || currentDashPeriodKeyForView("report") || "주차별";
       if (currentDashReportPeriod === "monthly") return currentDashPeriodKeyForView("report") || "월별";
+      if (currentDashReportPeriod === "total") return "total";
       return currentDashReportSelectedDateKey || "일별";
     }
     if (viewName === "event-analysis") {
@@ -1360,6 +1361,7 @@
     if (viewName === "report") {
       if (currentDashReportPeriod === "weekly") return "report_weekly";
       if (currentDashReportPeriod === "monthly") return "report_monthly";
+      if (currentDashReportPeriod === "total") return "report_total";
       return "report_daily";
     }
     if (viewName === "event-analysis") {
@@ -1380,6 +1382,9 @@
       }
       if (currentDashReportPeriod === "monthly") {
         return currentDashReportSelectedMonthKey || monthKeyFromDateKey(dateKey);
+      }
+      if (currentDashReportPeriod === "total") {
+        return "total";
       }
       return dateKey;
     }
@@ -1684,6 +1689,9 @@
   }
 
   function currentDashReportScopeControls() {
+    if (currentDashReportPeriod === "total") {
+      return `<label><span>전체 기준</span><input class="ctdash-input" type="text" value="total" disabled></label>`;
+    }
     if (currentDashReportPeriod === "monthly") {
       return `<label><span>월 선택</span><input class="ctdash-input" type="month" id="ctdash_report_month_input" value="${escapeHtml(currentDashReportSelectedMonthKey || monthKeyFromDateKey(currentDashReportSelectedDateKey || todayKSTDateKey()))}"></label>`;
     }
@@ -1760,6 +1768,7 @@
               <button class="ctdash-chip ${currentDashReportPeriod === "daily" ? "is-active" : ""}" type="button" data-ctdash-report-period="daily">일별</button>
               <button class="ctdash-chip ${currentDashReportPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-report-period="weekly">주차별</button>
               <button class="ctdash-chip ${currentDashReportPeriod === "monthly" ? "is-active" : ""}" type="button" data-ctdash-report-period="monthly">월별</button>
+              <button class="ctdash-chip ${currentDashReportPeriod === "total" ? "is-active" : ""}" type="button" data-ctdash-report-period="total">전체</button>
             </div>
           </div>
           <div class="ctdash-inline-fields">${currentDashReportScopeControls()}</div>
@@ -1791,42 +1800,39 @@
             <div class="ctdash-tooltip" id="ctdashReportTooltip"></div>
           </div>
         </article>
-        <div class="ctdash-two-col">
-          <article class="ctdash-card ctdash-section">
-            <div class="ctdash-section-head">
-              <div>
-                <div class="ctdash-kicker">Conversion</div>
-                <h3>전환율</h3>
-              </div>
+        <article class="ctdash-card ctdash-section">
+          <div class="ctdash-section-head">
+            <div>
+              <div class="ctdash-kicker">Conversion</div>
+              <h3>전환율</h3>
+            </div>
             <span class="ctdash-tag">Percent</span>
-            </div>
-            <div class="ctdash-conv-grid">
-              ${conversionCard("접속 → 검색", dashboardSearchUserCount(state), dashboardSessionCount(state))}
-              ${conversionCard("검색 → 카트", numberValue(state, ["cart_count"]), numberValue(state, ["search_count"]))}
-              ${conversionCard("카트 → 구매", numberValue(state, ["purchase_count"]), numberValue(state, ["cart_count"]))}
-            </div>
-          </article>
-        </div>
-        <div class="ctdash-two-col">
-          <article class="ctdash-card ctdash-section">
-            <div class="ctdash-section-head"><div><div class="ctdash-kicker">Traffic</div><h3>유입별</h3></div><span class="ctdash-tag">Campaign / Source</span></div>
-            <div class="ctdash-sub-grid">
-              ${rankSection("캠페인", topRankRows(sotCurrentTestData.campaigns || [], ["utm_campaign", "label"]))}
-              ${rankSection("소스", topRankRows(sotCurrentTestData.sources || [], ["utm_source", "label"]))}
-              ${rankSection("디바이스", topRankRows(sotCurrentTestData.devices || [], ["device_type", "label"]))}
-              ${rankSection("OS", topRankRows(sotCurrentTestData.devices || [], ["os_type", "label"]))}
-            </div>
-          </article>
-          <article class="ctdash-card ctdash-section">
-            <div class="ctdash-section-head"><div><div class="ctdash-kicker">Sales</div><h3>매출</h3></div><span class="ctdash-tag">Revenue</span></div>
-            <div class="ctdash-sales-grid">
-              ${metricCard("참가자 수", formatNumber(people), "Bubble 이벤트 데이터")}
-              ${metricCard("객단가", formatWon(avgOrderValue(state)), "구매 1건당")}
-              ${metricCard("일매출", formatWon(numberValue(state, ["revenue"])), "선택 기간 합계")}
-              ${metricCard("참가자 대비 사진 구매율", formatPercent(safeRate(numberValue(state, ["purchase_count"]), people)), "로컬 기준")}
-            </div>
-          </article>
-        </div>
+          </div>
+          <div class="ctdash-conv-grid ctdash-wide-grid">
+            ${conversionCard("접속 → 검색", dashboardSearchUserCount(state), dashboardSessionCount(state))}
+            ${conversionCard("검색 → 카트", numberValue(state, ["cart_count"]), numberValue(state, ["search_count"]))}
+            ${conversionCard("카트 → 구매", numberValue(state, ["purchase_count"]), numberValue(state, ["cart_count"]))}
+          </div>
+        </article>
+        <article class="ctdash-card ctdash-section">
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Sales</div><h3>매출 분석</h3></div><span class="ctdash-tag">Revenue</span></div>
+          <div class="ctdash-sales-grid">
+            ${renderRevenueCards(state, people, { labelPrefix: "기간", spots: sotCurrentTestData.spots || [] })}
+          </div>
+        </article>
+        <article class="ctdash-card ctdash-section">
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Summary</div><h3>대회별 요약</h3></div><span class="ctdash-tag">Snapshot</span></div>
+          ${summaryTable((sotCurrentTestData.event_summaries || []).slice(0, 12))}
+        </article>
+        <article class="ctdash-card ctdash-section">
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Traffic</div><h3>유입별</h3></div><span class="ctdash-tag">Campaign / Source</span></div>
+          <div class="ctdash-sub-grid">
+            ${rankSection("캠페인", topRankRows(sotCurrentTestData.campaigns || [], ["utm_campaign", "label"]))}
+            ${rankSection("소스", topRankRows(sotCurrentTestData.sources || [], ["utm_source", "label"]))}
+            ${rankSection("디바이스", topRankRows(sotCurrentTestData.devices || [], ["device_type", "label"]))}
+            ${rankSection("OS", topRankRows(sotCurrentTestData.devices || [], ["os_type", "label"]))}
+          </div>
+        </article>
         ${photoCounts.length ? renderPhotoExposureSection(state, currentDashReportScopeLabel()) : renderPhotoExposurePendingSection()}
       </section>`;
   }
@@ -1881,11 +1887,7 @@
           <article class="ctdash-card ctdash-section">
             <div class="ctdash-section-head"><div><div class="ctdash-kicker">Revenue</div><h3>매출 분석</h3></div><span class="ctdash-tag">Sales</span></div>
             <div class="ctdash-sales-grid">
-              ${metricCard("대회매출", formatWon(numberValue(summary, ["revenue"])), "선택 기간 기준")}
-              ${metricCard("객단가", formatWon(avgOrderValue(summary)), "구매 1건당")}
-              ${metricCard("참가자 대비 구매율", formatPercent(safeRate(eventPurchaseCount, people)), "purchase / participants")}
-              ${metricCard("구매사진수", formatNumber(eventPurchasePhotoCount), "purchase_photo_count")}
-              ${metricCard("참가자 대비 구매사진", formatPercent(safeRate(eventPurchasePhotoCount, people)), "purchase_photo / participants")}
+              ${renderRevenueCards(summary, people, { labelPrefix: "대회", spots })}
             </div>
           </article>
           <article class="ctdash-card ctdash-section ctdash-spot-section">
@@ -1919,10 +1921,11 @@
             ${rankSection("OS", topRankRows(detail.devices || [], ["os_type", "label"]))}
           </div>
         </article>
+        ${currentDashSelectedEvent === "all" ? `
         <article class="ctdash-card ctdash-section">
-          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Summary</div><h3>대회별 요약</h3></div><span class="ctdash-tag">Daily Snapshot</span></div>
-          ${summaryTable((sotCurrentTestData.event_summaries || []).slice(0, 8))}
-        </article>
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Summary</div><h3>대회별 요약</h3></div><span class="ctdash-tag">Snapshot</span></div>
+          ${summaryTable((sotCurrentTestData.event_summaries || []).slice(0, 12))}
+        </article>` : ""}
       </section>`;
   }
 
@@ -2522,6 +2525,35 @@
     const revenue = numberValue(row, ["revenue"]);
     const purchases = numberValue(row, ["purchase_count"]);
     return purchases ? Math.round(revenue / purchases) : 0;
+  }
+
+  function avgPurchasePhotoPerPurchase(row) {
+    const purchases = numberValue(row, ["purchase_count"]);
+    const photos = numberValue(row, ["purchase_photo_count"]);
+    return purchases ? photos / purchases : 0;
+  }
+
+  function totalSellablePhotoCount(spots) {
+    return (Array.isArray(spots) ? spots : []).reduce((sum, spot) => {
+      return sum + numberValue(spot, ["valid_photo_count", "sellable_photo_count", "saleable_photo_count"]);
+    }, 0);
+  }
+
+  function renderRevenueCards(summary, people, options) {
+    const opts = options || {};
+    const labelPrefix = opts.labelPrefix || "대회";
+    const spots = Array.isArray(opts.spots) ? opts.spots : [];
+    const purchaseCount = numberValue(summary, ["purchase_count"]);
+    const purchasePhotoCount = numberValue(summary, ["purchase_photo_count"]);
+    const sellablePhotoCount = totalSellablePhotoCount(spots);
+    return `
+      ${metricCard(`${labelPrefix}매출`, formatWon(numberValue(summary, ["revenue"])), "선택 기간 기준")}
+      ${metricCard("객단가", formatWon(avgOrderValue(summary)), "구매 1건당")}
+      ${metricCard("평균구매수", `${avgPurchasePhotoPerPurchase(summary).toFixed(1)}장`, "구매 1건당 사진")}
+      ${metricCard("구매사진수", formatNumber(purchasePhotoCount), "purchase_photo_count")}
+      ${metricCard("구매율(참가자대비)", formatPercent(safeRate(purchaseCount, people)), "purchase / participants")}
+      ${metricCard("구매율(찍은사진대비)", formatPercent(safeRate(purchasePhotoCount, sellablePhotoCount)), `purchase_photo / ${formatNumber(sellablePhotoCount)}장`)}
+    `;
   }
 
   function renderCurrentDashSpotCard(spot) {
