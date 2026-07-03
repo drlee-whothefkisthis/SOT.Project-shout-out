@@ -3294,12 +3294,17 @@
     return (Array.isArray(payload && payload[key]) ? payload[key] : []).map(row => normalizeLegacySnapshotMetricRow(row, base));
   }
 
-  function legacySnapshotSummaryAggregate(payload) {
-    const summary = normalizeLegacySnapshotMetricRow(payload && payload.summary || {}, {
+  function legacySnapshotSummaryRow(payload) {
+    return normalizeLegacySnapshotMetricRow(payload && payload.summary || {}, {
       data_source: payload && payload.data_source || "legacy_snapshot",
       period_key: payload && payload.period_key || "",
+      date_key: payload && payload.period_key || "",
       event_code: payload && payload.event_code || "all"
     });
+  }
+
+  function legacySnapshotSummaryAggregate(payload) {
+    const summary = legacySnapshotSummaryRow(payload);
     return aggregateLegacyMetricRows(Object.keys(summary).length ? [summary] : []);
   }
 
@@ -3314,6 +3319,10 @@
   function buildLegacyV2ReportSnapshotModel(payload, options) {
     const dailyRows = legacySnapshotRows(payload, "daily");
     const hourlyRows = legacySnapshotRows(payload, "hourly");
+    const summaryRow = legacySnapshotSummaryRow(payload);
+    const flowRows = dailyRows.length
+      ? dailyRows
+      : (hourlyRows.length ? hourlyRows : (Object.keys(summaryRow).length ? [summaryRow] : []));
     const amountRows = legacySnapshotAmountRows(payload);
     const hasAmountBucket = amountRows.some(row => firstText(row, ["amount_bucket", "amount_range", "bucket", "price_bucket", "label"]));
     return {
@@ -3321,7 +3330,7 @@
       dataSource: options && options.dataSource || "legacy_snapshot",
       aggregateSource: "dashboard_snapshot",
       summary: legacySnapshotSummaryAggregate(payload),
-      daily: aggregateLegacyRowsByKey(dailyRows, legacyDateKey),
+      daily: aggregateLegacyRowsByKey(flowRows, legacyDateKey),
       hourly: aggregateLegacyRowsByKey(hourlyRows, legacyHourKey),
       amountBuckets: hasAmountBucket
         ? aggregateLegacyRowsByKey(amountRows, row => firstText(row, ["amount_bucket", "amount_range", "bucket", "price_bucket", "label"]))
@@ -3346,6 +3355,10 @@
     }).sort((a, b) => Number(b.aggregate.values.revenue || 0) - Number(a.aggregate.values.revenue || 0));
     const dailyRows = legacySnapshotRows(payload, "daily").filter(row => selectedEvent === "all" || String(row.event_code || selectedEvent) === selectedEvent);
     const hourlyRows = legacySnapshotRows(payload, "hourly").filter(row => selectedEvent === "all" || String(row.event_code || selectedEvent) === selectedEvent);
+    const summaryRow = legacySnapshotSummaryRow(payload);
+    const flowRows = dailyRows.length
+      ? dailyRows
+      : (hourlyRows.length ? hourlyRows : (Object.keys(summaryRow).length ? [summaryRow] : []));
     return {
       mode: "legacy",
       dataSource: options && options.dataSource || "legacy_snapshot",
@@ -3353,7 +3366,7 @@
       selectedEvent,
       eventSummaries,
       selectedSummary: legacySnapshotSummaryAggregate(payload),
-      daily: aggregateLegacyRowsByKey(dailyRows, legacyDateKey),
+      daily: aggregateLegacyRowsByKey(flowRows, legacyDateKey),
       hourly: aggregateLegacyRowsByKey(hourlyRows, legacyHourKey)
     };
   }
@@ -3763,12 +3776,44 @@
     return [];
   }
 
+  function legacyAvailableDateKeys(statusPayload) {
+    const explicit = legacyStatusArray(statusPayload, "date_keys")
+      .map(value => String(value || "").slice(0, 10))
+      .filter(value => /^\d{4}-\d{2}-\d{2}$/.test(value));
+    const keys = explicit.length ? explicit : legacyStatusArray(statusPayload, "snapshot_keys")
+      .concat(legacyStatusArray(statusPayload, "agg_keys"))
+      .map(value => String(value || "").match(/:(?:report_daily|event_daily):[^:]+:(\d{4}-\d{2}-\d{2})$/))
+      .filter(Boolean)
+      .map(match => match[1]);
+    return Array.from(new Set(keys)).sort();
+  }
+
+  function legacyClosestAvailableDateKey(dateKey) {
+    const dates = legacyAvailableDateKeys(legacyAnalysisStatusSnapshot);
+    if (!dates.length) return dateKey || yesterdayKSTDateKey();
+    const selected = String(dateKey || "");
+    if (dates.includes(selected)) return selected;
+    const previous = dates.filter(key => !selected || key <= selected).pop();
+    return previous || dates[dates.length - 1];
+  }
+
+  function syncLegacyDailySelectionKeys(viewName) {
+    if (viewName === "event-analysis") {
+      if (legacyAnalysisEventPeriod !== "daily") return;
+      legacyAnalysisEventSelectedDateKey = legacyClosestAvailableDateKey(legacyAnalysisEventSelectedDateKey);
+      legacyAnalysisEventSelectedMonthKey = monthKeyFromDateKey(legacyAnalysisEventSelectedDateKey);
+      legacyAnalysisEventSelectedWeekKey = sotWeekKeyFromDateKey(legacyAnalysisEventSelectedDateKey);
+      return;
+    }
+    if (legacyAnalysisReportPeriod !== "daily") return;
+    legacyAnalysisReportSelectedDateKey = legacyClosestAvailableDateKey(legacyAnalysisReportSelectedDateKey);
+    legacyAnalysisReportSelectedMonthKey = monthKeyFromDateKey(legacyAnalysisReportSelectedDateKey);
+    legacyAnalysisReportSelectedWeekKey = sotWeekKeyFromDateKey(legacyAnalysisReportSelectedDateKey);
+  }
+
   function applyLegacySnapshotStatusDefaults(statusPayload) {
     if (legacyAnalysisInitialPeriodResolved) return;
-    const dateKeys = legacyStatusArray(statusPayload, "date_keys")
-      .map(value => String(value || "").slice(0, 10))
-      .filter(value => /^\d{4}-\d{2}-\d{2}$/.test(value))
-      .sort();
+    const dateKeys = legacyAvailableDateKeys(statusPayload);
     const latestDate = dateKeys[dateKeys.length - 1];
     if (!latestDate) {
       legacyAnalysisInitialPeriodResolved = true;
@@ -3813,6 +3858,7 @@
     renderLegacyAnalysisV2();
     try {
       await ensureLegacySnapshotStatusDefaults();
+      syncLegacyDailySelectionKeys(legacyAnalysisView);
       const snapshotType = legacySnapshotTypeForView(legacyAnalysisView);
       const periodKey = legacySnapshotPeriodKeyForView(legacyAnalysisView);
       const eventCode = legacyAnalysisView === "event-analysis" ? (legacyAnalysisSelectedEvent || "all") : "all";
@@ -5431,6 +5477,7 @@
       const legacyReportPeriodButton = e.target.closest("[data-legacy-report-period]");
       if (legacyReportPeriodButton) {
         legacyAnalysisReportPeriod = legacyReportPeriodButton.dataset.legacyReportPeriod || "weekly";
+        syncLegacyDailySelectionKeys("report");
         loadLegacyAnalysisV2();
         return;
       }
@@ -5438,6 +5485,7 @@
       const legacyEventPeriodButton = e.target.closest("[data-legacy-event-period]");
       if (legacyEventPeriodButton) {
         legacyAnalysisEventPeriod = legacyEventPeriodButton.dataset.legacyEventPeriod || "weekly";
+        syncLegacyDailySelectionKeys("event-analysis");
         loadLegacyAnalysisV2();
         return;
       }
