@@ -232,9 +232,9 @@
     return formatKSTDate(date);
   }
 
-  async function fetchDashboardSnapshot({ snapshotType, periodKey, eventCode, tab, manualRefresh }) {
+  async function fetchDashboardSnapshot({ dataSource, snapshotType, periodKey, eventCode, tab, manualRefresh }) {
     const payload = {
-      data_source: "current",
+      data_source: dataSource || "current",
       mode: "dashboard_snapshot",
       tab: tab || "",
       snapshot_type: snapshotType,
@@ -704,6 +704,8 @@
   let legacyAnalysisResolvedDataSource = "";
   let legacyAnalysisRows = [];
   let legacyAnalysisByAggType = {};
+  let legacyAnalysisSnapshotPayload = null;
+  let legacyAnalysisEventListRows = [];
   let legacyAnalysisLoadState = "idle";
   let legacyAnalysisError = "";
   let legacyAnalysisFallbackReason = "";
@@ -3015,6 +3017,55 @@
     return LEGACY_V2_DISPLAY_AGG_TYPES.some(aggType => Array.isArray(byAgg[aggType]) && byAgg[aggType].length > 0);
   }
 
+  function legacySnapshotTypeForView(viewName) {
+    if (viewName === "event-analysis") {
+      if (legacyAnalysisEventPeriod === "weekly") return "event_weekly";
+      if (legacyAnalysisEventPeriod === "monthly") return "event_monthly";
+      if (legacyAnalysisEventPeriod === "total") return "event_total";
+      return "event_daily";
+    }
+    if (legacyAnalysisReportPeriod === "weekly") return "report_weekly";
+    if (legacyAnalysisReportPeriod === "monthly") return "report_monthly";
+    return "report_daily";
+  }
+
+  function legacySnapshotPeriodKeyForView(viewName) {
+    if (viewName === "event-analysis") {
+      if (legacyAnalysisEventPeriod === "weekly") return legacyAnalysisEventSelectedWeekKey || sotWeekKeyFromDateKey(legacyAnalysisEventSelectedDateKey || yesterdayKSTDateKey());
+      if (legacyAnalysisEventPeriod === "monthly") return legacyAnalysisEventSelectedMonthKey || monthKeyFromDateKey(legacyAnalysisEventSelectedDateKey || todayKSTDateKey());
+      if (legacyAnalysisEventPeriod === "total") return "total";
+      return legacyAnalysisEventSelectedDateKey || yesterdayKSTDateKey();
+    }
+    if (legacyAnalysisReportPeriod === "weekly") return legacyAnalysisReportSelectedWeekKey || sotWeekKeyFromDateKey(legacyAnalysisReportSelectedDateKey || yesterdayKSTDateKey());
+    if (legacyAnalysisReportPeriod === "monthly") return legacyAnalysisReportSelectedMonthKey || monthKeyFromDateKey(legacyAnalysisReportSelectedDateKey || todayKSTDateKey());
+    return legacyAnalysisReportSelectedDateKey || yesterdayKSTDateKey();
+  }
+
+  function legacyRowsFromSnapshot(payload) {
+    if (!payload || payload.ok === false) return [];
+    const periodKey = payload.period_key || "";
+    const base = {
+      data_source: payload.data_source || "legacy_snapshot",
+      period_key: periodKey,
+      date_key: String(periodKey || "").slice(0, 10),
+      event_code: payload.event_code || "all"
+    };
+    const rows = [];
+    if (payload.summary && typeof payload.summary === "object") {
+      rows.push({ ...base, ...payload.summary, agg_type: "state" });
+    }
+    (payload.daily || []).forEach(row => rows.push({ ...base, ...row, agg_type: "event_hour", date_key: row.date_key || row.period_key || base.date_key }));
+    (payload.hourly || []).forEach(row => rows.push({ ...base, ...row, agg_type: "event_hour", hour_key: row.hour_key || row.period_key || "" }));
+    (payload.events || []).forEach(row => rows.push({ ...base, ...row, agg_type: "event_summary", event_code: row.event_code || "" }));
+    (payload.photo_counts || []).forEach(row => rows.push({ ...base, ...row, agg_type: "query_range", range_label: row.range_label || row.label || row.range || "" }));
+    (payload.sources || []).forEach(row => rows.push({ ...base, ...row, agg_type: "source" }));
+    (payload.campaigns || []).forEach(row => rows.push({ ...base, ...row, agg_type: "campaign" }));
+    (payload.devices || []).forEach(row => rows.push({ ...base, ...row, agg_type: "device" }));
+    const salesRows = payload.meta && Array.isArray(payload.meta.sales_amount_hour) ? payload.meta.sales_amount_hour : [];
+    salesRows.forEach(row => rows.push({ ...base, ...row, agg_type: "sales_amount_hour" }));
+    return rows;
+  }
+
   function legacyFiniteNumber(row, keys) {
     const keyList = Array.isArray(keys) ? keys : [keys];
     for (let i = 0; i < keyList.length; i += 1) {
@@ -3130,7 +3181,8 @@
     const sourceRows = Array.isArray(rows) ? rows : [];
     const byAgg = groupLegacyRowsByAggType(sourceRows);
     const byEvent = new Map();
-    sourceRows.forEach(row => {
+    const summarySourceRows = Array.isArray(byAgg.event_summary) && byAgg.event_summary.length ? byAgg.event_summary : sourceRows;
+    summarySourceRows.forEach(row => {
       const eventCode = firstText(row, ["event_code"]);
       if (!eventCode || eventCode === "all") return;
       if (!byEvent.has(eventCode)) byEvent.set(eventCode, []);
@@ -3150,7 +3202,9 @@
       })
       .sort((a, b) => Number(b.aggregate.values.revenue || 0) - Number(a.aggregate.values.revenue || 0));
     const selectedEvent = options && options.selectedEvent ? options.selectedEvent : "all";
-    const selectedRows = selectedEvent === "all" ? sourceRows : sourceRows.filter(row => String(row.event_code || "") === selectedEvent);
+    const selectedRows = Array.isArray(byAgg.state) && byAgg.state.length
+      ? byAgg.state
+      : (selectedEvent === "all" ? sourceRows.filter(row => String(row.agg_type || "") !== "event_summary") : sourceRows.filter(row => String(row.event_code || "") === selectedEvent && String(row.agg_type || "") !== "event_summary"));
     const selectedEventRows = Array.isArray(byAgg.event_hour) && byAgg.event_hour.length
       ? byAgg.event_hour.filter(row => selectedEvent === "all" || String(row.event_code || "") === selectedEvent)
       : selectedRows;
@@ -3168,7 +3222,7 @@
 
   function legacyV2StatusBanner() {
     const source = legacyAnalysisResolvedDataSource || "legacy_backfill";
-    const sourceLabel = source === "legacy_backfill" ? "legacy_backfill" : "legacy";
+    const sourceLabel = source === "legacy_snapshot" ? "legacy_snapshot" : source === "legacy_backfill" ? "legacy_backfill" : "legacy";
     const fallback = legacyAnalysisFallbackReason
       ? `<div class="legacy-v2-banner is-warn">${escapeHtml(legacyAnalysisFallbackReason)}</div>`
       : "";
@@ -3176,7 +3230,7 @@
       <div class="legacy-v2-banner">
         <strong>레거시 분석 v2</strong>
         <span>Data Source: ${escapeHtml(sourceLabel)}</span>
-        <span>Aggregate Source: dashboard</span>
+        <span>Aggregate Source: ${source === "legacy_snapshot" ? "dashboard_snapshot" : "dashboard"}</span>
         <span>기존 로그 기반 집계라 일부 지표는 현재 집계 방식과 다를 수 있음</span>
       </div>
       ${fallback}
@@ -3200,6 +3254,7 @@
 
   function legacyRowsForPeriod(rows, period, dateKey, monthKey, weekKey) {
     const list = Array.isArray(rows) ? rows : [];
+    if (legacyAnalysisResolvedDataSource === "legacy_snapshot") return list;
     if (period === "total") return list;
     if (period === "monthly") {
       const selectedMonth = monthKey || monthKeyFromDateKey(todayKSTDateKey());
@@ -3256,7 +3311,13 @@
   function legacyEventScopeControls(eventSummaries) {
     const monthlyValue = legacyAnalysisEventSelectedMonthKey || monthKeyFromDateKey(todayKSTDateKey());
     const weeklyOptions = buildWeeksForMonth(monthlyValue);
-    const eventOptions = sortEventOptionsByDateDesc(eventSummaries || []);
+    const mergedByCode = new Map();
+    (legacyAnalysisEventListRows || []).concat(eventSummaries || []).forEach(row => {
+      const code = row && row.event_code;
+      if (!code || code === "all") return;
+      mergedByCode.set(code, { ...(mergedByCode.get(code) || {}), ...row });
+    });
+    const eventOptions = sortEventOptionsByDateDesc(Array.from(mergedByCode.values()));
     const options = [{ event_code:"all", event_name:"전체 대회" }].concat(eventOptions);
     return `
       <label><span>대회 선택</span><select class="ctdash-select" id="legacy_analysis_event_select">${options.map(row => `<option value="${escapeHtml(row.event_code)}" ${row.event_code === legacyAnalysisSelectedEvent ? "selected" : ""}>${escapeHtml(row.event_name || row.event_code)}</option>`).join("")}</select></label>
@@ -3454,7 +3515,7 @@
     const mount = $("#legacy_analysis_v2_content");
     if (!mount) return;
     if (legacyAnalysisLoadState === "loading") {
-      mount.innerHTML = `<div class="ctdash-fallback-screen"><div class="ctdash-card ctdash-section"><h3>레거시 분석 v2 로딩 중</h3><p>legacy_backfill 집계 row를 확인하고 있습니다.</p></div></div>`;
+      mount.innerHTML = `<div class="ctdash-fallback-screen"><div class="ctdash-card ctdash-section"><h3>레거시 분석 v2 로딩 중</h3><p>legacy_snapshot dashboard_snapshot을 확인하고 있습니다.</p></div></div>`;
       return;
     }
     if (legacyAnalysisLoadState === "error") {
@@ -3479,19 +3540,55 @@
     legacyAnalysisError = "";
     renderLegacyAnalysisV2();
     try {
+      const snapshotType = legacySnapshotTypeForView(legacyAnalysisView);
+      const periodKey = legacySnapshotPeriodKeyForView(legacyAnalysisView);
+      const eventCode = legacyAnalysisView === "event-analysis" ? (legacyAnalysisSelectedEvent || "all") : "all";
+      const snapshot = await SOT_HEAD.fetchDashboardSnapshot({
+        dataSource: "legacy_snapshot",
+        snapshotType,
+        periodKey,
+        eventCode,
+        tab: legacyAnalysisView
+      });
+      if (snapshot && snapshot.ok) {
+        legacyAnalysisSnapshotPayload = snapshot;
+        legacyAnalysisRows = legacyRowsFromSnapshot(snapshot);
+        legacyAnalysisByAggType = groupLegacyRowsByAggType(legacyAnalysisRows);
+        legacyAnalysisResolvedDataSource = "legacy_snapshot";
+        legacyAnalysisFallbackReason = "";
+        if (legacyAnalysisView === "event-analysis") {
+          try {
+            const eventList = await SOT_HEAD.fetchDashboardSnapshot({
+              dataSource: "legacy_snapshot",
+              snapshotType: "event_list",
+              periodKey: "latest",
+              eventCode: "all",
+              tab: "event-analysis"
+            });
+            legacyAnalysisEventListRows = eventList && eventList.ok ? legacyRowsFromSnapshot(eventList).filter(row => row.agg_type === "event_summary") : [];
+          } catch (_) {
+            legacyAnalysisEventListRows = [];
+          }
+        }
+        legacyAnalysisLoadState = "ready";
+        renderLegacyAnalysisV2();
+        return;
+      }
       const backfillRows = await SOT_HEAD.fetchDashboardRowsForDataSource(BUBBLE_API_BASE, "legacy_backfill");
       const backfillByAgg = groupLegacyRowsByAggType(backfillRows);
       if (legacyBackfillHasDisplayRows(backfillByAgg)) {
         legacyAnalysisRows = backfillRows;
         legacyAnalysisByAggType = backfillByAgg;
         legacyAnalysisResolvedDataSource = "legacy_backfill";
-        legacyAnalysisFallbackReason = "";
+        legacyAnalysisSnapshotPayload = null;
+        legacyAnalysisFallbackReason = "legacy_snapshot 미생성, legacy_backfill row 기준";
       } else {
         const legacyRows = await SOT_HEAD.fetchDashboardRowsForDataSource(BUBBLE_API_BASE, "legacy");
         legacyAnalysisRows = legacyRows;
         legacyAnalysisByAggType = groupLegacyRowsByAggType(legacyRows);
         legacyAnalysisResolvedDataSource = "legacy";
-        legacyAnalysisFallbackReason = "legacy_backfill 미생성 또는 표시 가능한 집계 부족, legacy 집계 기준";
+        legacyAnalysisSnapshotPayload = null;
+        legacyAnalysisFallbackReason = "legacy_snapshot/legacy_backfill 미생성 또는 표시 가능한 집계 부족, legacy 집계 기준";
       }
       legacyAnalysisLoadState = "ready";
       renderLegacyAnalysisV2();
@@ -5054,22 +5151,21 @@
       const legacyAnalysisViewButton = e.target.closest("[data-legacy-analysis-view]");
       if (legacyAnalysisViewButton) {
         legacyAnalysisView = legacyAnalysisViewButton.dataset.legacyAnalysisView || "report";
-        renderLegacyAnalysisV2();
-        if (legacyAnalysisLoadState === "idle") loadLegacyAnalysisV2();
+        loadLegacyAnalysisV2();
         return;
       }
 
       const legacyReportPeriodButton = e.target.closest("[data-legacy-report-period]");
       if (legacyReportPeriodButton) {
         legacyAnalysisReportPeriod = legacyReportPeriodButton.dataset.legacyReportPeriod || "weekly";
-        renderLegacyAnalysisV2();
+        loadLegacyAnalysisV2();
         return;
       }
 
       const legacyEventPeriodButton = e.target.closest("[data-legacy-event-period]");
       if (legacyEventPeriodButton) {
         legacyAnalysisEventPeriod = legacyEventPeriodButton.dataset.legacyEventPeriod || "weekly";
-        renderLegacyAnalysisV2();
+        loadLegacyAnalysisV2();
         return;
       }
 
@@ -5231,14 +5327,14 @@
       }
       if (e.target && e.target.id === "legacy_analysis_event_select") {
         legacyAnalysisSelectedEvent = e.target.value || "all";
-        renderLegacyAnalysisV2();
+        loadLegacyAnalysisV2();
         return;
       }
       if (e.target && e.target.id === "legacy_report_date_input") {
         legacyAnalysisReportSelectedDateKey = e.target.value || yesterdayKSTDateKey();
         legacyAnalysisReportSelectedWeekKey = sotWeekKeyFromDateKey(legacyAnalysisReportSelectedDateKey);
         legacyAnalysisReportSelectedMonthKey = monthKeyFromDateKey(legacyAnalysisReportSelectedDateKey);
-        renderLegacyAnalysisV2();
+        loadLegacyAnalysisV2();
         return;
       }
       if (e.target && e.target.id === "legacy_report_week_month_input") {
@@ -5246,27 +5342,27 @@
         const picked = pickWeekForMonth(legacyAnalysisReportSelectedMonthKey, legacyAnalysisReportSelectedWeekKey, legacyAnalysisReportSelectedDateKey);
         legacyAnalysisReportSelectedWeekKey = picked.week_key;
         legacyAnalysisReportSelectedDateKey = picked.start_date_key;
-        renderLegacyAnalysisV2();
+        loadLegacyAnalysisV2();
         return;
       }
       if (e.target && e.target.id === "legacy_report_week_select") {
         legacyAnalysisReportSelectedWeekKey = e.target.value || "";
         const picked = pickWeekForMonth(legacyAnalysisReportSelectedMonthKey, legacyAnalysisReportSelectedWeekKey, legacyAnalysisReportSelectedDateKey);
         legacyAnalysisReportSelectedDateKey = picked.start_date_key;
-        renderLegacyAnalysisV2();
+        loadLegacyAnalysisV2();
         return;
       }
       if (e.target && e.target.id === "legacy_report_month_input") {
         legacyAnalysisReportSelectedMonthKey = e.target.value || monthKeyFromDateKey(todayKSTDateKey());
         legacyAnalysisReportSelectedDateKey = `${legacyAnalysisReportSelectedMonthKey}-01`;
-        renderLegacyAnalysisV2();
+        loadLegacyAnalysisV2();
         return;
       }
       if (e.target && e.target.id === "legacy_event_date_input") {
         legacyAnalysisEventSelectedDateKey = e.target.value || yesterdayKSTDateKey();
         legacyAnalysisEventSelectedWeekKey = sotWeekKeyFromDateKey(legacyAnalysisEventSelectedDateKey);
         legacyAnalysisEventSelectedMonthKey = monthKeyFromDateKey(legacyAnalysisEventSelectedDateKey);
-        renderLegacyAnalysisV2();
+        loadLegacyAnalysisV2();
         return;
       }
       if (e.target && e.target.id === "legacy_event_week_month_input") {
@@ -5274,20 +5370,20 @@
         const picked = pickWeekForMonth(legacyAnalysisEventSelectedMonthKey, legacyAnalysisEventSelectedWeekKey, legacyAnalysisEventSelectedDateKey);
         legacyAnalysisEventSelectedWeekKey = picked.week_key;
         legacyAnalysisEventSelectedDateKey = picked.start_date_key;
-        renderLegacyAnalysisV2();
+        loadLegacyAnalysisV2();
         return;
       }
       if (e.target && e.target.id === "legacy_event_week_select") {
         legacyAnalysisEventSelectedWeekKey = e.target.value || "";
         const picked = pickWeekForMonth(legacyAnalysisEventSelectedMonthKey, legacyAnalysisEventSelectedWeekKey, legacyAnalysisEventSelectedDateKey);
         legacyAnalysisEventSelectedDateKey = picked.start_date_key;
-        renderLegacyAnalysisV2();
+        loadLegacyAnalysisV2();
         return;
       }
       if (e.target && e.target.id === "legacy_event_month_input") {
         legacyAnalysisEventSelectedMonthKey = e.target.value || monthKeyFromDateKey(todayKSTDateKey());
         legacyAnalysisEventSelectedDateKey = `${legacyAnalysisEventSelectedMonthKey}-01`;
-        renderLegacyAnalysisV2();
+        loadLegacyAnalysisV2();
         return;
       }
       if (e.target && e.target.id === "ctdash_date_input") {
