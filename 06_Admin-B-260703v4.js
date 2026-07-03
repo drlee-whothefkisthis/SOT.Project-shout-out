@@ -1758,7 +1758,12 @@
       return;
     }
     if (sotCurrentTestMissingSnapshot || sotCurrentTestLastError) {
-      if (!sotCurrentTestLoaded) target.innerHTML = "";
+      if (!sotCurrentTestLoaded) {
+        const message = sotCurrentTestMissingSnapshot
+          ? (sotCurrentTestMissingSnapshot.message || "해당 기간의 snapshot이 없습니다.")
+          : (sotCurrentTestLastError || "snapshot API 연결 실패");
+        target.innerHTML = currentTestDashboardFrame(renderCurrentDashFallbackView("Snapshot", message));
+      }
       renderCurrentDashCharts();
       return;
     }
