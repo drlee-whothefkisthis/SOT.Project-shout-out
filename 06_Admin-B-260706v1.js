@@ -348,6 +348,10 @@
     return result;
   }
 
+  function hasDashboardMetricValue(row) {
+    return dashboardMetricFields.some(field => numberValue(row, [field]) !== 0);
+  }
+
   function groupDashboardMetricRows(rows, keyFn, baseFn) {
     const byKey = new Map();
     (Array.isArray(rows) ? rows : []).forEach(row => {
@@ -393,7 +397,9 @@
     const stateSourceRows = selectedEventCode
       ? eventHourRows.filter(row => row.event_code === selectedEventCode)
       : (eventSummaryRows.length ? eventSummaryRows : eventHourRows);
-    const state = selectedState || aggregateDashboardMetricRows(stateSourceRows, { event_code: selectedEventCode || "all" });
+    const state = selectedState && hasDashboardMetricValue(selectedState)
+      ? selectedState
+      : aggregateDashboardMetricRows(stateSourceRows, { ...(selectedState || {}), event_code: selectedEventCode || "all" });
     const daily = groupDashboardMetricRows(eventHourRows, dashboardRowDateKey, (row, key) => ({ date_key: key, period_key: key, label: key }));
     const hourly = eventHourRows.filter(row => row.hour_key !== undefined || row.hour !== undefined || row.event_hour !== undefined);
     const events = [{ event_code:"all", event_name:"전체 대회" }].concat(eventSummaryRows.map(row => ({
