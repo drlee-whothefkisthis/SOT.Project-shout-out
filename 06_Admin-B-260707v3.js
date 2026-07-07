@@ -2069,7 +2069,8 @@
   function renderCurrentDashEventView() {
     const detail = currentDashEventDataset();
     const summary = currentDashSelectedEventSummary();
-    const spots = Array.isArray(detail.spots) ? detail.spots : [];
+    const spots = (Array.isArray(detail.spots) ? [...detail.spots] : [])
+      .sort((a, b) => numberValue(b, ["allocated_revenue", "revenue"]) - numberValue(a, ["allocated_revenue", "revenue"]));
     const photoCounts = Array.isArray(detail.photo_counts) ? detail.photo_counts : [];
     const eventName = currentDashSelectedEvent === "all"
       ? "전체 대회"
@@ -2823,6 +2824,7 @@
       <strong>${formatNumber(photoCount)}장</strong>
       <div class="ctdash-spot-row"><span>원본 / 메타 / 판매가능</span><b>${storageNumber("uploaded_original_count")} / ${storageNumber("captured_photo_count")} / ${storageNumber("valid_photo_count")}</b></div>
       <div class="ctdash-spot-row"><span>유효율</span><b>${storagePercent("valid_photo_rate")}</b></div>
+      <div class="ctdash-spot-row"><span>판매 사진 개수</span><b>${formatNumber(photoCount)}</b></div>
       <div class="ctdash-spot-row"><span>단품 / 패키지 사진</span><b>${formatNumber(singlePhotoCount)} / ${formatNumber(packagePhotoCount)}</b></div>
       <div class="ctdash-spot-row"><span>주문 수</span><b>${formatNumber(orderCount)}</b></div>
       <div class="ctdash-spot-row"><span>단품 / 패키지 주문</span><b>${formatNumber(singleOrderCount)} / ${formatNumber(packageOrderCount)}</b></div>
