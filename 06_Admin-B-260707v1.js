@@ -1990,9 +1990,25 @@
             ${metricCard("구매수", formatNumber(numberValue(state, ["purchase_count"])), "결제 완료")}
           </div>
         </article>
-        <article class="ctdash-card ctdash-section ctdash-wide-section">
-          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Summary</div><h3>대회별 구간 요약</h3><p>선택한 구간에 실제 기록이 있는 대회만 표시합니다.</p></div><span class="ctdash-tag">Period Events</span></div>
-          ${reportEventSummaryTable(currentDashReportEventRows())}
+        <article class="ctdash-card ctdash-section">
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Sales</div><h3>매출 분석</h3></div><span class="ctdash-tag">Revenue</span></div>
+          <div class="ctdash-sales-grid">
+            ${renderRevenueCards(state, people, { labelPrefix: "기간", spots: sotCurrentTestData.spots || [] })}
+          </div>
+        </article>
+        <article class="ctdash-card ctdash-section">
+          <div class="ctdash-section-head">
+            <div>
+              <div class="ctdash-kicker">Conversion</div>
+              <h3>전환율</h3>
+            </div>
+            <span class="ctdash-tag">Percent</span>
+          </div>
+          <div class="ctdash-conv-grid ctdash-wide-grid">
+            ${conversionCard("접속 → 검색", dashboardSearchUserCount(state), dashboardSessionCount(state))}
+            ${conversionCard("검색 → 카트", numberValue(state, ["cart_count"]), numberValue(state, ["search_count"]))}
+            ${conversionCard("카트 → 구매", numberValue(state, ["purchase_count"]), numberValue(state, ["cart_count"]))}
+          </div>
         </article>
         <article class="ctdash-card ctdash-section">
           <div class="ctdash-section-head">
@@ -2014,25 +2030,9 @@
             <div class="ctdash-tooltip" id="ctdashReportTooltip"></div>
           </div>
         </article>
-        <article class="ctdash-card ctdash-section">
-          <div class="ctdash-section-head">
-            <div>
-              <div class="ctdash-kicker">Conversion</div>
-              <h3>전환율</h3>
-            </div>
-            <span class="ctdash-tag">Percent</span>
-          </div>
-          <div class="ctdash-conv-grid ctdash-wide-grid">
-            ${conversionCard("접속 → 검색", dashboardSearchUserCount(state), dashboardSessionCount(state))}
-            ${conversionCard("검색 → 카트", numberValue(state, ["cart_count"]), numberValue(state, ["search_count"]))}
-            ${conversionCard("카트 → 구매", numberValue(state, ["purchase_count"]), numberValue(state, ["cart_count"]))}
-          </div>
-        </article>
-        <article class="ctdash-card ctdash-section">
-          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Sales</div><h3>매출 분석</h3></div><span class="ctdash-tag">Revenue</span></div>
-          <div class="ctdash-sales-grid">
-            ${renderRevenueCards(state, people, { labelPrefix: "기간", spots: sotCurrentTestData.spots || [] })}
-          </div>
+        <article class="ctdash-card ctdash-section ctdash-wide-section">
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">Summary</div><h3>대회별 구간 요약</h3><p>선택한 구간에 실제 기록이 있는 대회만 표시합니다.</p></div><span class="ctdash-tag">Period Events</span></div>
+          ${reportEventSummaryTable(currentDashReportEventRows())}
         </article>
         <article class="ctdash-card ctdash-section">
           <div class="ctdash-section-head"><div><div class="ctdash-kicker">Traffic</div><h3>유입별</h3></div><span class="ctdash-tag">Campaign / Source</span></div>
