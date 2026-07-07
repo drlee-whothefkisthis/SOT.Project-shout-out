@@ -1984,6 +1984,7 @@
     const state = currentDashReportState();
     const people = currentDashboardPeopleForSelection("all");
     const photoCounts = Array.isArray(sotCurrentTestData.photo_counts) ? sotCurrentTestData.photo_counts : [];
+    const reportEventRows = currentDashReportEventRows();
     return `
       <section class="ctdash-screen">
         <article class="ctdash-card ctdash-section">
@@ -2015,20 +2016,7 @@
             ${renderRevenueCards(state, people, { labelPrefix: "기간", spots: sotCurrentTestData.spots || [] })}
           </div>
         </article>
-        <article class="ctdash-card ctdash-section">
-          <div class="ctdash-section-head">
-            <div>
-              <div class="ctdash-kicker">Conversion</div>
-              <h3>전환율</h3>
-            </div>
-            <span class="ctdash-tag">Percent</span>
-          </div>
-          <div class="ctdash-conv-grid ctdash-wide-grid">
-            ${conversionCard("접속 → 검색", dashboardSearchUserCount(state), dashboardSessionCount(state))}
-            ${conversionCard("검색 → 카트", numberValue(state, ["cart_count"]), numberValue(state, ["search_count"]))}
-            ${conversionCard("카트 → 구매", numberValue(state, ["purchase_count"]), numberValue(state, ["cart_count"]))}
-          </div>
-        </article>
+        ${renderCurrentDashReportConversionSection(state, reportEventRows)}
         <article class="ctdash-card ctdash-section">
           <div class="ctdash-section-head">
             <div>
@@ -2051,7 +2039,7 @@
         </article>
         <article class="ctdash-card ctdash-section ctdash-wide-section">
           <div class="ctdash-section-head"><div><div class="ctdash-kicker">Summary</div><h3>대회별 구간 요약</h3><p>선택한 구간에 실제 기록이 있는 대회만 표시합니다.</p></div><span class="ctdash-tag">Period Events</span></div>
-          ${reportEventSummaryTable(currentDashReportEventRows())}
+          ${reportEventSummaryTable(reportEventRows)}
         </article>
         <article class="ctdash-card ctdash-section">
           <div class="ctdash-section-head"><div><div class="ctdash-kicker">Traffic</div><h3>유입별</h3></div><span class="ctdash-tag">Campaign / Source</span></div>
@@ -2732,6 +2720,94 @@
   function conversionCard(label, numerator, denominator) {
     const rate = safeRate(numerator, denominator);
     return `<article class="ctdash-conv-card"><div class="ctdash-conv-top"><h4>${label}</h4><strong>${formatPercent(rate)}</strong></div><div class="ctdash-bar"><span style="width:${Math.min(100, rate)}%"></span></div><p>${formatNumber(numerator)} / ${formatNumber(denominator)}</p></article>`;
+  }
+
+  function currentDashCalculationText(value, formatter) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return "계산 불가";
+    return formatter ? formatter(num) : formatNumber(num);
+  }
+
+  function currentDashRateText(numerator, denominator) {
+    const den = Number(denominator || 0);
+    if (!den) return "계산 불가";
+    return formatPercent(safeRate(numerator, den));
+  }
+
+  function currentDashRatioMetricCard(label, numerator, denominator, note) {
+    const den = Number(denominator || 0);
+    const value = den ? formatPercent(safeRate(numerator, den)) : "계산 불가";
+    const width = den ? Math.min(100, safeRate(numerator, den)) : 0;
+    return `<article class="ctdash-conv-card"><div class="ctdash-conv-top"><h4>${escapeHtml(label)}</h4><strong>${escapeHtml(value)}</strong></div><div class="ctdash-bar"><span style="width:${width}%"></span></div><p>${formatNumber(numerator)} / ${formatNumber(denominator)} · ${escapeHtml(note || "선택 기간 기준")}</p></article>`;
+  }
+
+  function renderCurrentDashReportConversionSection(summary, eventRows) {
+    const sessions = dashboardSessionCount(summary);
+    const searchUsers = dashboardSearchUserCount(summary);
+    const searches = numberValue(summary, ["search_count"]);
+    const carts = numberValue(summary, ["cart_count"]);
+    const purchases = numberValue(summary, ["purchase_count"]);
+    const purchasePhotos = numberValue(summary, ["purchase_photo_count"]);
+    const revenue = numberValue(summary, ["revenue"]);
+    const aov = purchases ? revenue / purchases : NaN;
+    const photoPerPurchase = purchases ? purchasePhotos / purchases : NaN;
+    const revenuePerSession = sessions ? revenue / sessions : NaN;
+    const rows = Array.isArray(eventRows) ? eventRows : [];
+    return `
+      <article class="ctdash-card ctdash-section ctdash-wide-section">
+        <div class="ctdash-section-head">
+          <div>
+            <div class="ctdash-kicker">Conversion</div>
+            <h3>전환율 분석</h3>
+            <p>${escapeHtml(currentDashReportScopeLabel())} snapshot 기준으로 프론트에서 계산합니다. 접속수는 현재 집계 계약상 일별 세션 합계 기준일 수 있습니다.</p>
+          </div>
+          <span class="ctdash-tag">Frontend Calc</span>
+        </div>
+        <div class="ctdash-conv-grid ctdash-wide-grid">
+          ${currentDashRatioMetricCard("접속 → 검색자", searchUsers, sessions, "search_user_count / session_count")}
+          ${currentDashRatioMetricCard("검색자 → 구매", purchases, searchUsers, "purchase_count / search_user_count")}
+          ${currentDashRatioMetricCard("검색수 → 장바구니", carts, searches, "cart_count / search_count")}
+          ${currentDashRatioMetricCard("장바구니 → 구매", purchases, carts, "purchase_count / cart_count")}
+          ${metricCard("구매당 매출", currentDashCalculationText(aov, formatWon), "revenue / purchase_count")}
+          ${metricCard("구매당 사진수", Number.isFinite(photoPerPurchase) ? `${photoPerPurchase.toFixed(1)}장` : "계산 불가", "purchase_photo_count / purchase_count")}
+          ${metricCard("접속당 매출", currentDashCalculationText(revenuePerSession, formatWon), "revenue / session_count")}
+        </div>
+        <div class="ctdash-table-wrap" style="margin-top:18px;">
+          <table class="ctdash-table">
+            <thead>
+              <tr>
+                <th>대회명</th>
+                <th>접속→검색자</th>
+                <th>검색자→구매</th>
+                <th>검색수→장바구니</th>
+                <th>장바구니→구매</th>
+                <th>검색수→구매</th>
+                <th>구매당 매출</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.length ? rows.map(row => {
+                const rowSessions = dashboardSessionCount(row);
+                const rowSearchUsers = dashboardSearchUserCount(row);
+                const rowSearches = numberValue(row, ["search_count"]);
+                const rowCarts = numberValue(row, ["cart_count"]);
+                const rowPurchases = numberValue(row, ["purchase_count"]);
+                const rowRevenue = numberValue(row, ["revenue"]);
+                return `<tr>
+                  <td>${escapeHtml(reportEventDisplayName(row))}</td>
+                  <td>${escapeHtml(currentDashRateText(rowSearchUsers, rowSessions))}</td>
+                  <td>${escapeHtml(currentDashRateText(rowPurchases, rowSearchUsers))}</td>
+                  <td>${escapeHtml(currentDashRateText(rowCarts, rowSearches))}</td>
+                  <td>${escapeHtml(currentDashRateText(rowPurchases, rowCarts))}</td>
+                  <td>${escapeHtml(currentDashRateText(rowPurchases, rowSearches))}</td>
+                  <td>${rowPurchases ? formatWon(rowRevenue / rowPurchases) : "계산 불가"}</td>
+                </tr>`;
+              }).join("") : `<tr><td colspan="7">선택한 구간에 전환율을 계산할 대회 데이터가 없습니다.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    `;
   }
 
   function topRankRows(rows, labelFields) {
