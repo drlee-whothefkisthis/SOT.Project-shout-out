@@ -802,6 +802,7 @@
   let sotCurrentTestMissingSnapshot = null;
   let currentDashView = "report";
   let currentDashReportPeriod = "weekly";
+  let currentDashReportTotalChartPeriod = "daily";
   let currentDashReportSelectedWeekStart = "";
   let currentDashReportSelectedWeekKey = sotWeekKeyFromDateKey(yesterdayKSTDateKey());
   let currentDashReportSelectedDateKey = yesterdayKSTDateKey();
@@ -1940,8 +1941,26 @@
   function currentDashChartTitle(period) {
     if (period === "weekly") return "일자별 그래프";
     if (period === "monthly") return "주차별 그래프";
-    if (period === "total") return "일자별 그래프";
+    if (period === "total") return "전체 그래프";
     return "시간대별 그래프";
+  }
+
+  function currentDashReportChartTitle() {
+    if (currentDashReportPeriod !== "total") return currentDashChartTitle(currentDashReportPeriod);
+    if (currentDashReportTotalChartPeriod === "weekly") return "주차별 그래프";
+    if (currentDashReportTotalChartPeriod === "monthly") return "월별 그래프";
+    return "일자별 그래프";
+  }
+
+  function renderReportTotalChartControls() {
+    if (currentDashReportPeriod !== "total") return "";
+    return `
+      <div class="ctdash-period-tabs" aria-label="전체 그래프 단위">
+        <button class="ctdash-chip ${currentDashReportTotalChartPeriod === "daily" ? "is-active" : ""}" type="button" data-ctdash-report-chart-period="daily">일자별</button>
+        <button class="ctdash-chip ${currentDashReportTotalChartPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-report-chart-period="weekly">주차별</button>
+        <button class="ctdash-chip ${currentDashReportTotalChartPeriod === "monthly" ? "is-active" : ""}" type="button" data-ctdash-report-chart-period="monthly">월별</button>
+      </div>
+    `;
   }
 
   async function refreshCurrentDashSelection() {
@@ -2014,10 +2033,10 @@
           <div class="ctdash-section-head">
             <div>
               <div class="ctdash-kicker">Hourly</div>
-              <h3>${currentDashChartTitle(currentDashReportPeriod)}</h3>
+              <h3>${currentDashReportChartTitle()}</h3>
               <p>마우스를 올리면 선택 기간 기준 검색, 카트, 구매, 평균전환율을 확인할 수 있습니다.</p>
             </div>
-            <span class="ctdash-tag">Hover</span>
+            ${renderReportTotalChartControls() || `<span class="ctdash-tag">Hover</span>`}
           </div>
           <div class="ctdash-chart-box">
             <div class="ctdash-legend">
@@ -3982,7 +4001,21 @@
   const currentDashMetricFields = ["search_count", "cart_count", "cart_photo_count", "purchase_count", "purchase_photo_count", "revenue", "exposure_sum", "exposure_count", "zero_exposure_count", "visit_count", "session_count", "local_user_count", "search_user_count"];
 
   function currentDashDateKey(row) {
-    return row?.date_key || row?.period_key || row?.label || "";
+    return normalizeCurrentDashDateKey(row?.date_key || row?.period_key || row?.label || "");
+  }
+
+  function shortDateLabel(value) {
+    const dateKey = normalizeCurrentDashDateKey(value);
+    const match = String(dateKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return String(value || "");
+    return `${Number(match[2])}/${Number(match[3])}`;
+  }
+
+  function shortMonthLabel(value) {
+    const text = String(value || "");
+    const match = text.match(/^(\d{4})-(\d{2})/);
+    if (!match) return text;
+    return `${Number(match[2])}월`;
   }
 
   function currentDashHourBucket(row) {
@@ -4022,7 +4055,7 @@
   function weekRangeLabelFromDateKey(dateKey) {
     const startKey = saturdayStartDateKey(dateKey);
     const endKey = addDays(startKey, 6);
-    return `${startKey} ~ ${endKey}`;
+    return `${shortDateLabel(startKey)}~${shortDateLabel(endKey)}`;
   }
 
   function dailyHourChartRowsFromDataset(dataset) {
@@ -4031,7 +4064,7 @@
   }
 
   function dailyDateChartRowsFromDataset(dataset) {
-    return aggregateMetricRows(dataset.daily || [], currentDashDateKey, (row, key) => key)
+    return aggregateMetricRows(dataset.daily || [], currentDashDateKey, (row, key) => shortDateLabel(key))
       .map(chartPointFromAggregate);
   }
 
@@ -4040,10 +4073,19 @@
       .map(chartPointFromAggregate);
   }
 
-  function chartRowsForPeriod(dataset, period) {
+  function monthlyChartRowsFromDataset(dataset) {
+    return aggregateMetricRows(dataset.daily || [], row => String(currentDashDateKey(row)).slice(0, 7), (row, key) => shortMonthLabel(key))
+      .map(chartPointFromAggregate);
+  }
+
+  function chartRowsForPeriod(dataset, period, totalChartPeriod) {
     if (period === "weekly") return dailyDateChartRowsFromDataset(dataset);
     if (period === "monthly") return weeklyChartRowsFromDataset(dataset);
-    if (period === "total") return dailyDateChartRowsFromDataset(dataset);
+    if (period === "total") {
+      if (totalChartPeriod === "weekly") return weeklyChartRowsFromDataset(dataset);
+      if (totalChartPeriod === "monthly") return monthlyChartRowsFromDataset(dataset);
+      return dailyDateChartRowsFromDataset(dataset);
+    }
     return dailyHourChartRowsFromDataset(dataset);
   }
 
@@ -4095,7 +4137,7 @@
   }
 
   function reportChartRows() {
-    return chartRowsForPeriod(sotCurrentTestData, currentDashReportPeriod);
+    return chartRowsForPeriod(sotCurrentTestData, currentDashReportPeriod, currentDashReportTotalChartPeriod);
   }
 
   function eventChartRows() {
@@ -5527,6 +5569,13 @@
       const fieldReportDelete = e.target.closest("[data-fr-delete]");
       if (fieldReportDelete) {
         deleteFieldReportRow(fieldReportDelete.dataset.frDelete, fieldReportDelete.dataset.frIndex);
+        return;
+      }
+
+      const reportChartPeriodButton = e.target.closest("[data-ctdash-report-chart-period]");
+      if (reportChartPeriodButton) {
+        currentDashReportTotalChartPeriod = reportChartPeriodButton.dataset.ctdashReportChartPeriod || "daily";
+        renderCurrentTestDashboard();
         return;
       }
 
