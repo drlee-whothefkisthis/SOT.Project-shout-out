@@ -755,6 +755,8 @@
   const API_CREATE_EVENT = "/api/1.1/wf/auto-create-event";
   const API_DATA_EVENT = "/api/1.1/obj/event";
   const API_AUTH_LOGIN = "/api/1.1/wf/auth-kakao-login"; 
+  const API_WORK_REPORT_SAVE = "/api/1.1/wf/sot-event-work-report-save";
+  const API_DATA_USER_PROFILES = "/api/1.1/obj/SOT:UserProfiles";
   const BIB_MIN_DIGITS_DEFAULT = 4;
   const SOT_LOADER_DEFAULT_MESSAGE = "데이터를 가져오는 중입니다!!";
   const SOT_LOADER_LOTTIE_SRC = "data:application/octet-stream;base64,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";
@@ -823,12 +825,16 @@
   let currentDashStatusSnapshot = null;
   let currentDashEventListSnapshot = null;
   let currentDashInitialDateResolved = false;
-  const FIELD_REPORT_TEST_TYPE = "SOT:FieldReportTest";
-  const FIELD_REPORT_JSON_FIELD = "report_json";
+  const FIELD_REPORT_TEST_TYPE = "Event.work_report_json";
+  const FIELD_REPORT_JSON_FIELD = "work_report_json";
   const FIELD_REPORT_STORAGE_KEY = "shout_field_report_v2_test_drafts";
   let fieldReportDrafts = [];
   let fieldReportActiveId = "";
-  let fieldReportShowJson = false;
+  let fieldReportActiveVersion = "latest";
+  let fieldReportSaving = false;
+  let fieldReportAdminProfile = null;
+  let fieldReportAdminProfileLoaded = false;
+  let fieldReportAdminProfileLoading = false;
   let legacyAnalysisView = "report";
   let legacyAnalysisReportPeriod = "weekly";
   let legacyAnalysisReportSelectedWeekKey = sotWeekKeyFromDateKey(yesterdayKSTDateKey());
@@ -1418,7 +1424,10 @@
         syncSotDashboardFilters();
         if (activeAdminView === "legacy") renderSotDashboard();
       }
-      if (activeAdminView === "diary") renderCurrentTestDashboard();
+      if (activeAdminView === "diary") {
+        renderCurrentTestDashboard();
+        ensureFieldReportAdminProfile().then(() => renderCurrentTestDashboard());
+      }
     } catch(e) { $("#sh_tbody").innerHTML = "<tr><td colspan='6' style='color:red;'>로드 실패</td></tr>"; }
   }
 
@@ -2174,6 +2183,150 @@
     return currentDashEventLabel(event) || event?.event_display_name || event?.display_name || event?.name || "";
   }
 
+  function fieldReportBubbleValue(source, key) {
+    if (!source || !key) return undefined;
+    if (source[key] !== undefined) return source[key];
+    const alias = `_api_c2_${key}`;
+    if (source[alias] !== undefined) return source[alias];
+    return undefined;
+  }
+
+  function fieldReportEventId(event) {
+    return event && (event._id || event.id || event.unique_id || event["unique id"] || "");
+  }
+
+  function fieldReportEventByIdOrCode(idOrCode) {
+    const key = String(idOrCode || "");
+    return (allEvents || []).find(event => String(fieldReportEventId(event)) === key || String(event.event_code || "") === key) || null;
+  }
+
+  function fieldReportRawVersionList(event) {
+    const raw = fieldReportBubbleValue(event, FIELD_REPORT_JSON_FIELD);
+    if (Array.isArray(raw)) return raw;
+    if (raw === undefined || raw === null || raw === "") return [];
+    return [raw];
+  }
+
+  function normalizeFieldReportVersionEntry(item, index) {
+    let parsed = item;
+    if (typeof item === "string") {
+      try {
+        parsed = JSON.parse(item);
+      } catch (error) {
+        parsed = {
+          schema_version: "legacy_text",
+          version: index + 1,
+          label: `일지 ${pad2(index + 1).padStart(3, "0")}`,
+          saved_at: "",
+          saved_by: "",
+          data: { meta: { memo: item } }
+        };
+      }
+    }
+    if (!parsed || typeof parsed !== "object") parsed = {};
+    const version = Number(parsed.version || index + 1);
+    const safeVersion = Number.isFinite(version) && version > 0 ? version : index + 1;
+    return {
+      ...parsed,
+      version: safeVersion,
+      label: parsed.label || `일지 ${String(safeVersion).padStart(3, "0")}`,
+      data: parsed.data || parsed.report_json || parsed.report || parsed
+    };
+  }
+
+  function fieldReportVersionsForEvent(event) {
+    return fieldReportRawVersionList(event)
+      .map(normalizeFieldReportVersionEntry)
+      .sort((a, b) => Number(a.version || 0) - Number(b.version || 0));
+  }
+
+  function latestFieldReportVersion(draft) {
+    const versions = Array.isArray(draft?.versions) ? draft.versions : [];
+    if (!versions.length) return null;
+    return versions.reduce((latest, item) => Number(item.version || 0) > Number(latest.version || 0) ? item : latest, versions[0]);
+  }
+
+  function fieldReportVersionLabel(version) {
+    if (!version) return "새 일지";
+    const label = version.label || `일지 ${String(version.version || 1).padStart(3, "0")}`;
+    const savedAt = version.saved_at ? formatKSTDate(version.saved_at) : "";
+    const savedBy = version.saved_by || version.admin_name || "";
+    return [label, savedAt, savedBy].filter(Boolean).join(" · ");
+  }
+
+  function applyFieldReportVersionToDraft(draft, version) {
+    if (!draft || !version) return;
+    const nextReport = cloneFieldReport(version.data || {});
+    if (!nextReport.meta) nextReport.meta = {};
+    nextReport.meta.event_code = nextReport.meta.event_code || draft.event_code;
+    nextReport.meta.event_name = nextReport.meta.event_name || draft.event_name;
+    draft.report_json = nextReport;
+    draft.loaded_version = Number(version.version || 0) || "";
+    updateFieldReportDerivedValues(draft);
+  }
+
+  function currentFieldReportAdminName() {
+    return (fieldReportAdminProfile && fieldReportAdminProfile.admin_name)
+      || localStorage.getItem("shout_admin_name")
+      || sessionStorage.getItem("shout_admin_name")
+      || "";
+  }
+
+  function currentFieldReportUsersId() {
+    return localStorage.getItem("shout_users_id") || sessionStorage.getItem("shout_users_id") || "";
+  }
+
+  function applyFieldReportAdminName(draft) {
+    const adminName = currentFieldReportAdminName();
+    if (!draft || !adminName) return;
+    if (!draft.report_json.meta) draft.report_json.meta = {};
+    draft.report_json.meta.writer = adminName;
+    if (!draft.report_json.signatures) draft.report_json.signatures = {};
+    if (!draft.report_json.signatures.writer) draft.report_json.signatures.writer = { name: "", checked: false, note: "" };
+    draft.report_json.signatures.writer.name = adminName;
+  }
+
+  async function ensureFieldReportAdminProfile() {
+    if (fieldReportAdminProfileLoaded || fieldReportAdminProfileLoading) return fieldReportAdminProfile;
+    const usersId = currentFieldReportUsersId();
+    if (!usersId) {
+      fieldReportAdminProfileLoaded = true;
+      return fieldReportAdminProfile;
+    }
+    fieldReportAdminProfileLoading = true;
+    try {
+      const constraintSets = [
+        [{ key: "users_id", constraint_type: "equals", value: usersId }],
+        [{ key: "user_id", constraint_type: "equals", value: usersId }],
+        [{ key: "kakao_id", constraint_type: "equals", value: usersId }]
+      ];
+      for (const constraints of constraintSets) {
+        const params = new URLSearchParams();
+        params.set("limit", "1");
+        params.set("constraints", JSON.stringify(constraints));
+        const res = await fetch(`${BUBBLE_API_BASE}${API_DATA_USER_PROFILES}?${params.toString()}`);
+        if (!res.ok) continue;
+        const data = await res.json().catch(() => ({}));
+        const row = (data.response && Array.isArray(data.response.results) ? data.response.results[0] : null) || null;
+        if (row) {
+          fieldReportAdminProfile = row;
+          const adminName = row.admin_name || row.name || row.display_name || "";
+          if (adminName) {
+            fieldReportAdminProfile.admin_name = adminName;
+            localStorage.setItem("shout_admin_name", adminName);
+          }
+          break;
+        }
+      }
+    } catch (error) {
+      console.warn("[FieldReport] admin profile lookup failed", error);
+    } finally {
+      fieldReportAdminProfileLoaded = true;
+      fieldReportAdminProfileLoading = false;
+    }
+    return fieldReportAdminProfile;
+  }
+
   function cloneFieldReport(value) {
     return JSON.parse(JSON.stringify(value));
   }
@@ -2292,16 +2445,33 @@
   function ensureFieldReportDraftForEvent(event) {
     const draft = buildFieldReportDraftFromEvent(event);
     const existingIndex = fieldReportDrafts.findIndex(item => item.id === draft.id || (draft.event_code && item.event_code === draft.event_code));
+    const versions = fieldReportVersionsForEvent(event);
     if (existingIndex >= 0) {
       const existing = fieldReportDrafts[existingIndex];
+      existing.event_id = fieldReportEventId(event) || existing.event_id || "";
       existing.event_code = existing.event_code || draft.event_code;
       existing.event_name = existing.event_name || draft.event_name;
+      existing.versions = versions;
+      existing.raw_versions = fieldReportRawVersionList(event);
       existing.report_json.meta.event_code = existing.report_json.meta.event_code || draft.report_json.meta.event_code;
       existing.report_json.meta.event_name = existing.report_json.meta.event_name || draft.report_json.meta.event_name;
       existing.report_json.meta.report_date = existing.report_json.meta.report_date || draft.report_json.meta.report_date;
       existing.report_json.meta.location = existing.report_json.meta.location || draft.report_json.meta.location;
+      if (!existing.loaded_version && versions.length) {
+        applyFieldReportVersionToDraft(existing, latestFieldReportVersion(existing));
+        fieldReportActiveVersion = "latest";
+      }
+      applyFieldReportAdminName(existing);
       return existing;
     }
+    draft.event_id = fieldReportEventId(event) || "";
+    draft.versions = versions;
+    draft.raw_versions = fieldReportRawVersionList(event);
+    if (versions.length) {
+      applyFieldReportVersionToDraft(draft, latestFieldReportVersion(draft));
+      fieldReportActiveVersion = "latest";
+    }
+    applyFieldReportAdminName(draft);
     fieldReportDrafts.push(draft);
     return draft;
   }
@@ -2313,6 +2483,7 @@
     if (!fieldReportActiveId || !fieldReportDrafts.some(draft => draft.id === fieldReportActiveId)) {
       fieldReportActiveId = fieldReportDrafts[0].id;
     }
+    fieldReportDrafts.forEach(applyFieldReportAdminName);
   }
 
   function selectedFieldReportDraft() {
@@ -2414,29 +2585,119 @@
     renderCurrentTestDashboard();
   }
 
-  function saveFieldReportTest() {
-    updateFieldReportDerivedValues(selectedFieldReportDraft());
-    selectedFieldReportDraft().saved_at = fieldReportNowISO();
-    writeStoredFieldReports();
+  function nextFieldReportVersionNumber(draft) {
+    const versions = Array.isArray(draft?.versions) ? draft.versions : [];
+    const maxVersion = versions.reduce((max, item) => Math.max(max, Number(item.version || 0)), 0);
+    return maxVersion + 1;
+  }
+
+  function buildFieldReportVersionPayload(draft, mode) {
+    updateFieldReportDerivedValues(draft);
+    applyFieldReportAdminName(draft);
+    const version = nextFieldReportVersionNumber(draft);
+    const label = `일지 ${String(version).padStart(3, "0")}`;
+    const latest = latestFieldReportVersion(draft);
+    const adminName = currentFieldReportAdminName() || draft.report_json?.meta?.writer || "";
+    return {
+      schema_version: 1,
+      type: "event_work_report",
+      version,
+      label,
+      mode: mode || "save",
+      base_version: latest ? Number(latest.version || 0) : 0,
+      saved_at: fieldReportNowISO(),
+      saved_by: adminName,
+      admin_name: adminName,
+      saved_by_kakao_id: currentFieldReportUsersId(),
+      event_id: draft.event_id || "",
+      event_code: draft.event_code || draft.report_json?.meta?.event_code || "",
+      event_name: draft.event_name || draft.report_json?.meta?.event_name || "",
+      data: cloneFieldReport(draft.report_json)
+    };
+  }
+
+  async function saveFieldReportTest() {
+    if (fieldReportSaving) return;
+    const draft = selectedFieldReportDraft();
+    const payload = buildFieldReportVersionPayload(draft, "save_work_report_version");
+    if (!payload.event_code && !payload.event_id) {
+      alert("대회를 먼저 선택해주세요.");
+      return;
+    }
+    fieldReportSaving = true;
+    renderCurrentTestDashboard();
+    try {
+      const res = await fetch(`${BUBBLE_API_BASE}${API_WORK_REPORT_SAVE}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "save_work_report_version",
+          event_id: payload.event_id,
+          event_code: payload.event_code,
+          report_json: JSON.stringify(payload),
+          saved_by: payload.saved_by,
+          saved_by_kakao_id: payload.saved_by_kakao_id,
+          admin_name: payload.admin_name,
+          version: payload.version,
+          label: payload.label,
+          base_version: payload.base_version
+        })
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        console.error("[FieldReport] save workflow failed", { status: res.status, body: text.slice(0, 500) });
+        alert("일지 저장 실패. Bubble workflow와 Event.work_report_json add item 설정을 확인해주세요.");
+        return;
+      }
+
+      draft.versions = [...(draft.versions || []), normalizeFieldReportVersionEntry(JSON.stringify(payload), (draft.versions || []).length)];
+      draft.raw_versions = [...(draft.raw_versions || []), JSON.stringify(payload)];
+      draft.loaded_version = payload.version;
+      draft.saved_at = payload.saved_at;
+      fieldReportActiveVersion = "latest";
+
+      const event = fieldReportEventByIdOrCode(payload.event_id || payload.event_code);
+      if (event) {
+        const currentList = fieldReportRawVersionList(event);
+        event[FIELD_REPORT_JSON_FIELD] = [...currentList, JSON.stringify(payload)];
+      }
+      alert(`${payload.label} 저장 완료`);
+    } catch (error) {
+      console.error("[FieldReport] save error", error);
+      alert("일지 저장 오류");
+    } finally {
+      fieldReportSaving = false;
+      renderCurrentTestDashboard();
+    }
+  }
+
+  function loadLatestFieldReportForEdit() {
+    const draft = selectedFieldReportDraft();
+    const latest = latestFieldReportVersion(draft);
+    if (!latest) {
+      alert("저장된 일지가 없습니다. 현재 초안을 작성한 뒤 저장하면 일지 001로 기록됩니다.");
+      return;
+    }
+    applyFieldReportVersionToDraft(draft, latest);
+    fieldReportActiveVersion = "latest";
     renderCurrentTestDashboard();
   }
 
-  function resetFieldReportTestDraft() {
-    const current = selectedFieldReportDraft();
-    const event = allEvents.find(row => row.event_code === current.event_code) || {};
-    const next = buildFieldReportDraftFromEvent(event);
-    const index = fieldReportDrafts.findIndex(row => row.id === current.id);
-    if (index >= 0) fieldReportDrafts[index] = next;
-    fieldReportActiveId = next.id;
-    renderCurrentTestDashboard();
+  function loadSelectedFieldReportVersion(value) {
+    const draft = selectedFieldReportDraft();
+    const versions = Array.isArray(draft.versions) ? draft.versions : [];
+    const target = value === "latest"
+      ? latestFieldReportVersion(draft)
+      : versions.find(item => String(item.version) === String(value));
+    if (target) {
+      applyFieldReportVersionToDraft(draft, target);
+      fieldReportActiveVersion = value || "latest";
+      renderCurrentTestDashboard();
+    }
   }
 
   function realSaveFieldReportTest(reportState) {
-    console.warn("[FieldReport v2] real save TODO", {
-      type: FIELD_REPORT_TEST_TYPE,
-      field: FIELD_REPORT_JSON_FIELD,
-      reportState
-    });
+    return saveFieldReportTest(reportState);
   }
 
   function renderCurrentDashDiaryView() {
@@ -2446,25 +2707,30 @@
     const report = draft.report_json;
     const staffOptions = (report.staff || []).map(row => row.name).filter(Boolean);
     const spotOptions = (report.spots || []).map(row => row.location || row.name).filter(Boolean);
-    const draftOptions = fieldReportDrafts.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === fieldReportActiveId ? "selected" : ""}>${escapeHtml(item.event_name || item.event_code || "무제 일지")}</option>`).join("");
+    const versions = Array.isArray(draft.versions) ? draft.versions : [];
+    const latest = latestFieldReportVersion(draft);
+    const draftOptions = fieldReportDrafts.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === fieldReportActiveId ? "selected" : ""}>${escapeHtml(item.event_name || item.event_code || "무제 대회")}</option>`).join("");
+    const versionOptions = versions.length
+      ? [`<option value="latest" ${fieldReportActiveVersion === "latest" ? "selected" : ""}>최신 · ${escapeHtml(fieldReportVersionLabel(latest))}</option>`].concat(versions.map(item => `<option value="${escapeHtml(item.version)}" ${String(fieldReportActiveVersion) === String(item.version) ? "selected" : ""}>${escapeHtml(fieldReportVersionLabel(item))}</option>`)).join("")
+      : `<option value="new">저장된 일지 없음</option>`;
+    const saveLabel = fieldReportSaving ? "저장 중..." : "저장";
     return `
       <section class="ctdash-screen fr-shell">
         <article class="ctdash-card ctdash-section fr-hero">
           <div class="ctdash-section-head">
             <div>
-              <div class="ctdash-kicker">Field Report v2 Test</div>
+              <div class="ctdash-kicker">Field Report</div>
               <h3>일지 작성</h3>
-              <p>SHOUT-OUT 현장운영일지 양식 기준의 테스트 복제본입니다. 실제 Bubble 저장은 호출하지 않고 ${escapeHtml(FIELD_REPORT_JSON_FIELD)} mock 상태만 생성합니다.</p>
+              <p>대회별 현장운영일지를 저장하고, 저장 이력을 ${escapeHtml(FIELD_REPORT_JSON_FIELD)} 리스트에 버전별로 누적합니다.</p>
             </div>
-            <span class="ctdash-tag">복제본 전용</span>
+            <span class="ctdash-tag">${escapeHtml(latest ? `최신 ${latest.label}` : "신규")}</span>
           </div>
           <div class="fr-toolbar">
-            <label><span>일지 선택</span><select class="ctdash-select" id="field_report_draft_select">${draftOptions}</select></label>
-            <button class="ctdash-refresh" type="button" data-fr-action="save">mock 저장</button>
-            <button class="sh-btn-sm" type="button" data-fr-action="toggle-json">${fieldReportShowJson ? "JSON 숨기기" : "JSON 보기"}</button>
-            <button class="sh-btn-sm" type="button" data-fr-action="reset">초기화</button>
+            <label><span>대회 선택</span><select class="ctdash-select" id="field_report_draft_select">${draftOptions}</select></label>
+            <label><span>일지 버전</span><select class="ctdash-select" id="field_report_version_select">${versionOptions}</select></label>
+            <button class="ctdash-refresh" type="button" data-fr-action="save" ${fieldReportSaving ? "disabled" : ""}>${saveLabel}</button>
+            <button class="sh-btn-sm" type="button" data-fr-action="edit-latest" ${latest ? "" : "disabled"}>수정</button>
           </div>
-          <div class="ctdash-callout">Event 목록을 읽어 대회별 일지 초안을 자동 생성합니다. Event 생성 API와 Bubble schema는 변경하지 않습니다.</div>
         </article>
 
         <article class="ctdash-card ctdash-section fr-section">
@@ -2574,8 +2840,6 @@
             ${fieldReportTextarea("signatures.office_confirm.note", "사무실 확인 메모")}
           </div>
         </article>
-
-        ${fieldReportShowJson ? `<article class="ctdash-card ctdash-section fr-section"><div class="ctdash-section-head"><div><div class="ctdash-kicker">JSON</div><h3>${escapeHtml(FIELD_REPORT_JSON_FIELD)}</h3></div><span class="ctdash-tag">${escapeHtml(FIELD_REPORT_TEST_TYPE)}</span></div><pre class="fr-json">${escapeHtml(JSON.stringify(report, null, 2))}</pre></article>` : ""}
       </section>`;
   }
 
@@ -5558,7 +5822,10 @@
           renderCurrentTestDashboard();
           if (!sotCurrentTestLoading) loadCurrentTestDashboard();
         }
-        if (activeAdminView === "diary") renderCurrentTestDashboard();
+        if (activeAdminView === "diary") {
+          renderCurrentTestDashboard();
+          ensureFieldReportAdminProfile().then(() => renderCurrentTestDashboard());
+        }
       });
     });
 
@@ -5626,14 +5893,9 @@
         const action = fieldReportAction.dataset.frAction;
         if (action === "save") {
           saveFieldReportTest();
-          realSaveFieldReportTest(selectedFieldReportDraft().report_json);
         }
-        if (action === "toggle-json") {
-          fieldReportShowJson = !fieldReportShowJson;
-          renderCurrentTestDashboard();
-        }
-        if (action === "reset") {
-          resetFieldReportTestDraft();
+        if (action === "edit-latest") {
+          loadLatestFieldReportForEdit();
         }
         return;
       }
@@ -5733,7 +5995,15 @@
 	    document.addEventListener("change", e => {
 	      if (e.target && e.target.id === "field_report_draft_select") {
 	        fieldReportActiveId = e.target.value || "";
+	        fieldReportActiveVersion = "latest";
+	        const draft = selectedFieldReportDraft();
+	        const latest = latestFieldReportVersion(draft);
+	        if (latest) applyFieldReportVersionToDraft(draft, latest);
 	        renderCurrentTestDashboard();
+	        return;
+	      }
+	      if (e.target && e.target.id === "field_report_version_select") {
+	        loadSelectedFieldReportVersion(e.target.value || "latest");
 	        return;
 	      }
 	      if (e.target && e.target.matches(".fr-input,.fr-table-input")) {
@@ -5996,6 +6266,8 @@
 
       const usersId = payload && (payload.users_id || payload.usersId || payload.user_id);
       if (usersId) localStorage.setItem("shout_users_id", usersId);
+      const adminName = payload && (payload.admin_name || payload.adminName || payload.name || payload.display_name);
+      if (adminName) localStorage.setItem("shout_admin_name", adminName);
 
       if (!isAdmin) {
         localStorage.removeItem("shout_is_admin");
