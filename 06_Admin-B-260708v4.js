@@ -2995,7 +2995,7 @@
 	        if (ai !== -1 || bi !== -1) return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
 	        return a.label.localeCompare(b.label, "ko");
 	      });
-    if (isSotDashDebugEnabled()) {
+    if (typeof window.sotDashDebugEnabled === "function" && window.sotDashDebugEnabled()) {
 	      console.table(normalized.map(row => ({
 	        section: "photo_bucket",
 	        label: row.label,
