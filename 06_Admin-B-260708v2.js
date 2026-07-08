@@ -56,6 +56,12 @@
       return false;
     }
   }
+  window.sotDashDebugEnabled = window.sotDashDebugEnabled || sotDashDebugEnabled;
+
+  function isSotDashDebugEnabled() {
+    if (typeof sotDashDebugEnabled === "function") return sotDashDebugEnabled();
+    return typeof window.sotDashDebugEnabled === "function" && window.sotDashDebugEnabled();
+  }
 
   function dashboardDataApiUrl(apiBase, cursor, eventCode) {
     const params = new URLSearchParams();
@@ -809,14 +815,14 @@
   let sotCurrentTestLastError = "";
   let sotCurrentTestMissingSnapshot = null;
   let currentDashView = "report";
-  let currentDashReportPeriod = "weekly";
+  let currentDashReportPeriod = "total";
   let currentDashReportTotalChartPeriod = "daily";
   let currentDashReportSelectedWeekStart = "";
   let currentDashReportSelectedWeekKey = sotWeekKeyFromDateKey(yesterdayKSTDateKey());
   let currentDashReportSelectedDateKey = yesterdayKSTDateKey();
   let currentDashReportSelectedMonthKey = monthKeyFromDateKey(todayKSTDateKey());
-  let currentDashEventPeriod = "weekly";
-  let currentDashSelectedEvent = "all";
+  let currentDashEventPeriod = "total";
+  let currentDashSelectedEvent = "";
   let currentDashSelectedWeekStart = "";
   let currentDashSelectedWeekKey = sotWeekKeyFromDateKey(yesterdayKSTDateKey());
   let currentDashSelectedDateKey = yesterdayKSTDateKey();
@@ -838,12 +844,12 @@
   let fieldReportActiveId = "";
   let fieldReportShowJson = false;
   let legacyAnalysisView = "report";
-  let legacyAnalysisReportPeriod = "weekly";
+  let legacyAnalysisReportPeriod = "total";
   let legacyAnalysisReportSelectedWeekKey = sotWeekKeyFromDateKey(yesterdayKSTDateKey());
   let legacyAnalysisReportSelectedDateKey = yesterdayKSTDateKey();
   let legacyAnalysisReportSelectedMonthKey = monthKeyFromDateKey(todayKSTDateKey());
-  let legacyAnalysisEventPeriod = "weekly";
-  let legacyAnalysisSelectedEvent = "all";
+  let legacyAnalysisEventPeriod = "total";
+  let legacyAnalysisSelectedEvent = "";
   let legacyAnalysisEventSelectedWeekKey = sotWeekKeyFromDateKey(yesterdayKSTDateKey());
   let legacyAnalysisEventSelectedDateKey = yesterdayKSTDateKey();
   let legacyAnalysisEventSelectedMonthKey = monthKeyFromDateKey(todayKSTDateKey());
@@ -1680,7 +1686,14 @@
         if (currentDashView === "event-analysis") renderCurrentTestDashboard();
       });
       if (currentDashView === "event-analysis") {
-        ensureCurrentDashEventListSnapshot().then(() => renderCurrentTestDashboard());
+        ensureCurrentDashEventListSnapshot().then(() => {
+          syncCurrentDashSelections();
+          if (currentDashSelectedEvent && currentDashSelectedEvent !== "all") {
+            ensureCurrentDashEventDetail(currentDashSelectedEvent);
+          } else {
+            renderCurrentTestDashboard();
+          }
+        });
       }
       if (currentDashView === "event-analysis" && currentDashSelectedEvent !== "all") {
         ensureCurrentDashEventDetail(currentDashSelectedEvent);
@@ -1726,8 +1739,8 @@
           <div class="ctdash-section-head">
             <div><div class="ctdash-kicker">${kicker}</div><h3>${title}</h3><p>데이터 연결 전에도 동일한 리포트 구조를 먼저 표시합니다.</p></div>
             <div class="ctdash-period-tabs">${eventMode
-              ? `<button class="ctdash-chip ${currentDashEventPeriod === "daily" ? "is-active" : ""}" type="button">일별</button><button class="ctdash-chip ${currentDashEventPeriod === "weekly" ? "is-active" : ""}" type="button">주차별</button><button class="ctdash-chip ${currentDashEventPeriod === "monthly" ? "is-active" : ""}" type="button">월별</button><button class="ctdash-chip ${currentDashEventPeriod === "total" ? "is-active" : ""}" type="button">전체</button>`
-              : `<button class="ctdash-chip ${currentDashReportPeriod === "daily" ? "is-active" : ""}" type="button">일별</button><button class="ctdash-chip ${currentDashReportPeriod === "weekly" ? "is-active" : ""}" type="button">주차별</button><button class="ctdash-chip ${currentDashReportPeriod === "monthly" ? "is-active" : ""}" type="button">월별</button>`}</div>
+              ? `<button class="ctdash-chip ${currentDashEventPeriod === "total" ? "is-active" : ""}" type="button">전체</button><button class="ctdash-chip ${currentDashEventPeriod === "monthly" ? "is-active" : ""}" type="button">월별</button><button class="ctdash-chip ${currentDashEventPeriod === "weekly" ? "is-active" : ""}" type="button">주차별</button><button class="ctdash-chip ${currentDashEventPeriod === "daily" ? "is-active" : ""}" type="button">일별</button>`
+              : `<button class="ctdash-chip ${currentDashReportPeriod === "total" ? "is-active" : ""}" type="button">전체</button><button class="ctdash-chip ${currentDashReportPeriod === "monthly" ? "is-active" : ""}" type="button">월별</button><button class="ctdash-chip ${currentDashReportPeriod === "weekly" ? "is-active" : ""}" type="button">주차별</button><button class="ctdash-chip ${currentDashReportPeriod === "daily" ? "is-active" : ""}" type="button">일별</button>`}</div>
           </div>
           <div class="ctdash-inline-fields">${eventMode ? currentDashEventScopeControls() : currentDashReportScopeControls()}</div>
           <div class="${eventMode ? "ctdash-summary-grid" : "ctdash-metrics-grid"}">${metrics.map(row => metricCard(row[0], row[1], row[2])).join("")}</div>
@@ -1872,7 +1885,10 @@
 
   function syncCurrentDashSelections() {
     const events = currentDashEventOptions();
-    if (currentDashSelectedEvent !== "all" && events.length && !events.some(row => row.event_code === currentDashSelectedEvent)) currentDashSelectedEvent = "all";
+    const defaultEventCode = events.length ? events[0].event_code : "all";
+    if (!currentDashSelectedEvent || (currentDashSelectedEvent !== "all" && events.length && !events.some(row => row.event_code === currentDashSelectedEvent))) {
+      currentDashSelectedEvent = defaultEventCode;
+    }
     if (!currentDashReportSelectedDateKey) currentDashReportSelectedDateKey = yesterdayKSTDateKey();
     if (!currentDashSelectedDateKey) currentDashSelectedDateKey = yesterdayKSTDateKey();
     if (!currentDashReportSelectedMonthKey) currentDashReportSelectedMonthKey = monthKeyFromDateKey(todayKSTDateKey());
@@ -2003,10 +2019,10 @@
               <p>선택한 기간 기준 snapshot을 조회합니다.</p>
             </div>
             <div class="ctdash-period-tabs">
-              <button class="ctdash-chip ${currentDashReportPeriod === "daily" ? "is-active" : ""}" type="button" data-ctdash-report-period="daily">일별</button>
-              <button class="ctdash-chip ${currentDashReportPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-report-period="weekly">주차별</button>
-              <button class="ctdash-chip ${currentDashReportPeriod === "monthly" ? "is-active" : ""}" type="button" data-ctdash-report-period="monthly">월별</button>
               <button class="ctdash-chip ${currentDashReportPeriod === "total" ? "is-active" : ""}" type="button" data-ctdash-report-period="total">전체</button>
+              <button class="ctdash-chip ${currentDashReportPeriod === "monthly" ? "is-active" : ""}" type="button" data-ctdash-report-period="monthly">월별</button>
+              <button class="ctdash-chip ${currentDashReportPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-report-period="weekly">주차별</button>
+              <button class="ctdash-chip ${currentDashReportPeriod === "daily" ? "is-active" : ""}" type="button" data-ctdash-report-period="daily">일별</button>
             </div>
           </div>
           <div class="ctdash-inline-fields">${currentDashReportScopeControls()}</div>
@@ -2087,13 +2103,13 @@
             </div>
           </div>
           <div class="ctdash-event-toolbar">
-            <div class="ctdash-period-tabs">
-              <button class="ctdash-chip ${currentDashEventPeriod === "daily" ? "is-active" : ""}" type="button" data-ctdash-event-period="daily">일별</button>
-              <button class="ctdash-chip ${currentDashEventPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-event-period="weekly">주차별</button>
-              <button class="ctdash-chip ${currentDashEventPeriod === "monthly" ? "is-active" : ""}" type="button" data-ctdash-event-period="monthly">월별</button>
-              <button class="ctdash-chip ${currentDashEventPeriod === "total" ? "is-active" : ""}" type="button" data-ctdash-event-period="total">전체</button>
-            </div>
             <div class="ctdash-inline-fields">${currentDashEventScopeControls()}</div>
+            <div class="ctdash-period-tabs">
+              <button class="ctdash-chip ${currentDashEventPeriod === "total" ? "is-active" : ""}" type="button" data-ctdash-event-period="total">전체</button>
+              <button class="ctdash-chip ${currentDashEventPeriod === "monthly" ? "is-active" : ""}" type="button" data-ctdash-event-period="monthly">월별</button>
+              <button class="ctdash-chip ${currentDashEventPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-event-period="weekly">주차별</button>
+              <button class="ctdash-chip ${currentDashEventPeriod === "daily" ? "is-active" : ""}" type="button" data-ctdash-event-period="daily">일별</button>
+            </div>
           </div>
           ${currentDashEventDetailLoading ? `<div class="ctdash-callout">선택한 대회 상세를 불러오는 중입니다.</div>` : ""}
         </article>
@@ -2979,7 +2995,7 @@
 	        if (ai !== -1 || bi !== -1) return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
 	        return a.label.localeCompare(b.label, "ko");
 	      });
-	    if (sotDashDebugEnabled()) {
+    if (isSotDashDebugEnabled()) {
 	      console.table(normalized.map(row => ({
 	        section: "photo_bucket",
 	        label: row.label,
@@ -3284,6 +3300,7 @@
     }
     if (legacyAnalysisReportPeriod === "weekly") return "report_weekly";
     if (legacyAnalysisReportPeriod === "monthly") return "report_monthly";
+    if (legacyAnalysisReportPeriod === "total") return "report_total";
     return "report_daily";
   }
 
@@ -3296,6 +3313,7 @@
     }
     if (legacyAnalysisReportPeriod === "weekly") return legacyAnalysisReportSelectedWeekKey || sotWeekKeyFromDateKey(legacyAnalysisReportSelectedDateKey || yesterdayKSTDateKey());
     if (legacyAnalysisReportPeriod === "monthly") return legacyAnalysisReportSelectedMonthKey || monthKeyFromDateKey(legacyAnalysisReportSelectedDateKey || todayKSTDateKey());
+    if (legacyAnalysisReportPeriod === "total") return "total";
     return legacyAnalysisReportSelectedDateKey || yesterdayKSTDateKey();
   }
 
@@ -3503,6 +3521,11 @@
     return firstText(row, ["event_name", "event_display_name", "display_name"]) || eventCode || "-";
   }
 
+  function legacyDefaultEventCode(rows) {
+    const options = sortEventOptionsByDateDesc((rows || []).filter(row => row && row.event_code && row.event_code !== "all"));
+    return options.length ? options[0].event_code : "all";
+  }
+
   function buildLegacyV2ReportModel(rows, options) {
     const sourceRows = Array.isArray(rows) ? rows : [];
     const byAgg = groupLegacyRowsByAggType(sourceRows);
@@ -3644,6 +3667,9 @@
   }
 
   function legacyReportScopeControls() {
+    if (legacyAnalysisReportPeriod === "total") {
+      return `<label><span>전체 기준</span><input class="ctdash-input" type="text" value="total" disabled></label>`;
+    }
     if (legacyAnalysisReportPeriod === "monthly") {
       return `<label><span>월 선택</span><input class="ctdash-input" type="month" id="legacy_report_month_input" value="${escapeHtml(legacyAnalysisReportSelectedMonthKey || monthKeyFromDateKey(todayKSTDateKey()))}"></label>`;
     }
@@ -3721,9 +3747,10 @@
               <p>선택한 기간 기준 legacy dashboard row를 조회합니다.</p>
             </div>
             <div class="ctdash-period-tabs">
-              <button class="ctdash-chip ${legacyAnalysisReportPeriod === "daily" ? "is-active" : ""}" type="button" data-legacy-report-period="daily">일별</button>
-              <button class="ctdash-chip ${legacyAnalysisReportPeriod === "weekly" ? "is-active" : ""}" type="button" data-legacy-report-period="weekly">주차별</button>
+              <button class="ctdash-chip ${legacyAnalysisReportPeriod === "total" ? "is-active" : ""}" type="button" data-legacy-report-period="total">전체</button>
               <button class="ctdash-chip ${legacyAnalysisReportPeriod === "monthly" ? "is-active" : ""}" type="button" data-legacy-report-period="monthly">월별</button>
+              <button class="ctdash-chip ${legacyAnalysisReportPeriod === "weekly" ? "is-active" : ""}" type="button" data-legacy-report-period="weekly">주차별</button>
+              <button class="ctdash-chip ${legacyAnalysisReportPeriod === "daily" ? "is-active" : ""}" type="button" data-legacy-report-period="daily">일별</button>
             </div>
           </div>
           <div class="ctdash-inline-fields">${legacyReportScopeControls()}</div>
@@ -3819,13 +3846,13 @@
             </div>
           </div>
           <div class="ctdash-event-toolbar">
-            <div class="ctdash-period-tabs">
-              <button class="ctdash-chip ${legacyAnalysisEventPeriod === "daily" ? "is-active" : ""}" type="button" data-legacy-event-period="daily">일별</button>
-              <button class="ctdash-chip ${legacyAnalysisEventPeriod === "weekly" ? "is-active" : ""}" type="button" data-legacy-event-period="weekly">주차별</button>
-              <button class="ctdash-chip ${legacyAnalysisEventPeriod === "monthly" ? "is-active" : ""}" type="button" data-legacy-event-period="monthly">월별</button>
-              <button class="ctdash-chip ${legacyAnalysisEventPeriod === "total" ? "is-active" : ""}" type="button" data-legacy-event-period="total">전체</button>
-            </div>
             <div class="ctdash-inline-fields">${legacyEventScopeControls(model.eventSummaries)}</div>
+            <div class="ctdash-period-tabs">
+              <button class="ctdash-chip ${legacyAnalysisEventPeriod === "total" ? "is-active" : ""}" type="button" data-legacy-event-period="total">전체</button>
+              <button class="ctdash-chip ${legacyAnalysisEventPeriod === "monthly" ? "is-active" : ""}" type="button" data-legacy-event-period="monthly">월별</button>
+              <button class="ctdash-chip ${legacyAnalysisEventPeriod === "weekly" ? "is-active" : ""}" type="button" data-legacy-event-period="weekly">주차별</button>
+              <button class="ctdash-chip ${legacyAnalysisEventPeriod === "daily" ? "is-active" : ""}" type="button" data-legacy-event-period="daily">일별</button>
+            </div>
           </div>
         </article>
         <div class="ctdash-two-col">
@@ -3984,6 +4011,21 @@
     try {
       await ensureLegacySnapshotStatusDefaults();
       syncLegacyDailySelectionKeys(legacyAnalysisView);
+      if (legacyAnalysisView === "event-analysis" && !legacyAnalysisSelectedEvent) {
+        try {
+          const eventList = await SOT_HEAD.fetchDashboardSnapshot({
+            dataSource: "legacy_snapshot",
+            snapshotType: "event_list",
+            periodKey: "latest",
+            eventCode: "all",
+            tab: "event-analysis"
+          });
+          legacyAnalysisEventListRows = eventList && eventList.ok ? legacyRowsFromSnapshot(eventList).filter(row => row.agg_type === "event_summary") : [];
+          legacyAnalysisSelectedEvent = legacyDefaultEventCode(legacyAnalysisEventListRows);
+        } catch (_) {
+          legacyAnalysisSelectedEvent = "all";
+        }
+      }
       const snapshotType = legacySnapshotTypeForView(legacyAnalysisView);
       const periodKey = legacySnapshotPeriodKeyForView(legacyAnalysisView);
       const eventCode = legacyAnalysisView === "event-analysis" ? (legacyAnalysisSelectedEvent || "all") : "all";
@@ -5624,7 +5666,7 @@
 
       const legacyReportPeriodButton = e.target.closest("[data-legacy-report-period]");
       if (legacyReportPeriodButton) {
-        legacyAnalysisReportPeriod = legacyReportPeriodButton.dataset.legacyReportPeriod || "weekly";
+        legacyAnalysisReportPeriod = legacyReportPeriodButton.dataset.legacyReportPeriod || "total";
         syncLegacyDailySelectionKeys("report");
         loadLegacyAnalysisV2();
         return;
@@ -5632,7 +5674,7 @@
 
       const legacyEventPeriodButton = e.target.closest("[data-legacy-event-period]");
       if (legacyEventPeriodButton) {
-        legacyAnalysisEventPeriod = legacyEventPeriodButton.dataset.legacyEventPeriod || "weekly";
+        legacyAnalysisEventPeriod = legacyEventPeriodButton.dataset.legacyEventPeriod || "total";
         syncLegacyDailySelectionKeys("event-analysis");
         loadLegacyAnalysisV2();
         return;
@@ -5676,7 +5718,7 @@
 
       const reportPeriodButton = e.target.closest("[data-ctdash-report-period]");
       if (reportPeriodButton) {
-        currentDashReportPeriod = reportPeriodButton.dataset.ctdashReportPeriod || "weekly";
+        currentDashReportPeriod = reportPeriodButton.dataset.ctdashReportPeriod || "total";
         syncCurrentDashPeriodKeys();
         invalidateCurrentDashReportCache();
         loadCurrentTestDashboard();
@@ -5686,7 +5728,7 @@
 
       const eventPeriodButton = e.target.closest("[data-ctdash-event-period]");
       if (eventPeriodButton) {
-        currentDashEventPeriod = eventPeriodButton.dataset.ctdashEventPeriod || "weekly";
+        currentDashEventPeriod = eventPeriodButton.dataset.ctdashEventPeriod || "total";
         syncCurrentDashPeriodKeys();
         clearCurrentDashEventDetailCache();
         loadCurrentTestDashboard();
@@ -6015,45 +6057,3 @@
       if (usersId) localStorage.setItem("shout_users_id", usersId);
 
       if (!isAdmin) {
-        localStorage.removeItem("shout_is_admin");
-        sessionStorage.removeItem("shout_access_token");
-        sessionStorage.removeItem("shout_auth_intent");
-
-        alert("관리자 권한이 없습니다.");
-        location.href = "/";
-        return false;
-      }
-
-      localStorage.setItem("shout_is_admin", "true");
-      try {
-        const rawIntent = sessionStorage.getItem("shout_auth_intent");
-        const intent = rawIntent ? JSON.parse(rawIntent) : null;
-        if (intent && (intent.after === "admin" || intent.type === "admin")) {
-          sessionStorage.removeItem("shout_auth_intent");
-        }
-      } catch (e) {
-        sessionStorage.removeItem("shout_auth_intent");
-      }
-      return true;
-
-    } catch (err) {
-      console.error("[Admin] guardAdmin error:", err);
-      alert("관리자 인증 중 오류가 발생했습니다.");
-      location.href = "/";
-      return false;
-    }
-  }
-
-  function bootAdmin(){
-    guardAdmin().then(function(ok){
-      if (ok) initUI();
-    }).catch(function(err){
-      console.error("[Admin] bootAdmin error:", err);
-      alert("관리자 초기화 중 오류가 발생했습니다.");
-    });
-  }
-
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bootAdmin);
-  else bootAdmin();
-
-})();
