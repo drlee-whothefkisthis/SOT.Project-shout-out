@@ -6057,3 +6057,45 @@
       if (usersId) localStorage.setItem("shout_users_id", usersId);
 
       if (!isAdmin) {
+        localStorage.removeItem("shout_is_admin");
+        sessionStorage.removeItem("shout_access_token");
+        sessionStorage.removeItem("shout_auth_intent");
+
+        alert("관리자 권한이 없습니다.");
+        location.href = "/";
+        return false;
+      }
+
+      localStorage.setItem("shout_is_admin", "true");
+      try {
+        const rawIntent = sessionStorage.getItem("shout_auth_intent");
+        const intent = rawIntent ? JSON.parse(rawIntent) : null;
+        if (intent && (intent.after === "admin" || intent.type === "admin")) {
+          sessionStorage.removeItem("shout_auth_intent");
+        }
+      } catch (e) {
+        sessionStorage.removeItem("shout_auth_intent");
+      }
+      return true;
+
+    } catch (err) {
+      console.error("[Admin] guardAdmin error:", err);
+      alert("관리자 인증 중 오류가 발생했습니다.");
+      location.href = "/";
+      return false;
+    }
+  }
+
+  function bootAdmin(){
+    guardAdmin().then(function(ok){
+      if (ok) initUI();
+    }).catch(function(err){
+      console.error("[Admin] bootAdmin error:", err);
+      alert("관리자 초기화 중 오류가 발생했습니다.");
+    });
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bootAdmin);
+  else bootAdmin();
+
+})();
