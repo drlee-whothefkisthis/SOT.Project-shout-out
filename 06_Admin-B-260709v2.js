@@ -3033,7 +3033,7 @@
 	    const topRevenue = photoCountTopRow(rows, "revenue");
 	    return `
 	      <div class="ctdash-conv-grid" style="margin:0 0 14px;">
-		        ${metricCard("최고 구매율 구간", `${escapeHtml(topRate.label)} / ${formatPercent(topRate.purchaseRate)}`, "구매 배번호수 / 검색수")}
+		        ${metricCard("최고 구매율 구간", `${escapeHtml(topRate.label)} / ${formatPercent(topRate.purchaseRate)}`, "주문수 / 검색수")}
 	        ${metricCard("검색수 최다 구간", `${escapeHtml(topSearch.label)} / ${formatNumber(topSearch.searchCount)}회`, "표본 크기")}
 	        ${metricCard("매출 최다 구간", `${escapeHtml(topRevenue.label)} / ${formatWon(topRevenue.revenue)}`, "구간별 revenue")}
 	      </div>
