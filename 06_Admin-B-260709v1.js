@@ -2984,7 +2984,7 @@
 	    const normalized = [...byLabel.values()]
 	      .map(row => ({
 	        ...row,
-        purchaseRate: safeRate(row.purchaseBibCount, row.searchCount),
+        purchaseRate: safeRate(row.orderCount, row.searchCount),
 	        cartRate: safeRate(row.cartCount, row.searchCount),
 	        cartToPurchaseRate: safeRate(row.purchaseCount, row.cartCount),
 	        avgOrderValue: row.purchaseCount ? Math.round(row.revenue / row.purchaseCount) : 0
@@ -3120,6 +3120,7 @@
 	                  <th>검색수</th>
 		                  <th>구매 배번호수</th>
 		                  <th>주문수</th>
+	                  <th>판매된 사진개수</th>
 	                  <th>구매율</th>
 	                  <th>매출</th>
 	                </tr>
@@ -3131,10 +3132,11 @@
 		                    <td align="right" style="padding:13px 10px;">${formatNumber(row.searchCount)}</td>
 	                    <td align="right" style="padding:13px 10px;">${formatNumber(row.purchaseBibCount)}</td>
 	                    <td align="right" style="padding:13px 10px;">${formatNumber(row.orderCount)}</td>
+	                    <td align="right" style="padding:13px 10px;">${formatNumber(row.soldPhotoCount)}</td>
 			                    <td align="right" style="padding:13px 8px; font-weight:900; ${row.purchaseRate >= 10 ? "color:#0c8b88;" : ""}">${formatPercent(row.purchaseRate)}</td>
 	                    <td align="right" style="padding:13px 8px;">${formatWon(row.revenue)}</td>
 		                  </tr>
-			                `).join("") : `<tr><td colspan="6">사진 수 구간별 구매 분석 데이터가 없습니다.</td></tr>`}
+			                `).join("") : `<tr><td colspan="7">사진 수 구간별 구매 분석 데이터가 없습니다.</td></tr>`}
 		              </tbody>
             </table>
           </div>
