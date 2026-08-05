@@ -2250,6 +2250,16 @@
           location: event?.location || event?.place || event?.venue || "영주시민운동장",
           weather: "",
           temperature: "",
+          operation_result: "",
+          operation_result_reason: "",
+          upload_completion_status: "",
+          upload_completion_reason: "",
+          closing_checks: {
+            upload_completed: false,
+            equipment_returned: false,
+            lost_and_found_checked: false,
+            teardown_completed: false
+          },
           participant_staff: ["이대로", "박찬희", "이인혁", "규식"],
           created_at: now,
           updated_at: now
@@ -2327,6 +2337,18 @@
       if (!Array.isArray(existing.report_json.meta.participant_staff)) {
         existing.report_json.meta.participant_staff = String(existing.report_json.meta.staff_text || "").split(",").map(name => name.trim()).filter(Boolean);
       }
+      if (typeof existing.report_json.meta.operation_result !== "string") existing.report_json.meta.operation_result = "";
+      if (typeof existing.report_json.meta.operation_result_reason !== "string") existing.report_json.meta.operation_result_reason = "";
+      if (typeof existing.report_json.meta.upload_completion_status !== "string") existing.report_json.meta.upload_completion_status = "";
+      if (typeof existing.report_json.meta.upload_completion_reason !== "string") existing.report_json.meta.upload_completion_reason = "";
+      if (!existing.report_json.meta.closing_checks || typeof existing.report_json.meta.closing_checks !== "object") {
+        existing.report_json.meta.closing_checks = {
+          upload_completed: false,
+          equipment_returned: false,
+          lost_and_found_checked: false,
+          teardown_completed: false
+        };
+      }
       if (!Array.isArray(existing.report_json.auto_issues)) existing.report_json.auto_issues = [];
       return existing;
     }
@@ -2394,6 +2416,11 @@
   function fieldReportSelect(path, label, values) {
     const value = fieldReportValue(path) || "";
     return `<label><span>${escapeHtml(label)}</span><select class="ctdash-select fr-input" data-fr-path="${escapeHtml(path)}"><option value="">선택</option>${values.map(item => `<option value="${escapeHtml(item)}" ${String(value) === String(item) ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}<option value="기타" ${value === "기타" ? "selected" : ""}>기타</option></select></label>`;
+  }
+
+  function fieldReportStrictSelect(path, label, options) {
+    const value = fieldReportValue(path) || "";
+    return `<label><span>${escapeHtml(label)}</span><select class="ctdash-select fr-input" data-fr-path="${escapeHtml(path)}"><option value="">선택</option>${options.map(option => `<option value="${escapeHtml(option.value)}" ${String(value) === String(option.value) ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}</select></label>`;
   }
 
   function fieldReportReadOnlyField(label, value, type) {
@@ -2492,6 +2519,9 @@
     const participantOptions = staffOptions.filter(name => !participantStaff.includes(name)).map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
     const participantChips = participantStaff.length ? participantStaff.map(name => `<span class="fr-staff-chip">${escapeHtml(name)}<button type="button" data-fr-participant-remove="${escapeHtml(name)}" aria-label="${escapeHtml(name)} 제거">×</button></span>`).join("") : `<span class="ctdash-empty">선택된 스탭이 없습니다.</span>`;
     const checkValue = report.daily_summary.actual_count_check || "";
+    const operationResult = report.meta.operation_result || "";
+    const uploadCompletionStatus = report.meta.upload_completion_status || "";
+    const closingChecks = report.meta.closing_checks || {};
     return `
       <section class="ctdash-screen fr-shell">
         <article class="ctdash-card ctdash-section fr-hero">
@@ -2521,11 +2551,24 @@
             ${fieldReportField("meta.location", "장소", "text")}
             ${fieldReportSelect("meta.weather", "날씨", ["맑음", "흐림", "비", "눈"])}
             ${fieldReportSelect("meta.temperature", "기온", Array.from({length:56}, (_, index) => `${index - 10}℃`))}
+            ${fieldReportStrictSelect("meta.operation_result", "운영 결과", [{ value:"normal", label:"정상 운영" }, { value:"partial", label:"부분 운영" }, { value:"stopped", label:"운영 중단" }])}
+            ${["partial", "stopped"].includes(operationResult) ? fieldReportField("meta.operation_result_reason", "운영 결과 사유", "text", "사유 입력") : ""}
+            ${fieldReportStrictSelect("meta.upload_completion_status", "업로드 완료 여부", [{ value:"complete", label:"완료" }, { value:"partial", label:"일부 완료" }, { value:"not_uploaded", label:"미업로드" }])}
+            ${["partial", "not_uploaded"].includes(uploadCompletionStatus) ? fieldReportField("meta.upload_completion_reason", "업로드 사유", "text", "사유 입력") : ""}
           </div>
           <div class="fr-participant-field">
             <span>참여 스탭</span>
             <div class="fr-staff-picker"><div class="fr-staff-chips">${participantChips}</div><div class="fr-staff-add"><select class="ctdash-select" id="field_report_participant_select"><option value="">스탭 선택</option>${participantOptions}</select><button class="sh-btn-sm" type="button" data-fr-participant-add>추가</button></div></div>
             <small>Notion 다중 선택처럼 스탭을 한 명씩 추가하거나 제거합니다.</small>
+          </div>
+          <div class="fr-closing-checks">
+            <span>현장 마감 체크</span>
+            <div class="fr-check-grid">
+              <label><input class="fr-input" data-fr-path="meta.closing_checks.upload_completed" type="checkbox" ${closingChecks.upload_completed ? "checked" : ""}><span>업로드 완료</span></label>
+              <label><input class="fr-input" data-fr-path="meta.closing_checks.equipment_returned" type="checkbox" ${closingChecks.equipment_returned ? "checked" : ""}><span>장비 반납 완료</span></label>
+              <label><input class="fr-input" data-fr-path="meta.closing_checks.lost_and_found_checked" type="checkbox" ${closingChecks.lost_and_found_checked ? "checked" : ""}><span>분실물 확인</span></label>
+              <label><input class="fr-input" data-fr-path="meta.closing_checks.teardown_completed" type="checkbox" ${closingChecks.teardown_completed ? "checked" : ""}><span>철수 완료</span></label>
+            </div>
           </div>
         </article>
 
@@ -5842,7 +5885,7 @@
 	      }
 	      if (e.target && e.target.matches(".fr-input,.fr-table-input")) {
 	        setFieldReportValue(e.target.dataset.frPath, e.target.type === "checkbox" ? e.target.checked : e.target.value);
-	        if (e.target.dataset.frPath === "daily_summary.actual_count_check") renderCurrentTestDashboard();
+	        if (["daily_summary.actual_count_check", "meta.operation_result", "meta.upload_completion_status"].includes(e.target.dataset.frPath)) renderCurrentTestDashboard();
 	        return;
 	      }
 	      if (e.target && e.target.id === "ctdash_report_date_input") {
