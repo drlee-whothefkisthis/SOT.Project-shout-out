@@ -840,7 +840,10 @@
   const FIELD_REPORT_TEST_TYPE = "SOT:FieldReportTest";
   const FIELD_REPORT_JSON_FIELD = "report_json";
   const FIELD_REPORT_STORAGE_KEY = "shout_field_report_v2_test_drafts";
+  const FIELD_REPORT_API_URL = "https://photographer-report-api-a6mwhgji4q-du.a.run.app/v1/admin-field-reports";
   let fieldReportDrafts = [];
+  let fieldReportSaving = false;
+  let fieldReportSaveMessage = "";
   let fieldReportActiveId = "";
   let fieldReportShowJson = false;
   let legacyAnalysisView = "report";
@@ -2490,6 +2493,117 @@
     renderCurrentTestDashboard();
   }
 
+  function fieldReportUuid() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, char => {
+      const value = Math.floor(Math.random() * 16);
+      return (char === "x" ? value : (value & 0x3) | 0x8).toString(16);
+    });
+  }
+
+  function fieldReportNullableText(value) {
+    const text = String(value || "").trim();
+    return text || null;
+  }
+
+  function fieldReportInteger(value) {
+    const parsed = Number.parseInt(String(value || "").replace(/[^\d-]/g, ""), 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function fieldReportEnum(value, map) {
+    return map[String(value || "").trim()] || "";
+  }
+
+  function fieldReportCurrentVersion(draft) {
+    const event = (allEvents || []).find(row => String(row?.event_code || "") === String(draft?.event_code || ""));
+    let version = Number(draft?.server_version || 0);
+    const history = Array.isArray(event?.work_report_json) ? event.work_report_json : [];
+    history.forEach(raw => {
+      try {
+        const record = JSON.parse(raw);
+        if (Number.isInteger(record?.version)) version = Math.max(version, record.version);
+      } catch (error) {
+        // 서버가 손상된 이력을 보호하며 저장을 중단하므로, 화면에서는 무시하지 않고 서버 응답을 보여줍니다.
+      }
+    });
+    return version;
+  }
+
+  function fieldReportSubmitPayload(draft, requestId) {
+    const report = draft.report_json;
+    const meta = report.meta || {};
+    const closing = meta.closing_checks || {};
+    const operationResult = fieldReportEnum(meta.operation_result, { normal:"normal", partial:"partial", stopped:"stopped" });
+    const uploadStatus = fieldReportEnum(meta.upload_completion_status, { complete:"complete", partial:"partial", not_uploaded:"not_uploaded" });
+    const countCheck = fieldReportEnum(report.daily_summary?.actual_count_check, { matched:"matched", review:"review_required", review_required:"review_required", mismatch:"mismatch" });
+    const temperature = fieldReportInteger(meta.temperature);
+    const actualCount = fieldReportInteger(report.daily_summary?.actual_shoot_count);
+    const extraStatus = { "정상":"normal", "확인 필요":"needs_review", "분실":"lost", "수리 필요":"needs_repair", normal:"normal", needs_review:"needs_review", lost:"lost", needs_repair:"needs_repair" };
+    const issueCategory = { "운영":"operation", "장비":"equipment", "고객":"customer", "안전":"safety", "기타":"other", operation:"operation", equipment:"equipment", customer:"customer", safety:"safety", other:"other" };
+    const issueStatus = { "접수":"received", "처리 중":"in_progress", "완료":"resolved", "보류":"on_hold", received:"received", in_progress:"in_progress", resolved:"resolved", on_hold:"on_hold" };
+    const required = [];
+    if (!String(draft.event_code || meta.event_code || "").trim()) required.push("대회 코드");
+    if (!String(meta.writer || "").trim()) required.push("작성자");
+    if (!fieldReportEnum(meta.weather, { "맑음":"sunny", "흐림":"cloudy", "비":"rain", "눈":"snow", sunny:"sunny", cloudy:"cloudy", rain:"rain", snow:"snow" })) required.push("날씨");
+    if (temperature === null || temperature < -10 || temperature > 45) required.push("기온(-10~45)");
+    if (!operationResult) required.push("운영 결과");
+    if (["partial", "stopped"].includes(operationResult) && !fieldReportNullableText(meta.operation_result_reason)) required.push("운영 결과 사유");
+    if (!uploadStatus) required.push("업로드 완료 여부");
+    if (["partial", "not_uploaded"].includes(uploadStatus) && !fieldReportNullableText(meta.upload_completion_reason)) required.push("업로드 사유");
+    if (uploadStatus === "complete" && !closing.upload_completed) required.push("현장 마감 체크의 업로드 완료");
+    if (uploadStatus && uploadStatus !== "complete" && closing.upload_completed) required.push("업로드 완료 여부와 현장 마감 체크 일치");
+    if (!countCheck) required.push("실제 개수 검증");
+    if (countCheck === "mismatch" && (actualCount === null || actualCount < 0)) required.push("실제 촬영 건수");
+    if (!String(report.signatures?.writer?.name || meta.writer || "").trim()) required.push("확인 서명 작성자");
+    if (required.length) throw new Error(`필수 입력을 확인해 주세요: ${required.join(", ")}`);
+
+    return {
+      schema_version: "1.2",
+      request_id: requestId || draft.pending_request_id || fieldReportUuid(),
+      base_version: fieldReportCurrentVersion(draft),
+      report_type: "event_field_report",
+      event_code: String(draft.event_code || meta.event_code).trim(),
+      admin_input: {
+        basic_info: {
+          writer_name: String(meta.writer).trim(),
+          weather: fieldReportEnum(meta.weather, { "맑음":"sunny", "흐림":"cloudy", "비":"rain", "눈":"snow", sunny:"sunny", cloudy:"cloudy", rain:"rain", snow:"snow" }),
+          temperature_c: temperature,
+          participant_staff: [...new Set((meta.participant_staff || []).map(name => String(name || "").trim()).filter(Boolean))],
+          operation_result: operationResult,
+          operation_result_reason: operationResult === "normal" ? null : fieldReportNullableText(meta.operation_result_reason),
+          upload_completion_status: uploadStatus,
+          upload_completion_reason: uploadStatus === "complete" ? null : fieldReportNullableText(meta.upload_completion_reason),
+          closing_checks: {
+            upload_completed: Boolean(closing.upload_completed),
+            equipment_returned: Boolean(closing.equipment_returned),
+            lost_items_checked: Boolean(closing.lost_and_found_checked),
+            withdrawal_completed: Boolean(closing.teardown_completed)
+          }
+        },
+        additional_equipment: (report.equipment?.extra || []).map(row => ({
+          item_name: String(row.item || "").trim(), owner_name: String(row.owner || "").trim(),
+          spot_name: fieldReportNullableText(row.spot), status: fieldReportEnum(row.status, extraStatus), note: fieldReportNullableText(row.note)
+        })),
+        admin_issues: (report.issues || []).map(row => ({
+          occurred_at: String(row.time || "").trim(), category: fieldReportEnum(row.type, issueCategory),
+          description: String(row.description || "").trim(), status: fieldReportEnum(row.status, issueStatus), owner_name: String(row.owner || "").trim()
+        })),
+        daily_summary: {
+          actual_count_check: countCheck,
+          actual_photo_count: countCheck === "mismatch" ? actualCount : null,
+          improvement_note: fieldReportNullableText(report.daily_summary?.improvement_note),
+          general_comment: fieldReportNullableText(report.daily_summary?.general_comment)
+        },
+        signatures: {
+          writer: { name: String(report.signatures?.writer?.name || meta.writer).trim(), note: fieldReportNullableText(report.signatures?.writer?.note) },
+          field_manager: { name: fieldReportNullableText(report.signatures?.field_manager?.name), note: fieldReportNullableText(report.signatures?.field_manager?.note) },
+          office_confirm: { name: fieldReportNullableText(report.signatures?.office_confirm?.name), note: fieldReportNullableText(report.signatures?.office_confirm?.note) }
+        }
+      }
+    };
+  }
+
   function resetFieldReportTestDraft() {
     const current = selectedFieldReportDraft();
     const event = allEvents.find(row => row.event_code === current.event_code) || {};
@@ -2500,12 +2614,38 @@
     renderCurrentTestDashboard();
   }
 
-  function realSaveFieldReportTest(reportState) {
-    console.warn("[FieldReport v2] real save TODO", {
-      type: FIELD_REPORT_TEST_TYPE,
-      field: FIELD_REPORT_JSON_FIELD,
-      reportState
-    });
+  async function realSaveFieldReportTest() {
+    const draft = selectedFieldReportDraft();
+    draft.pending_request_id = draft.pending_request_id || fieldReportUuid();
+    writeStoredFieldReports();
+    const payload = fieldReportSubmitPayload(draft, draft.pending_request_id);
+    let response;
+    try {
+      response = await fetch(FIELD_REPORT_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+    } catch (error) {
+      throw new Error("네트워크 응답을 확인하지 못했습니다. 같은 저장 버튼을 다시 누르면 안전하게 재시도합니다.");
+    }
+    const raw = await response.text();
+    let result = {};
+    try { result = raw ? JSON.parse(raw) : {}; } catch (error) { result = {}; }
+    if (!response.ok || !result.ok) {
+      const apiError = result?.error || {};
+      const detail = apiError.message || `저장 요청이 실패했습니다. (${response.status})`;
+      const code = apiError.code ? ` [${apiError.code}]` : "";
+      draft.pending_request_id = "";
+      writeStoredFieldReports();
+      throw new Error(`${detail}${code}`);
+    }
+    const saved = result.data || {};
+    draft.server_version = Number(saved.version || payload.base_version);
+    draft.saved_at = saved.created_at || fieldReportNowISO();
+    draft.pending_request_id = "";
+    writeStoredFieldReports();
+    return saved;
   }
 
   function renderCurrentDashDiaryView() {
@@ -2534,10 +2674,11 @@
             <span class="ctdash-tag">작성 중</span>
           </div>
           <div class="fr-toolbar">
-            <button class="ctdash-refresh" type="button" data-fr-action="save">임시 저장</button>
+            <button class="ctdash-refresh" type="button" data-fr-action="save" ${fieldReportSaving ? "disabled" : ""}>${fieldReportSaving ? "저장 중..." : "저장"}</button>
             <button class="sh-btn-sm" type="button" data-fr-action="toggle-json">${fieldReportShowJson ? "JSON 숨기기" : "JSON 보기"}</button>
             <button class="sh-btn-sm" type="button" data-fr-action="reset">초기화</button>
           </div>
+          ${fieldReportSaveMessage ? `<div class="ctdash-callout ${fieldReportSaveMessage.startsWith("저장 완료") ? "" : "warn"}">${escapeHtml(fieldReportSaveMessage)}</div>` : ""}
           <div class="ctdash-callout">대회명 선택 목록은 현재 어드민 Event 데이터로 구성됩니다. Notion 연동 대상은 디자인 확정 후 자동입력으로 연결합니다.</div>
         </article>
 
@@ -5682,7 +5823,7 @@
       });
     });
 
-    document.addEventListener("click", function(e) {
+    document.addEventListener("click", async function(e) {
       const sectionButton = e.target.closest("[data-sot-section]");
       if (sectionButton) {
         sotDashActiveSection = sectionButton.dataset.sotSection || "overview";
@@ -5745,8 +5886,21 @@
       if (fieldReportAction) {
         const action = fieldReportAction.dataset.frAction;
         if (action === "save") {
-          saveFieldReportTest();
-          realSaveFieldReportTest(selectedFieldReportDraft().report_json);
+          if (fieldReportSaving) return;
+          fieldReportSaving = true;
+          fieldReportSaveMessage = "저장 요청을 보내는 중입니다.";
+          renderCurrentTestDashboard();
+          try {
+            saveFieldReportTest();
+            const saved = await realSaveFieldReportTest();
+            fieldReportSaveMessage = `저장 완료 · ${saved.display_version || `v1.${Math.max(Number(saved.version || 1) - 1, 0)}`} · Bubble에 기록되었습니다.`;
+          } catch (error) {
+            console.error("[Admin Field Report] save failed", error);
+            fieldReportSaveMessage = `저장 실패 · ${error?.message || "잠시 후 다시 시도해 주세요."}`;
+          } finally {
+            fieldReportSaving = false;
+            renderCurrentTestDashboard();
+          }
         }
         if (action === "toggle-json") {
           fieldReportShowJson = !fieldReportShowJson;
