@@ -792,6 +792,7 @@
 
   let allEvents = [];
   let activeAdminView = "events";
+  let activeAdminGroup = "events";
   let activeEventMonth = getKSTMonthKey(new Date());
   let editingEventId = "";
   let sotDashActiveSection = "overview";
@@ -1304,7 +1305,7 @@
         <div class="sh-admin-hero-main hero-main card">
           <div class="sh-admin-eyebrow">SOT Data API Admin Console</div>
           <h1 class="sh-admin-title">Shout-out Admin Dashboard</h1>
-          <p class="sh-admin-sub">대회 관리, 리포트, 대회별 분석, 레거시데이터, 레거시 분석 v2, 일지 작성을 한 화면에서 확인합니다.</p>
+          <p class="sh-admin-sub">대회 관리, 대회 운영, 결과 분석을 한 화면에서 확인합니다.</p>
         </div>
         <div class="sh-admin-status-card hero-side card">
           <div><b id="sh_hero_status">상태: 대기 중</b></div>
@@ -1314,13 +1315,22 @@
         </div>
       </header>
 
-      <div class="sh-admin-tabs main-tabs" role="tablist" aria-label="Admin views">
-        <button class="sh-admin-tab tab-btn is-active" type="button" data-admin-view="events" aria-selected="true">대회 관리</button>
+      <div class="sh-admin-tabs main-tabs" role="tablist" aria-label="Admin sections">
+        <button class="sh-admin-tab tab-btn is-active" type="button" data-admin-group="events" aria-selected="true">대회 관리</button>
+        <button class="sh-admin-tab tab-btn" type="button" data-admin-group="operations" aria-selected="false">대회 운영</button>
+        <button class="sh-admin-tab tab-btn" type="button" data-admin-group="analysis" aria-selected="false">결과 분석</button>
+      </div>
+
+      <div class="sh-admin-tabs main-tabs" data-admin-subtabs="operations" role="tablist" aria-label="대회 운영 메뉴" hidden>
+        <button class="sh-admin-tab tab-btn" type="button" data-admin-view="diary" aria-selected="false">일지 작성</button>
+        <button class="sh-admin-tab tab-btn" type="button" data-admin-view="diary-view" aria-selected="false">일지 조회</button>
+      </div>
+
+      <div class="sh-admin-tabs main-tabs" data-admin-subtabs="analysis" role="tablist" aria-label="결과 분석 메뉴" hidden>
         <button class="sh-admin-tab tab-btn" type="button" data-admin-view="report" aria-selected="false">리포트</button>
         <button class="sh-admin-tab tab-btn" type="button" data-admin-view="event-analysis" aria-selected="false">대회별 분석</button>
         <button class="sh-admin-tab tab-btn" type="button" data-admin-view="legacy" aria-selected="false">레거시데이터</button>
         <button class="sh-admin-tab tab-btn" type="button" data-admin-view="legacy-analysis-v2" aria-selected="false">레거시 분석 v2</button>
-        <button class="sh-admin-tab tab-btn" type="button" data-admin-view="diary" aria-selected="false">일지 작성</button>
       </div>
 
       <section class="sh-admin-panel" data-admin-panel="events">
@@ -1377,6 +1387,10 @@
 
       <section class="sh-admin-panel is-hidden" data-admin-panel="diary" hidden>
         <div class="sot-current-test-content" data-current-test-content="diary"></div>
+      </section>
+
+      <section class="sh-admin-panel is-hidden" data-admin-panel="diary-view" hidden>
+        <div class="sot-current-test-content" data-current-test-content="diary-view"></div>
       </section>
 
       <section class="sh-admin-panel is-hidden" data-admin-panel="legacy" hidden>
@@ -1575,6 +1589,16 @@
   }
 
   function syncAdminView() {
+    document.querySelectorAll("[data-admin-group]").forEach(btn => {
+      const isActive = btn.dataset.adminGroup === activeAdminGroup;
+      btn.classList.toggle("is-active", isActive);
+      btn.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+
+    document.querySelectorAll("[data-admin-subtabs]").forEach(tabset => {
+      tabset.hidden = tabset.dataset.adminSubtabs !== activeAdminGroup;
+    });
+
     document.querySelectorAll("[data-admin-view]").forEach(btn => {
       const isActive = btn.dataset.adminView === activeAdminView;
       btn.classList.toggle("is-active", isActive);
@@ -1785,6 +1809,10 @@
     if (!target) return;
     if (currentDashView === "diary") {
       target.innerHTML = currentTestDashboardFrame(renderCurrentDashDiaryView(), "일지");
+      return;
+    }
+    if (currentDashView === "diary-view") {
+      target.innerHTML = currentTestDashboardFrame(renderCurrentDashDiaryReadView(), "조회");
       return;
     }
 
@@ -2698,6 +2726,38 @@
       };
     }
     if (currentDashView === "diary") renderCurrentTestDashboard();
+  }
+
+  function renderCurrentDashDiaryReadView() {
+    const sections = [
+      ["1", "기본 정보", "대회·작성자·운영 결과·마감 체크"],
+      ["2", "투입 인원", "포토그래퍼별 역할·배치·운영 시간"],
+      ["3", "촬영 스팟", "실제 촬영 위치와 이동 스팟"],
+      ["4", "사용 장비", "기본 장비·장비 합계·추가 장비"],
+      ["5", "스팟별 운영 시간 일지", "스팟별 시작·종료·촬영 건수"],
+      ["6", "이슈 및 돌발 상황", "자동 반영 이슈와 관리자 추가 기록"],
+      ["7", "데일리 서머리", "촬영 건수 검증·개선 사항·종합 메모"],
+      ["8", "확인 서명", "작성자·현장 책임자·사무실 확인"]
+    ];
+    return `
+      <section class="ctdash-screen fr-shell">
+        <article class="ctdash-card ctdash-section fr-hero">
+          <div class="ctdash-section-head">
+            <div>
+              <div class="ctdash-kicker">Field Report</div>
+              <h3>일지 조회</h3>
+              <p>대회별로 저장된 운영 일지를 버전 기준으로 확인하는 화면입니다.</p>
+            </div>
+            <span class="ctdash-tag">조회 준비</span>
+          </div>
+          <div class="ctdash-callout">현재는 일지 작성과 같은 조회 화면 구조를 구성했습니다. Bubble의 저장 이력(work_report_json)을 읽어 버전별로 표시하는 조회 API는 다음 단계에서 연결합니다.</div>
+        </article>
+        ${sections.map(([number, title, description]) => `
+          <article class="ctdash-card ctdash-section fr-section">
+            <div class="ctdash-section-head"><div><div class="ctdash-kicker">${number}</div><h3>${title}</h3></div><span class="ctdash-tag">저장 내용</span></div>
+            <div class="ctdash-callout">${description}</div>
+          </article>`).join("")}
+      </section>`;
   }
 
   function renderCurrentDashDiaryView() {
@@ -5864,25 +5924,49 @@
     }
   };
 
-  function bindEvents(){
-    document.querySelectorAll("[data-admin-view]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        activeAdminView = btn.dataset.adminView;
-        if (["report", "event-analysis", "diary"].includes(activeAdminView)) currentDashView = activeAdminView;
-        syncAdminView();
-        if (activeAdminView === "legacy") renderSotDashboard();
-        if (activeAdminView === "legacy-analysis-v2") {
+  function activateAdminView(viewName) {
+    const groupByView = {
+      events: "events",
+      diary: "operations",
+      "diary-view": "operations",
+      report: "analysis",
+      "event-analysis": "analysis",
+      legacy: "analysis",
+      "legacy-analysis-v2": "analysis"
+    };
+    activeAdminView = viewName;
+    activeAdminGroup = groupByView[viewName] || "events";
+    if (["report", "event-analysis", "diary", "diary-view"].includes(activeAdminView)) currentDashView = activeAdminView;
+    syncAdminView();
+    if (activeAdminView === "legacy") renderSotDashboard();
+    if (activeAdminView === "legacy-analysis-v2") {
           renderLegacyAnalysisV2();
           if (legacyAnalysisLoadState === "idle") loadLegacyAnalysisV2();
-        }
-        if (["report", "event-analysis"].includes(activeAdminView)) {
+    }
+    if (["report", "event-analysis"].includes(activeAdminView)) {
           renderCurrentTestDashboard();
           if (!sotCurrentTestLoading) loadCurrentTestDashboard();
-        }
-        if (activeAdminView === "diary") {
+    }
+    if (activeAdminView === "diary") {
           renderCurrentTestDashboard();
           void loadFieldReportSourcesForActiveDraft();
-        }
+    }
+    if (activeAdminView === "diary-view") {
+      renderCurrentTestDashboard();
+    }
+  }
+
+  function bindEvents(){
+    document.querySelectorAll("[data-admin-group]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const defaultViewByGroup = { events: "events", operations: "diary", analysis: "report" };
+        activateAdminView(defaultViewByGroup[btn.dataset.adminGroup] || "events");
+      });
+    });
+
+    document.querySelectorAll("[data-admin-view]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        activateAdminView(btn.dataset.adminView);
       });
     });
 
