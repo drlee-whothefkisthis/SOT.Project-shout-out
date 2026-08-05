@@ -2247,11 +2247,10 @@
           report_date: reportDate,
           weekday: fieldReportWeekday(reportDate) || "일요일",
           writer: "이대로",
-          contact: event?.contact || event?.phone || "01055330048",
           location: event?.location || event?.place || event?.venue || "영주시민운동장",
           weather: "",
           temperature: "",
-          staff_text: "이대로, 박찬희, 이인혁, 규식",
+          participant_staff: ["이대로", "박찬희", "이인혁", "규식"],
           created_at: now,
           updated_at: now
         },
@@ -2274,8 +2273,9 @@
           { spot: "5K", start_time: "", end_time: "", shoot_count: "", memo: "" }
         ],
         payments: { rows: [], total_amount: 0 },
+        auto_issues: [],
         issues: [],
-        daily_summary: { total_shoot_count: "", customer_response: "", improvement_note: "", general_comment: "" },
+        daily_summary: { total_shoot_count: "", actual_count_check: "", actual_shoot_count: "", improvement_note: "", general_comment: "" },
         signatures: {
           writer: { name: "이대로", checked: false, note: "" },
           field_manager: { name: "", checked: false, note: "" },
@@ -2324,6 +2324,10 @@
       existing.report_json.meta.event_name = existing.report_json.meta.event_name || draft.report_json.meta.event_name;
       existing.report_json.meta.report_date = existing.report_json.meta.report_date || draft.report_json.meta.report_date;
       existing.report_json.meta.location = existing.report_json.meta.location || draft.report_json.meta.location;
+      if (!Array.isArray(existing.report_json.meta.participant_staff)) {
+        existing.report_json.meta.participant_staff = String(existing.report_json.meta.staff_text || "").split(",").map(name => name.trim()).filter(Boolean);
+      }
+      if (!Array.isArray(existing.report_json.auto_issues)) existing.report_json.auto_issues = [];
       return existing;
     }
     fieldReportDrafts.push(draft);
@@ -2365,7 +2369,7 @@
   function updateFieldReportDerivedValues(draft) {
     const report = draft.report_json;
     report.meta.weekday = fieldReportWeekday(report.meta.report_date) || report.meta.weekday;
-    report.meta.staff_text = (report.staff || []).map(row => row.name).filter(Boolean).join(", ");
+    if (!Array.isArray(report.meta.participant_staff)) report.meta.participant_staff = [];
     report.payments.total_amount = (report.payments.rows || []).reduce((sum, row) => sum + numberValue(row, ["amount"]), 0);
     const shootTotal = (report.operation_logs || []).reduce((sum, row) => sum + numberValue(row, ["shoot_count"]), 0);
     if (shootTotal && !report.daily_summary.total_shoot_count) report.daily_summary.total_shoot_count = String(shootTotal);
@@ -2390,6 +2394,20 @@
   function fieldReportSelect(path, label, values) {
     const value = fieldReportValue(path) || "";
     return `<label><span>${escapeHtml(label)}</span><select class="ctdash-select fr-input" data-fr-path="${escapeHtml(path)}"><option value="">선택</option>${values.map(item => `<option value="${escapeHtml(item)}" ${String(value) === String(item) ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}<option value="기타" ${value === "기타" ? "selected" : ""}>기타</option></select></label>`;
+  }
+
+  function fieldReportReadOnlyField(label, value, type) {
+    return `<label><span>${escapeHtml(label)}</span><input class="ctdash-input fr-readonly-input" type="${escapeHtml(type || "text")}" value="${escapeHtml(value || "")}" readonly></label>`;
+  }
+
+  function fieldReportAutoTable(title, rows, columns, options) {
+    const headers = columns.map(col => `<th>${escapeHtml(col.label)}</th>`).join("");
+    const body = (rows || []).length ? rows.map(row => `<tr>${columns.map(col => `<td class="fr-auto-cell">${escapeHtml(row[col.key] || "—")}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${columns.length}" class="ctdash-empty">Notion 연동 후 자동 표시됩니다.</td></tr>`;
+    return `
+      <article class="ctdash-card ctdash-section fr-section">
+        <div class="ctdash-section-head"><div><div class="ctdash-kicker">${escapeHtml(options?.kicker || "Notion")}</div><h3>${escapeHtml(title)}</h3></div><span class="ctdash-tag">Notion 연동 예정</span></div>
+        <div class="ctdash-table-wrap"><table class="ctdash-table fr-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table></div>
+      </article>`;
   }
 
   function fieldReportTable(title, collectionPath, columns, options) {
@@ -2468,125 +2486,123 @@
     const draft = selectedFieldReportDraft();
     updateFieldReportDerivedValues(draft);
     const report = draft.report_json;
-    const staffOptions = (report.staff || []).map(row => row.name).filter(Boolean);
-    const spotOptions = (report.spots || []).map(row => row.location || row.name).filter(Boolean);
-    const draftOptions = fieldReportDrafts.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === fieldReportActiveId ? "selected" : ""}>${escapeHtml(item.event_name || item.event_code || "무제 일지")}</option>`).join("");
+    const participantStaff = Array.isArray(report.meta.participant_staff) ? report.meta.participant_staff : [];
+    const staffOptions = [...new Set(["이대로", "박찬희", "규식", "이인혁", "민규재", ...participantStaff, ...(report.staff || []).map(row => row.name).filter(Boolean)])];
+    const eventOptions = fieldReportDrafts.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === fieldReportActiveId ? "selected" : ""}>${escapeHtml(item.event_name || item.event_code || "무제 일지")}</option>`).join("");
+    const participantOptions = staffOptions.filter(name => !participantStaff.includes(name)).map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+    const participantChips = participantStaff.length ? participantStaff.map(name => `<span class="fr-staff-chip">${escapeHtml(name)}<button type="button" data-fr-participant-remove="${escapeHtml(name)}" aria-label="${escapeHtml(name)} 제거">×</button></span>`).join("") : `<span class="ctdash-empty">선택된 스탭이 없습니다.</span>`;
+    const checkValue = report.daily_summary.actual_count_check || "";
     return `
       <section class="ctdash-screen fr-shell">
         <article class="ctdash-card ctdash-section fr-hero">
           <div class="ctdash-section-head">
             <div>
-              <div class="ctdash-kicker">Field Report v2 Test</div>
+              <div class="ctdash-kicker">Field Report</div>
               <h3>일지 작성</h3>
-              <p>SHOUT-OUT 현장운영일지 양식 기준의 테스트 복제본입니다. 실제 Bubble 저장은 호출하지 않고 ${escapeHtml(FIELD_REPORT_JSON_FIELD)} mock 상태만 생성합니다.</p>
+              <p>대회 운영 기록을 정리하는 관리자용 일지입니다. Notion 연동 항목은 현재 화면 구조만 적용되어 있으며, 데이터 연동은 다음 단계에서 연결합니다.</p>
             </div>
-            <span class="ctdash-tag">복제본 전용</span>
+            <span class="ctdash-tag">작성 중</span>
           </div>
           <div class="fr-toolbar">
-            <label><span>일지 선택</span><select class="ctdash-select" id="field_report_draft_select">${draftOptions}</select></label>
-            <button class="ctdash-refresh" type="button" data-fr-action="save">mock 저장</button>
+            <button class="ctdash-refresh" type="button" data-fr-action="save">임시 저장</button>
             <button class="sh-btn-sm" type="button" data-fr-action="toggle-json">${fieldReportShowJson ? "JSON 숨기기" : "JSON 보기"}</button>
             <button class="sh-btn-sm" type="button" data-fr-action="reset">초기화</button>
           </div>
-          <div class="ctdash-callout">Event 목록을 읽어 대회별 일지 초안을 자동 생성합니다. Event 생성 API와 Bubble schema는 변경하지 않습니다.</div>
+          <div class="ctdash-callout">대회명 선택 목록은 현재 어드민 Event 데이터로 구성됩니다. Notion 연동 대상은 디자인 확정 후 자동입력으로 연결합니다.</div>
         </article>
 
         <article class="ctdash-card ctdash-section fr-section">
           <div class="ctdash-section-head"><div><div class="ctdash-kicker">1</div><h3>기본 정보</h3></div><span class="ctdash-tag">${escapeHtml(report.meta.weekday || "요일 미정")}</span></div>
           <div class="ctdash-form-grid">
-            ${fieldReportField("meta.event_name", "이벤트명", "text", "대회명")}
-            ${fieldReportField("meta.event_code", "event_code", "text", "260000-aa")}
-            ${fieldReportField("meta.report_date", "날짜", "date")}
+            <label><span>대회명</span><select class="ctdash-select" id="field_report_event_select"><option value="">대회 선택</option>${eventOptions}</select></label>
+            ${fieldReportReadOnlyField("대회 코드", report.meta.event_code)}
+            ${fieldReportReadOnlyField("날짜", report.meta.report_date, "date")}
             ${fieldReportField("meta.writer", "작성자", "text")}
-            ${fieldReportField("meta.contact", "연락처", "text")}
             ${fieldReportField("meta.location", "장소", "text")}
-            ${fieldReportField("meta.weather", "날씨", "text")}
-            ${fieldReportField("meta.temperature", "기온", "text")}
+            ${fieldReportSelect("meta.weather", "날씨", ["맑음", "흐림", "비", "눈"])}
+            ${fieldReportSelect("meta.temperature", "기온", Array.from({length:56}, (_, index) => `${index - 10}℃`))}
           </div>
-          ${fieldReportTextarea("meta.staff_text", "참여 스탭", "tall")}
+          <div class="fr-participant-field">
+            <span>참여 스탭</span>
+            <div class="fr-staff-picker"><div class="fr-staff-chips">${participantChips}</div><div class="fr-staff-add"><select class="ctdash-select" id="field_report_participant_select"><option value="">스탭 선택</option>${participantOptions}</select><button class="sh-btn-sm" type="button" data-fr-participant-add>추가</button></div></div>
+            <small>Notion 다중 선택처럼 스탭을 한 명씩 추가하거나 제거합니다.</small>
+          </div>
         </article>
 
-        ${fieldReportTable("2. 투입 인원", "staff", [
+        ${fieldReportAutoTable("2. 투입 인원", report.staff, [
           { key:"name", label:"이름" },
-          { key:"role", label:"역할", type:"select", options:["매니저", "포토그래퍼", "운영", "장비"] },
-          { key:"spot", label:"배치 스팟", type:"select", options:spotOptions },
-          { key:"start_time", label:"출근", type:"time" },
-          { key:"end_time", label:"퇴근", type:"time" }
-        ], { kicker:"Staff" })}
+          { key:"role", label:"역할" },
+          { key:"spot", label:"배치 스팟" },
+          { key:"start_time", label:"출근" },
+          { key:"end_time", label:"퇴근" }
+        ], { kicker:"Photographer Report" })}
 
-        <article class="ctdash-card ctdash-section fr-section">
-          <div class="ctdash-section-head"><div><div class="ctdash-kicker">3</div><h3>당일 현장 배치도 MAP</h3></div><span class="ctdash-tag">URL 입력</span></div>
-          <div class="ctdash-form-grid">
-            ${fieldReportField("map.image_url", "이미지 URL", "url")}
-            ${fieldReportTextarea("map.description", "설명", "tall")}
-          </div>
-        </article>
-
-        ${fieldReportTable("4. 촬영 스팟", "spots", [
+        ${fieldReportAutoTable("3. 촬영 스팟", report.spots, [
           { key:"location", label:"위치" },
           { key:"name", label:"명칭" },
-          { key:"concept", label:"촬영 컨셉", type:"select", options:["준비", "피니시", "턴", "주로", "포토월"] },
+          { key:"concept", label:"촬영 컨셉" },
           { key:"expected_people", label:"예상 인원" },
           { key:"camera_count", label:"카메라 수" },
           { key:"note", label:"비고" }
-        ], { kicker:"Spots" })}
+        ], { kicker:"Photographer Report" })}
 
         <div class="fr-two-col">
-          ${fieldReportTable("5-1. 기본 장비", "equipment.basic", [
-            { key:"item", label:"장비명", type:"select", options:["AUTO-A", "HAND-A", "AUTO-B", "HAND-B", "본딩 라우터", "라우터 스탠드"] },
-            { key:"owner", label:"담당자", type:"select", options:staffOptions },
-            { key:"spot", label:"배치 스팟", type:"select", options:spotOptions },
-            { key:"status", label:"상태", type:"select", options:["정상", "확인 필요", "분실", "수리 필요"] },
+          ${fieldReportAutoTable("4-1. 기본 장비", report.equipment.basic, [
+            { key:"item", label:"장비명" },
+            { key:"owner", label:"담당자" },
+            { key:"spot", label:"배치 스팟" },
+            { key:"status", label:"상태" },
             { key:"note", label:"비고" }
-          ], { kicker:"Equipment" })}
-          ${fieldReportTable("5-2. 장비 합계", "equipment.summary", [
+          ], { kicker:"Photographer Report" })}
+          ${fieldReportAutoTable("4-2. 장비 합계", report.equipment.summary, [
             { key:"item", label:"품목" },
-            { key:"count", label:"수량", type:"number" }
-          ], { kicker:"Summary" })}
+            { key:"count", label:"수량" }
+          ], { kicker:"Photographer Report" })}
         </div>
-        ${fieldReportTable("5-3. 추가 장비", "equipment.extra", [
+        ${fieldReportTable("4-3. 추가 장비", "equipment.extra", [
           { key:"item", label:"장비명" },
           { key:"owner", label:"담당자", type:"select", options:staffOptions },
-          { key:"spot", label:"배치 스팟", type:"select", options:spotOptions },
+          { key:"spot", label:"배치 스팟" },
           { key:"status", label:"상태", type:"select", options:["정상", "확인 필요", "분실", "수리 필요"] },
           { key:"note", label:"비고" }
         ], { kicker:"Extra" })}
 
-        ${fieldReportTable("6. 스팟별 운영 시간 일지", "operation_logs", [
-          { key:"spot", label:"스팟", type:"select", options:spotOptions },
-          { key:"start_time", label:"시작", type:"time" },
-          { key:"end_time", label:"종료", type:"time" },
-          { key:"shoot_count", label:"촬영 건수", type:"number" },
+        ${fieldReportAutoTable("5. 스팟별 운영 시간 일지", report.operation_logs, [
+          { key:"spot", label:"스팟" },
+          { key:"start_time", label:"시작" },
+          { key:"end_time", label:"종료" },
+          { key:"shoot_count", label:"촬영 건수" },
           { key:"memo", label:"메모" }
-        ], { kicker:"Operation" })}
+        ], { kicker:"Photographer Report" })}
 
-        ${fieldReportTable("7. 현장 결제 목록", "payments.rows", [
-          { key:"payer", label:"고객/배번호" },
-          { key:"method", label:"결제 방법", type:"select", options:["카드", "현금", "계좌이체", "기타"] },
-          { key:"amount", label:"금액", type:"number" },
-          { key:"note", label:"비고" }
-        ], { kicker:`합계 ${formatWon(report.payments.total_amount)}` })}
-
-        ${fieldReportTable("8. 이슈 및 돌발 상황", "issues", [
+        ${fieldReportAutoTable("6. 이슈 및 돌발 상황", report.auto_issues, [
           { key:"time", label:"시간", type:"time" },
           { key:"type", label:"유형" },
           { key:"description", label:"내용" },
+          { key:"status", label:"처리 상태" },
+          { key:"owner", label:"담당자" }
+        ], { kicker:"Photographer Report" })}
+        ${fieldReportTable("6-1. 관리자 추가 기록", "issues", [
+          { key:"time", label:"시간", type:"time" },
+          { key:"type", label:"유형", type:"select", options:["운영", "장비", "고객", "안전", "기타"] },
+          { key:"description", label:"내용" },
           { key:"status", label:"처리 상태", type:"select", options:["접수", "처리 중", "완료", "보류"] },
           { key:"owner", label:"담당자", type:"select", options:staffOptions }
-        ], { kicker:"Issues" })}
+        ], { kicker:"Admin" })}
 
         <article class="ctdash-card ctdash-section fr-section">
-          <div class="ctdash-section-head"><div><div class="ctdash-kicker">9</div><h3>데일리 서머리</h3></div><span class="ctdash-tag">수동 수정 가능</span></div>
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">7</div><h3>데일리 서머리</h3></div><span class="ctdash-tag">수동 메모 + 검증</span></div>
           <div class="ctdash-form-grid">
-            ${fieldReportField("daily_summary.total_shoot_count", "총 촬영 건수", "number")}
-            ${fieldReportTextarea("daily_summary.customer_response", "고객 반응")}
+            ${fieldReportReadOnlyField("총 촬영 건수", report.daily_summary.total_shoot_count, "number")}
+            <label><span>실제 개수 검증</span><select class="ctdash-select fr-input" data-fr-path="daily_summary.actual_count_check" id="field_report_actual_count_check"><option value="">선택</option><option value="matched" ${checkValue === "matched" ? "selected" : ""}>일치</option><option value="review" ${checkValue === "review" ? "selected" : ""}>확인 필요</option><option value="mismatch" ${checkValue === "mismatch" ? "selected" : ""}>불일치</option></select></label>
+            ${checkValue === "mismatch" ? fieldReportField("daily_summary.actual_shoot_count", "실제 촬영 건수", "number") : ""}
             ${fieldReportTextarea("daily_summary.improvement_note", "개선 사항")}
             ${fieldReportTextarea("daily_summary.general_comment", "종합 메모", "tall")}
           </div>
         </article>
 
         <article class="ctdash-card ctdash-section fr-section">
-          <div class="ctdash-section-head"><div><div class="ctdash-kicker">10</div><h3>확인 서명</h3></div><span class="ctdash-tag">체크</span></div>
+          <div class="ctdash-section-head"><div><div class="ctdash-kicker">8</div><h3>확인 서명</h3></div><span class="ctdash-tag">체크</span></div>
           <div class="ctdash-form-grid three">
             ${fieldReportField("signatures.writer.name", "작성자", "text")}
             ${fieldReportField("signatures.field_manager.name", "현장 책임자", "text")}
@@ -5699,6 +5715,28 @@
         return;
       }
 
+      const participantAdd = e.target.closest("[data-fr-participant-add]");
+      if (participantAdd) {
+        const select = document.querySelector("#field_report_participant_select");
+        const name = String(select?.value || "").trim();
+        const participants = selectedFieldReportDraft().report_json.meta.participant_staff || [];
+        if (name && !participants.includes(name)) participants.push(name);
+        selectedFieldReportDraft().report_json.meta.participant_staff = participants;
+        updateFieldReportDerivedValues(selectedFieldReportDraft());
+        renderCurrentTestDashboard();
+        return;
+      }
+
+      const participantRemove = e.target.closest("[data-fr-participant-remove]");
+      if (participantRemove) {
+        const name = participantRemove.dataset.frParticipantRemove || "";
+        const participants = selectedFieldReportDraft().report_json.meta.participant_staff || [];
+        selectedFieldReportDraft().report_json.meta.participant_staff = participants.filter(item => item !== name);
+        updateFieldReportDerivedValues(selectedFieldReportDraft());
+        renderCurrentTestDashboard();
+        return;
+      }
+
       const fieldReportAdd = e.target.closest("[data-fr-add]");
       if (fieldReportAdd) {
         addFieldReportRow(fieldReportAdd.dataset.frAdd);
@@ -5792,6 +5830,11 @@
       logDashboardCacheRebuild("source filter change");
     });
 	    document.addEventListener("change", e => {
+	      if (e.target && e.target.id === "field_report_event_select") {
+	        fieldReportActiveId = e.target.value || "";
+	        renderCurrentTestDashboard();
+	        return;
+	      }
 	      if (e.target && e.target.id === "field_report_draft_select") {
 	        fieldReportActiveId = e.target.value || "";
 	        renderCurrentTestDashboard();
@@ -5799,6 +5842,7 @@
 	      }
 	      if (e.target && e.target.matches(".fr-input,.fr-table-input")) {
 	        setFieldReportValue(e.target.dataset.frPath, e.target.type === "checkbox" ? e.target.checked : e.target.value);
+	        if (e.target.dataset.frPath === "daily_summary.actual_count_check") renderCurrentTestDashboard();
 	        return;
 	      }
 	      if (e.target && e.target.id === "ctdash_report_date_input") {
