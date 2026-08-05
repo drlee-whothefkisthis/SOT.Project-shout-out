@@ -1321,12 +1321,12 @@
         <button class="sh-admin-tab tab-btn" type="button" data-admin-group="analysis" aria-selected="false">결과 분석</button>
       </div>
 
-      <div class="sh-admin-tabs main-tabs" data-admin-subtabs="operations" role="tablist" aria-label="대회 운영 메뉴" hidden>
+      <div class="sh-admin-tabs main-tabs is-hidden" data-admin-subtabs="operations" role="tablist" aria-label="대회 운영 메뉴" hidden style="display:none">
         <button class="sh-admin-tab tab-btn" type="button" data-admin-view="diary" aria-selected="false">일지 작성</button>
         <button class="sh-admin-tab tab-btn" type="button" data-admin-view="diary-view" aria-selected="false">일지 조회</button>
       </div>
 
-      <div class="sh-admin-tabs main-tabs" data-admin-subtabs="analysis" role="tablist" aria-label="결과 분석 메뉴" hidden>
+      <div class="sh-admin-tabs main-tabs is-hidden" data-admin-subtabs="analysis" role="tablist" aria-label="결과 분석 메뉴" hidden style="display:none">
         <button class="sh-admin-tab tab-btn" type="button" data-admin-view="report" aria-selected="false">리포트</button>
         <button class="sh-admin-tab tab-btn" type="button" data-admin-view="event-analysis" aria-selected="false">대회별 분석</button>
         <button class="sh-admin-tab tab-btn" type="button" data-admin-view="legacy" aria-selected="false">레거시데이터</button>
@@ -1596,7 +1596,10 @@
     });
 
     document.querySelectorAll("[data-admin-subtabs]").forEach(tabset => {
-      tabset.hidden = tabset.dataset.adminSubtabs !== activeAdminGroup;
+      const isActive = tabset.dataset.adminSubtabs === activeAdminGroup;
+      tabset.hidden = !isActive;
+      tabset.classList.toggle("is-hidden", !isActive);
+      tabset.style.display = isActive ? "flex" : "none";
     });
 
     document.querySelectorAll("[data-admin-view]").forEach(btn => {
