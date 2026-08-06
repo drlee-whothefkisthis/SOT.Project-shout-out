@@ -850,6 +850,11 @@
   let fieldReportShowJson = false;
   const fieldReportSourcesByEventCode = {};
   let fieldReportSourceRequestSequence = 0;
+  const fieldReportHistoryByEventCode = {};
+  let fieldReportHistoryEventCode = "";
+  let fieldReportHistoryVersion = null;
+  let fieldReportHistoryRequestSequence = 0;
+  let fieldReportHistoryAbortController = null;
   let legacyAnalysisView = "report";
   let legacyAnalysisReportPeriod = "total";
   let legacyAnalysisReportSelectedWeekKey = sotWeekKeyFromDateKey(yesterdayKSTDateKey());
@@ -2409,7 +2414,11 @@
 
   function fieldReportValue(path) {
     const draft = selectedFieldReportDraft();
-    return String(path || "").split(".").reduce((acc, key) => acc && acc[key], draft.report_json);
+    return fieldReportValueFrom(draft.report_json, path);
+  }
+
+  function fieldReportValueFrom(report, path) {
+    return String(path || "").split(".").reduce((acc, key) => acc && acc[key], report || {});
   }
 
   function setFieldReportValue(path, value) {
@@ -2440,24 +2449,28 @@
     return values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
   }
 
-  function fieldReportField(path, label, type, placeholder) {
-    const value = fieldReportValue(path) || "";
-    return `<label><span>${escapeHtml(label)}</span><input class="ctdash-input fr-input" data-fr-path="${escapeHtml(path)}" type="${type || "text"}" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder || "")}"></label>`;
+  function fieldReportField(path, label, type, placeholder, options) {
+    const editable = options?.editable !== false;
+    const value = options && Object.prototype.hasOwnProperty.call(options, "report") ? fieldReportValueFrom(options.report, path) : fieldReportValue(path);
+    return `<label><span>${escapeHtml(label)}</span><input class="ctdash-input fr-input" ${editable ? `data-fr-path="${escapeHtml(path)}"` : "readonly aria-readonly=\"true\""} type="${type || "text"}" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder || "")}"></label>`;
   }
 
-  function fieldReportTextarea(path, label, rows) {
-    const value = fieldReportValue(path) || "";
-    return `<label><span>${escapeHtml(label)}</span><textarea class="ctdash-textarea ${rows === "tall" ? "tall" : ""} fr-input" data-fr-path="${escapeHtml(path)}">${escapeHtml(value)}</textarea></label>`;
+  function fieldReportTextarea(path, label, rows, options) {
+    const editable = options?.editable !== false;
+    const value = options && Object.prototype.hasOwnProperty.call(options, "report") ? fieldReportValueFrom(options.report, path) : fieldReportValue(path);
+    return `<label><span>${escapeHtml(label)}</span><textarea class="ctdash-textarea ${rows === "tall" ? "tall" : ""} fr-input" ${editable ? `data-fr-path="${escapeHtml(path)}"` : "readonly aria-readonly=\"true\""}>${escapeHtml(value)}</textarea></label>`;
   }
 
-  function fieldReportSelect(path, label, values) {
-    const value = fieldReportValue(path) || "";
-    return `<label><span>${escapeHtml(label)}</span><select class="ctdash-select fr-input" data-fr-path="${escapeHtml(path)}"><option value="">선택</option>${values.map(item => `<option value="${escapeHtml(item)}" ${String(value) === String(item) ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}<option value="기타" ${value === "기타" ? "selected" : ""}>기타</option></select></label>`;
+  function fieldReportSelect(path, label, values, options) {
+    const editable = options?.editable !== false;
+    const value = options && Object.prototype.hasOwnProperty.call(options, "report") ? fieldReportValueFrom(options.report, path) : fieldReportValue(path);
+    return `<label><span>${escapeHtml(label)}</span><select class="ctdash-select fr-input" ${editable ? `data-fr-path="${escapeHtml(path)}"` : "disabled aria-readonly=\"true\""}><option value="">선택</option>${values.map(item => `<option value="${escapeHtml(item)}" ${String(value) === String(item) ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}<option value="기타" ${value === "기타" ? "selected" : ""}>기타</option></select></label>`;
   }
 
-  function fieldReportStrictSelect(path, label, options) {
-    const value = fieldReportValue(path) || "";
-    return `<label><span>${escapeHtml(label)}</span><select class="ctdash-select fr-input" data-fr-path="${escapeHtml(path)}"><option value="">선택</option>${options.map(option => `<option value="${escapeHtml(option.value)}" ${String(value) === String(option.value) ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}</select></label>`;
+  function fieldReportStrictSelect(path, label, options, renderOptions) {
+    const editable = renderOptions?.editable !== false;
+    const value = renderOptions && Object.prototype.hasOwnProperty.call(renderOptions, "report") ? fieldReportValueFrom(renderOptions.report, path) : fieldReportValue(path);
+    return `<label><span>${escapeHtml(label)}</span><select class="ctdash-select fr-input" ${editable ? `data-fr-path="${escapeHtml(path)}"` : "disabled aria-readonly=\"true\""}><option value="">선택</option>${options.map(option => `<option value="${escapeHtml(option.value)}" ${String(value) === String(option.value) ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}</select></label>`;
   }
 
   function fieldReportReadOnlyField(label, value, type) {
@@ -2475,19 +2488,20 @@
   }
 
   function fieldReportTable(title, collectionPath, columns, options) {
-    const rows = fieldReportValue(collectionPath) || [];
-    const headers = columns.map(col => `<th>${escapeHtml(col.label)}</th>`).join("") + "<th>관리</th>";
+    const editable = options?.editable !== false;
+    const rows = options && Object.prototype.hasOwnProperty.call(options, "report") ? fieldReportValueFrom(options.report, collectionPath) || [] : fieldReportValue(collectionPath) || [];
+    const headers = columns.map(col => `<th>${escapeHtml(col.label)}</th>`).join("") + (editable ? "<th>관리</th>" : "");
     const body = rows.length ? rows.map((row, index) => {
       const cells = columns.map(col => {
         const path = `${collectionPath}.${index}.${col.key}`;
-        if (col.type === "select") return `<td><select class="ctdash-select fr-table-input" data-fr-path="${escapeHtml(path)}"><option value="">선택</option>${(col.options || []).map(item => `<option value="${escapeHtml(item)}" ${String(row[col.key] || "") === String(item) ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}<option value="기타" ${row[col.key] === "기타" ? "selected" : ""}>기타</option></select></td>`;
-        return `<td><input class="ctdash-input fr-table-input" data-fr-path="${escapeHtml(path)}" type="${col.type || "text"}" value="${escapeHtml(row[col.key] || "")}"></td>`;
+        if (col.type === "select") return `<td><select class="ctdash-select fr-table-input" ${editable ? `data-fr-path="${escapeHtml(path)}"` : "disabled"}><option value="">선택</option>${(col.options || []).map(item => `<option value="${escapeHtml(item)}" ${String(row[col.key] || "") === String(item) ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}<option value="기타" ${row[col.key] === "기타" ? "selected" : ""}>기타</option></select></td>`;
+        return `<td><input class="ctdash-input fr-table-input" ${editable ? `data-fr-path="${escapeHtml(path)}"` : "readonly"} type="${col.type || "text"}" value="${escapeHtml(row[col.key] || "")}"></td>`;
       }).join("");
-      return `<tr>${cells}<td><button class="sh-btn-sm" type="button" data-fr-delete="${escapeHtml(collectionPath)}" data-fr-index="${index}">삭제</button></td></tr>`;
-    }).join("") : `<tr><td colspan="${columns.length + 1}">데이터 없음</td></tr>`;
+      return `<tr>${cells}${editable ? `<td><button class="sh-btn-sm" type="button" data-fr-delete="${escapeHtml(collectionPath)}" data-fr-index="${index}">삭제</button></td>` : ""}</tr>`;
+    }).join("") : `<tr><td colspan="${columns.length + (editable ? 1 : 0)}">데이터 없음</td></tr>`;
     return `
       <article class="ctdash-card ctdash-section fr-section">
-        <div class="ctdash-section-head"><div><div class="ctdash-kicker">${escapeHtml(options?.kicker || "Field Report")}</div><h3>${escapeHtml(title)}</h3></div><button class="sh-btn-sm" type="button" data-fr-add="${escapeHtml(collectionPath)}">행 추가</button></div>
+        <div class="ctdash-section-head"><div><div class="ctdash-kicker">${escapeHtml(options?.kicker || "Field Report")}</div><h3>${escapeHtml(title)}</h3></div>${editable ? `<button class="sh-btn-sm" type="button" data-fr-add="${escapeHtml(collectionPath)}">행 추가</button>` : ""}</div>
         <div class="ctdash-table-wrap"><table class="ctdash-table fr-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table></div>
       </article>`;
   }
@@ -2731,36 +2745,140 @@
     if (currentDashView === "diary") renderCurrentTestDashboard();
   }
 
+  function fieldReportHistoryEventLabel(event) {
+    const date = fieldReportDateFromEvent(event) || "날짜 미정";
+    const name = fieldReportEventName(event) || event?.event_name || "대회명 미정";
+    const code = String(event?.event_code || "").trim();
+    return `${date} · ${name}${code ? ` · ${code}` : ""}`;
+  }
+
+  function fieldReportHistoryDisplayVersion(version) {
+    return `v1.${Math.max(Number(version || 1) - 1, 0)}`;
+  }
+
+  function fieldReportHistoryDateTime(value) {
+    const date = value ? new Date(value) : null;
+    if (!date || Number.isNaN(date.getTime())) return "저장 시각 미정";
+    return new Intl.DateTimeFormat("ko-KR", { timeZone:"Asia/Seoul", year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hour12:false }).format(date).replace(/\. /g, "-").replace(/\.$/, "");
+  }
+
+  function fieldReportHistoryState(eventCode) {
+    return fieldReportHistoryByEventCode[String(eventCode || "")] || { state:"idle", records:[], message:"" };
+  }
+
+  function normalizeFieldReportHistoryRecords(records) {
+    const valid = [];
+    const corrupted = [];
+    (Array.isArray(records) ? records : []).forEach(record => {
+      if (!record || !Number.isInteger(Number(record.version)) || Number(record.version) < 1 || !record.admin_input) {
+        corrupted.push(record);
+        return;
+      }
+      valid.push(record);
+    });
+    valid.sort((a, b) => Number(b.version) - Number(a.version));
+    return { valid, corrupted };
+  }
+
+  async function loadFieldReportHistory(eventCode) {
+    const code = String(eventCode || "").trim();
+    if (!code) return;
+    const sequence = ++fieldReportHistoryRequestSequence;
+    if (fieldReportHistoryAbortController) fieldReportHistoryAbortController.abort();
+    fieldReportHistoryAbortController = new AbortController();
+    fieldReportHistoryByEventCode[code] = { state:"loading", records:[], corrupted:[], message:"" };
+    renderCurrentTestDashboard();
+    try {
+      const accessToken = sessionStorage.getItem("shout_access_token") || "";
+      const response = await fetch(`${FIELD_REPORT_API_URL}?event_code=${encodeURIComponent(code)}`, {
+        headers: accessToken ? { Authorization:`Bearer ${accessToken}` } : {}, signal:fieldReportHistoryAbortController.signal
+      });
+      const raw = await response.text();
+      let result = {};
+      try { result = raw ? JSON.parse(raw) : {}; } catch (error) { result = {}; }
+      if (!response.ok || !result.ok) throw new Error(result?.error?.message || "일지 조회에 실패했습니다.");
+      if (sequence !== fieldReportHistoryRequestSequence || fieldReportHistoryEventCode !== code) return;
+      const parsed = normalizeFieldReportHistoryRecords(result?.data?.records);
+      fieldReportHistoryByEventCode[code] = { state:"loaded", records:parsed.valid, corrupted:parsed.corrupted, message:"" };
+      fieldReportHistoryVersion = parsed.valid[0]?.version || null;
+    } catch (error) {
+      if (error?.name === "AbortError" || sequence !== fieldReportHistoryRequestSequence || fieldReportHistoryEventCode !== code) return;
+      fieldReportHistoryByEventCode[code] = { state:"error", records:[], corrupted:[], message:error?.message || "일지 조회에 실패했습니다." };
+      fieldReportHistoryVersion = null;
+    } finally {
+      if (sequence === fieldReportHistoryRequestSequence && fieldReportHistoryEventCode === code) renderCurrentTestDashboard();
+    }
+  }
+
+  function fieldReportHistoryViewModel(record, event) {
+    const input = record?.admin_input || {};
+    const basic = input.basic_info || {};
+    const daily = input.daily_summary || {};
+    const signature = input.signatures || {};
+    const snapshot = record?.resolved_sections_snapshot || {};
+    const header = snapshot.event_header || {};
+    const eventDate = header.event_date || fieldReportDateFromEvent(event) || "";
+    const operationLabels = { normal:"정상 운영", partial:"부분 운영", stopped:"운영 중단" };
+    const uploadLabels = { complete:"완료", partial:"일부 완료", not_uploaded:"미업로드" };
+    const weatherLabels = { sunny:"맑음", cloudy:"흐림", rain:"비", snow:"눈" };
+    const report = {
+      meta: {
+        event_code:record.event_code || event?.event_code || "", event_name:header.event_name || fieldReportEventName(event) || "",
+        report_date:eventDate, weekday:fieldReportWeekday(eventDate), writer:basic.writer_name || record?.created_by?.admin_name || "",
+        location:header.location || event?.location || event?.place || event?.venue || "", weather:weatherLabels[basic.weather] || basic.weather || "",
+        temperature:basic.temperature_c === null || basic.temperature_c === undefined ? "" : `${basic.temperature_c}℃`,
+        operation_result:operationLabels[basic.operation_result] || basic.operation_result || "", operation_result_reason:basic.operation_result_reason || "",
+        upload_completion_status:uploadLabels[basic.upload_completion_status] || basic.upload_completion_status || "", upload_completion_reason:basic.upload_completion_reason || "",
+        participant_staff:Array.isArray(basic.participant_staff) ? basic.participant_staff : [],
+        closing_checks:{ upload_completed:Boolean(basic.closing_checks?.upload_completed), equipment_returned:Boolean(basic.closing_checks?.equipment_returned), lost_and_found_checked:Boolean(basic.closing_checks?.lost_items_checked), teardown_completed:Boolean(basic.closing_checks?.withdrawal_completed) }
+      },
+      equipment:{ extra:(input.additional_equipment || []).map(row => ({ item:row.item_name || "", owner:row.owner_name || "", spot:row.spot_name || "", status:row.status || "", note:row.note || "" })) },
+      issues:(input.admin_issues || []).map(row => ({ time:row.occurred_at || "", type:row.category || "", description:row.description || "", status:row.status || "", owner:row.owner_name || "" })),
+      daily_summary:{ actual_count_check:daily.actual_count_check === "review_required" ? "review" : daily.actual_count_check || "", actual_shoot_count:daily.actual_photo_count ?? "", improvement_note:daily.improvement_note || "", general_comment:daily.general_comment || "" },
+      signatures:{ writer:signature.writer || {}, field_manager:signature.field_manager || {}, office_confirm:signature.office_confirm || {} }
+    };
+    return { report, resolvedSections:snapshot };
+  }
+
+  function renderWorkReport({ report, resolvedSections, editable }) {
+    const autoRows = key => resolvedSections?.[key] || [];
+    const participantStaff = Array.isArray(report.meta.participant_staff) ? report.meta.participant_staff : [];
+    const checkValue = report.daily_summary.actual_count_check || "";
+    const closingChecks = report.meta.closing_checks || {};
+    const staffOptions = [...new Set(participantStaff.concat(autoRows("staff_assignments").map(row => row.name).filter(Boolean)))];
+    const renderOptions = { report, editable };
+    const readSelect = (label, value) => `<label><span>${escapeHtml(label)}</span><input class="ctdash-input fr-readonly-input" value="${escapeHtml(value || "")}" readonly></label>`;
+    return `<div class="fr-history-readonly">
+      <article class="ctdash-card ctdash-section fr-section"><div class="ctdash-section-head"><div><div class="ctdash-kicker">1</div><h3>기본 정보</h3></div><span class="ctdash-tag">${escapeHtml(report.meta.weekday || "요일 미정")}</span></div>
+        <div class="ctdash-form-grid">${fieldReportReadOnlyField("대회명", report.meta.event_name)}${fieldReportReadOnlyField("대회 코드", report.meta.event_code)}${fieldReportReadOnlyField("날짜", report.meta.report_date, "date")}${fieldReportField("meta.writer", "작성자", "text", "", renderOptions)}${fieldReportReadOnlyField("장소", report.meta.location)}${readSelect("날씨", report.meta.weather)}${readSelect("기온", report.meta.temperature)}${readSelect("운영 결과", report.meta.operation_result)}${report.meta.operation_result_reason ? fieldReportField("meta.operation_result_reason", "운영 결과 사유", "text", "", renderOptions) : ""}${readSelect("업로드 완료 여부", report.meta.upload_completion_status)}${report.meta.upload_completion_reason ? fieldReportField("meta.upload_completion_reason", "업로드 사유", "text", "", renderOptions) : ""}</div>
+        <div class="fr-participant-field"><span>참여 스탭</span><div class="fr-staff-picker"><div class="fr-staff-chips">${participantStaff.length ? participantStaff.map(name => `<span class="fr-staff-chip">${escapeHtml(name)}</span>`).join("") : `<span class="ctdash-empty">선택된 스탭이 없습니다.</span>`}</div></div></div>
+        <div class="fr-closing-checks"><span>현장 마감 체크</span><div class="fr-check-grid"><label><input type="checkbox" disabled ${closingChecks.upload_completed ? "checked" : ""}><span>업로드 완료</span></label><label><input type="checkbox" disabled ${closingChecks.equipment_returned ? "checked" : ""}><span>장비 반납 완료</span></label><label><input type="checkbox" disabled ${closingChecks.lost_and_found_checked ? "checked" : ""}><span>분실물 확인</span></label><label><input type="checkbox" disabled ${closingChecks.teardown_completed ? "checked" : ""}><span>철수 완료</span></label></div></div></article>
+      ${fieldReportAutoTable("2. 투입 인원", autoRows("staff_assignments"), [{key:"name",label:"이름"},{key:"role",label:"역할"},{key:"spot_name",label:"배치 스팟"},{key:"start_time",label:"출근"},{key:"end_time",label:"퇴근"}], {kicker:"Photographer Report"})}
+      ${fieldReportAutoTable("3. 촬영 스팟", autoRows("shooting_spots"), [{key:"location",label:"위치"},{key:"spot_name",label:"명칭"},{key:"concept",label:"촬영 컨셉"},{key:"expected_people",label:"예상 인원"},{key:"camera_count",label:"카메라 수"},{key:"note",label:"비고"}], {kicker:"Photographer Report"})}
+      <div class="fr-two-col">${fieldReportAutoTable("4-1. 기본 장비", autoRows("basic_equipment"), [{key:"item_name",label:"장비명"},{key:"owner_name",label:"담당자"},{key:"spot_name",label:"배치 스팟"},{key:"status",label:"상태"},{key:"note",label:"비고"}], {kicker:"Photographer Report"})}${fieldReportAutoTable("4-2. 장비 합계", autoRows("equipment_summary"), [{key:"item_name",label:"품목"},{key:"count",label:"수량"}], {kicker:"Photographer Report"})}</div>
+      ${fieldReportTable("4-3. 추가 장비", "equipment.extra", [{key:"item",label:"장비명"},{key:"owner",label:"담당자",type:"select",options:staffOptions},{key:"spot",label:"배치 스팟"},{key:"status",label:"상태",type:"select",options:["정상","확인 필요","분실","수리 필요","normal","needs_review","lost","needs_repair"]},{key:"note",label:"비고"}], {kicker:"Extra", report, editable:false})}
+      ${fieldReportAutoTable("5. 스팟별 운영 시간 일지", autoRows("spot_operations"), [{key:"spot_name",label:"스팟"},{key:"start_time",label:"시작"},{key:"end_time",label:"종료"},{key:"shoot_count",label:"촬영 건수"},{key:"memo",label:"메모"}], {kicker:"Photographer Report"})}
+      ${fieldReportAutoTable("6. 이슈 및 돌발 상황", autoRows("automatic_issues"), [{key:"occurred_at",label:"시간"},{key:"category",label:"유형"},{key:"description",label:"내용"},{key:"status",label:"처리 상태"},{key:"owner_name",label:"담당자"}], {kicker:"Photographer Report"})}
+      ${fieldReportTable("6-1. 관리자 추가 기록", "issues", [{key:"time",label:"시간",type:"time"},{key:"type",label:"유형",type:"select",options:["운영","장비","고객","안전","기타","operation","equipment","customer","safety","other"]},{key:"description",label:"내용"},{key:"status",label:"처리 상태",type:"select",options:["접수","처리 중","완료","보류","received","in_progress","resolved","on_hold"]},{key:"owner",label:"담당자",type:"select",options:staffOptions}], {kicker:"Admin", report, editable:false})}
+      <article class="ctdash-card ctdash-section fr-section"><div class="ctdash-section-head"><div><div class="ctdash-kicker">7</div><h3>데일리 서머리</h3></div><span class="ctdash-tag">저장 내용</span></div><div class="ctdash-form-grid">${fieldReportReadOnlyField("총 촬영 건수", resolvedSections?.total_photo_count, "number")}${readSelect("실제 개수 검증", {matched:"일치",review:"확인 필요",mismatch:"불일치"}[checkValue] || checkValue)}${checkValue === "mismatch" ? fieldReportField("daily_summary.actual_shoot_count", "실제 촬영 건수", "number", "", renderOptions) : ""}${fieldReportTextarea("daily_summary.improvement_note", "개선 사항", "", renderOptions)}${fieldReportTextarea("daily_summary.general_comment", "종합 메모", "tall", renderOptions)}</div></article>
+      <article class="ctdash-card ctdash-section fr-section"><div class="ctdash-section-head"><div><div class="ctdash-kicker">8</div><h3>확인 서명</h3></div><span class="ctdash-tag">저장 내용</span></div><div class="ctdash-form-grid three">${fieldReportField("signatures.writer.name", "작성자", "text", "", renderOptions)}${fieldReportField("signatures.field_manager.name", "현장 책임자", "text", "", renderOptions)}${fieldReportField("signatures.office_confirm.name", "사무실 확인", "text", "", renderOptions)}</div><div class="ctdash-form-grid three">${fieldReportTextarea("signatures.writer.note", "작성자 메모", "", renderOptions)}${fieldReportTextarea("signatures.field_manager.note", "현장 책임자 메모", "", renderOptions)}${fieldReportTextarea("signatures.office_confirm.note", "사무실 확인 메모", "", renderOptions)}</div></article>
+    </div>`;
+  }
+
   function renderCurrentDashDiaryReadView() {
-    const sections = [
-      ["1", "기본 정보", "대회·작성자·운영 결과·마감 체크"],
-      ["2", "투입 인원", "포토그래퍼별 역할·배치·운영 시간"],
-      ["3", "촬영 스팟", "실제 촬영 위치와 이동 스팟"],
-      ["4", "사용 장비", "기본 장비·장비 합계·추가 장비"],
-      ["5", "스팟별 운영 시간 일지", "스팟별 시작·종료·촬영 건수"],
-      ["6", "이슈 및 돌발 상황", "자동 반영 이슈와 관리자 추가 기록"],
-      ["7", "데일리 서머리", "촬영 건수 검증·개선 사항·종합 메모"],
-      ["8", "확인 서명", "작성자·현장 책임자·사무실 확인"]
-    ];
-    return `
-      <section class="ctdash-screen fr-shell">
-        <article class="ctdash-card ctdash-section fr-hero">
-          <div class="ctdash-section-head">
-            <div>
-              <div class="ctdash-kicker">Field Report</div>
-              <h3>일지 조회</h3>
-              <p>대회별로 저장된 운영 일지를 버전 기준으로 확인하는 화면입니다.</p>
-            </div>
-            <span class="ctdash-tag">조회 준비</span>
-          </div>
-          <div class="ctdash-callout">현재는 일지 작성과 같은 조회 화면 구조를 구성했습니다. Bubble의 저장 이력(work_report_json)을 읽어 버전별로 표시하는 조회 API는 다음 단계에서 연결합니다.</div>
-        </article>
-        ${sections.map(([number, title, description]) => `
-          <article class="ctdash-card ctdash-section fr-section">
-            <div class="ctdash-section-head"><div><div class="ctdash-kicker">${number}</div><h3>${title}</h3></div><span class="ctdash-tag">저장 내용</span></div>
-            <div class="ctdash-callout">${description}</div>
-          </article>`).join("")}
-      </section>`;
+    const state = fieldReportHistoryState(fieldReportHistoryEventCode);
+    const events = (allEvents || []).filter(event => String(event?.event_code || "").trim());
+    const selectedEvent = events.find(event => String(event.event_code) === fieldReportHistoryEventCode) || {};
+    const records = state.records || [];
+    const activeRecord = records.find(record => Number(record.version) === Number(fieldReportHistoryVersion)) || records[0] || null;
+    const eventOptions = events.map(event => `<option value="${escapeHtml(event.event_code)}" ${String(event.event_code) === fieldReportHistoryEventCode ? "selected" : ""}>${escapeHtml(fieldReportHistoryEventLabel(event))}</option>`).join("");
+    const versionOptions = records.map((record, index) => `<option value="${escapeHtml(record.version)}" ${Number(record.version) === Number(activeRecord?.version) ? "selected" : ""}>${escapeHtml(`${fieldReportHistoryDisplayVersion(record.version)}${index === 0 ? " · 최신" : ""} · ${record.created_by?.admin_name || record.admin_input?.basic_info?.writer_name || "작성자 미정"} · ${fieldReportHistoryDateTime(record.created_at)}`)}</option>`).join("") + (state.corrupted?.length ? `<option disabled>데이터 오류 · ${state.corrupted.length}건</option>` : "");
+    let detail = `<article class="ctdash-card ctdash-section fr-section"><div class="ctdash-empty">대회를 선택해주세요.</div></article>`;
+    if (fieldReportHistoryEventCode && state.state === "loading") detail = `<article class="ctdash-card ctdash-section fr-section"><div class="ctdash-empty">일지를 불러오는 중입니다.</div></article>`;
+    if (fieldReportHistoryEventCode && state.state === "loaded" && !records.length) detail = `<article class="ctdash-card ctdash-section fr-section"><div class="ctdash-empty">저장된 일지가 없습니다.</div></article>`;
+    if (fieldReportHistoryEventCode && state.state === "error") detail = `<article class="ctdash-card ctdash-section fr-section"><div class="ctdash-callout warn">일지 조회에 실패했습니다. ${escapeHtml(state.message || "")}</div><button class="sh-btn-sm" type="button" data-fr-history-action="retry">다시 시도</button></article>`;
+    if (activeRecord) { const model = fieldReportHistoryViewModel(activeRecord, selectedEvent); detail = renderWorkReport({ report:model.report, resolvedSections:model.resolvedSections, editable:false }); }
+    return `<section class="ctdash-screen fr-shell"><article class="ctdash-card ctdash-section fr-hero"><div class="ctdash-section-head"><div><div class="ctdash-kicker">Field Report</div><h3>일지 조회</h3><p>대회별 저장 일지를 버전 기준으로 읽기 전용으로 확인합니다.</p></div><span class="ctdash-tag">읽기 전용</span></div><div class="fr-history-toolbar"><label><span>대회 선택</span><select class="ctdash-select" id="field_report_history_event_select"><option value="">대회를 선택해주세요</option>${eventOptions}</select></label><label><span>일지 버전 선택</span><select class="ctdash-select" id="field_report_history_version_select" ${!fieldReportHistoryEventCode || state.state !== "loaded" || !records.length ? "disabled" : ""}><option value="">${state.state === "loading" ? "불러오는 중..." : "버전을 선택해주세요"}</option>${versionOptions}</select></label></div></article>${detail}</section>`;
   }
 
   function renderCurrentDashDiaryView() {
@@ -6062,6 +6180,12 @@
         return;
       }
 
+      const fieldReportHistoryAction = e.target.closest("[data-fr-history-action]");
+      if (fieldReportHistoryAction?.dataset.frHistoryAction === "retry" && fieldReportHistoryEventCode) {
+        void loadFieldReportHistory(fieldReportHistoryEventCode);
+        return;
+      }
+
       const participantAdd = e.target.closest("[data-fr-participant-add]");
       if (participantAdd) {
         const select = document.querySelector("#field_report_participant_select");
@@ -6177,6 +6301,18 @@
       logDashboardCacheRebuild("source filter change");
     });
 	    document.addEventListener("change", e => {
+	      if (e.target && e.target.id === "field_report_history_event_select") {
+	        fieldReportHistoryEventCode = String(e.target.value || "").trim();
+	        fieldReportHistoryVersion = null;
+	        renderCurrentTestDashboard();
+	        if (fieldReportHistoryEventCode) void loadFieldReportHistory(fieldReportHistoryEventCode);
+	        return;
+	      }
+	      if (e.target && e.target.id === "field_report_history_version_select") {
+	        fieldReportHistoryVersion = Number(e.target.value) || null;
+	        renderCurrentTestDashboard();
+	        return;
+	      }
 	      if (e.target && e.target.id === "field_report_event_select") {
 	        fieldReportActiveId = e.target.value || "";
 	        renderCurrentTestDashboard();
