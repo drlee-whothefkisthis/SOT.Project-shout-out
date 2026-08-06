@@ -1167,6 +1167,14 @@
   .fr-two-col{ display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; }
   .fr-table .ctdash-input,.fr-table .ctdash-select{ min-width:150px; min-height:40px; padding:9px 10px; border-radius:10px; font-size:13px; }
   .fr-table td:last-child{ white-space:nowrap; }
+  .fr-two-col .ctdash-table-wrap,.fr-compact-table-wrap{ overflow:visible; }
+  .fr-two-col .fr-table,.fr-compact-table-wrap .fr-table{ min-width:0; table-layout:fixed; }
+  .fr-two-col .fr-table th,.fr-two-col .fr-table td,.fr-compact-table-wrap .fr-table th,.fr-compact-table-wrap .fr-table td{ padding:12px 10px; overflow-wrap:anywhere; }
+  .fr-two-col .fr-table .ctdash-input,.fr-two-col .fr-table .ctdash-select,.fr-compact-table-wrap .fr-table .ctdash-input,.fr-compact-table-wrap .fr-table .ctdash-select{ min-width:0; }
+  .fr-issue-auto-table td:last-child,.fr-issue-manual-table td:last-child{ white-space:normal; }
+  .fr-equipment-total th:nth-child(2),.fr-equipment-total th:nth-child(4),.fr-count-cell{ width:54px; text-align:center; }
+  .fr-section-divider{ height:1px; margin:22px 0; background:rgba(80,58,40,.12); }
+  .fr-subsection-head{ margin-bottom:12px; }
   .fr-json{ max-height:460px; overflow:auto; padding:18px; border-radius:18px; background:#211812; color:#fffdfa; font-size:12px; line-height:1.55; }
   .fr-input:focus,.fr-table-input:focus{ outline:2px solid rgba(12,139,136,.28); border-color:rgba(12,139,136,.45); }
   .fr-readonly-input{ color:#6f6256; background:rgba(243,238,229,.84); }
@@ -1188,6 +1196,17 @@
     .fr-history-toolbar{ grid-template-columns:1fr; }
     .fr-staff-add{ flex-direction:column; }
     .fr-check-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+  }
+  @media(max-width:640px){
+    .fr-two-col .fr-table th,.fr-two-col .fr-table td{ padding:10px 7px; font-size:12px; }
+    .fr-equipment-total th:nth-child(2),.fr-equipment-total th:nth-child(4),.fr-count-cell{ width:42px; }
+    .fr-issue-auto-table,.fr-issue-auto-table tbody,.fr-issue-auto-table tr,.fr-issue-auto-table td,.fr-issue-manual-table,.fr-issue-manual-table tbody,.fr-issue-manual-table tr,.fr-issue-manual-table td{ display:block; width:100%; box-sizing:border-box; }
+    .fr-issue-auto-table thead,.fr-issue-manual-table thead{ display:none; }
+    .fr-issue-auto-table tr,.fr-issue-manual-table tr{ padding:8px 0; border-top:1px solid rgba(80,58,40,.1); }
+    .fr-issue-auto-table td,.fr-issue-manual-table td{ display:grid; grid-template-columns:78px minmax(0,1fr); gap:10px; align-items:center; padding:7px 0; border:0; background:transparent; white-space:normal; }
+    .fr-issue-auto-table td::before,.fr-issue-manual-table td::before{ content:attr(data-label); color:#6f6256; font-size:12px; font-weight:900; }
+    .fr-issue-auto-table td.ctdash-empty,.fr-issue-manual-table td.ctdash-empty{ display:block; }
+    .fr-issue-auto-table td.ctdash-empty::before,.fr-issue-manual-table td.ctdash-empty::before{ content:""; }
   }
 
   .legacy-v2-shell{ display:grid; gap:18px; }
