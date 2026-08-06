@@ -1614,6 +1614,9 @@
   .prh-equipment-groups{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
   .prh-equipment-group{min-width:0;align-content:start}
   .prh-equipment-group+.prh-equipment-group{padding:0 0 0 12px;border-top:0;border-left:1px dashed #ddd3c8}
-  .prh-equipment-group .prh-equipment-list{grid-template-columns:1fr}
+  .prh-equipment-group .prh-equipment-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .prh-equipment-group .prh-equipment-list>div{min-width:0;padding:9px 10px;font-size:10px}
+  .prh-equipment-group .prh-equipment-list span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .prh-equipment-group .prh-equipment-list b{flex:0 0 auto;font-size:11px}
   @media(max-width:960px){.prh-equipment-layout{grid-template-columns:1fr}}
   @media(max-width:560px){.prh-equipment-groups{grid-template-columns:1fr}.prh-equipment-group+.prh-equipment-group{padding:12px 0 0;border-top:1px dashed #ddd3c8;border-left:0}}

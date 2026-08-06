@@ -3111,11 +3111,11 @@
       const microSdCount = Number(equipment.memory_card?.micro_sd || 0);
       if (sdCount > 0) personalEquipmentItems.push({ label:"메모리카드 SD", value:`${sdCount.toLocaleString()}개` });
       if (microSdCount > 0) personalEquipmentItems.push({ label:"메모리카드 Micro SD", value:`${microSdCount.toLocaleString()}개` });
-      [["카메라 배터리",equipment.camera_battery],["보조배터리",equipment.power_bank],["라우터",equipment.router],["잡화가방",equipment.accessory_bag],["쿨러",equipment.cooler]].forEach(([label,rows]) => (Array.isArray(rows) ? rows : []).forEach(row => {
+      [["카메라 배터리",equipment.camera_battery,personalEquipmentItems,true],["보조배터리",equipment.power_bank,issuedEquipmentItems,false],["라우터",equipment.router,issuedEquipmentItems,false],["잡화가방",equipment.accessory_bag,issuedEquipmentItems,false],["쿨러",equipment.cooler,issuedEquipmentItems,false]].forEach(([label,rows,targetItems,alwaysShowCode]) => (Array.isArray(rows) ? rows : []).forEach(row => {
         const count = Number(row?.count || 0);
         const rowCode = String(row?.code || "").trim();
-        const displayCode = rowCode && rowCode !== issuedBagCode ? ` ${rowCode}` : "";
-        if (count > 0) issuedEquipmentItems.push({ label:`${label}${displayCode}`, value:`${count.toLocaleString()}개` });
+        const displayCode = rowCode && (alwaysShowCode || rowCode !== issuedBagCode) ? ` ${rowCode}` : "";
+        if (count > 0) targetItems.push({ label:`${label}${displayCode}`, value:`${count.toLocaleString()}개` });
       }));
       const equipmentItems = [...personalEquipmentItems, ...(issuedBagCode ? [{ label:"지급 가방", value:issuedBagCode }] : []), ...issuedEquipmentItems];
       const totalPhotoCount = photoCounts.reduce((sum,row) => sum + Number(row.count || 0), 0);
@@ -3131,7 +3131,7 @@
       const lensCard = lensItems.length ? `<div class="prh-info"><span>렌즈</span><div class="prh-lens-chips">${lensItems.map(item => `<i>${escapeHtml(item.label.replace(/^렌즈\s*/, ""))}</i>`).join("")}</div></div>` : "";
       const networkCard = upload.network_note ? `<div class="prh-info prh-info-wide"><span>업로드·네트워크 특이사항</span><b class="prh-info-note">${escapeHtml(upload.network_note)}</b></div>` : "";
       const equipmentRows = items => `<div class="prh-equipment-list">${items.map(item => `<div><span>${escapeHtml(item.label)}</span><b>${escapeHtml(item.value)}</b></div>`).join("")}</div>`;
-      const personalEquipmentGroup = personalEquipmentItems.length ? `<div class="prh-equipment-group"><div class="prh-equipment-group-head"><b>촬영 장비</b><span>카메라 바디 · 렌즈 · 메모리카드</span></div>${equipmentRows(personalEquipmentItems)}</div>` : "";
+      const personalEquipmentGroup = personalEquipmentItems.length ? `<div class="prh-equipment-group"><div class="prh-equipment-group-head"><b>촬영 장비</b><span>카메라 바디 · 렌즈 · 메모리카드 · 카메라 배터리</span></div>${equipmentRows(personalEquipmentItems)}</div>` : "";
       const issuedEquipmentTitle = issuedBagCode ? `지급 가방 ${issuedBagCode}` : "지급 장비";
       const issuedEquipmentGroup = issuedBagCode || issuedEquipmentItems.length ? `<div class="prh-equipment-group"><div class="prh-equipment-group-head"><b>${escapeHtml(issuedEquipmentTitle)}</b><span>${issuedBagCode ? `${escapeHtml(issuedBagCode)} 코드 기준 지급 장비` : "가방 미지급"}</span></div>${issuedEquipmentItems.length ? equipmentRows(issuedEquipmentItems) : `<p class="prh-equipment-empty">추가 지급 장비 내역이 없습니다.</p>`}</div>` : "";
       const equipmentCard = equipmentItems.length ? `<div class="prh-panel"><div class="prh-equipment-groups">${personalEquipmentGroup}${issuedEquipmentGroup}</div></div>` : `<div class="prh-panel"><p class="ctdash-empty">사용 장비 기록이 없습니다.</p></div>`;
