@@ -843,6 +843,7 @@
   const FIELD_REPORT_STORAGE_KEY = "shout_field_report_v2_test_drafts";
   const FIELD_REPORT_API_URL = "https://photographer-report-api-a6mwhgji4q-du.a.run.app/v1/admin-field-reports";
   const FIELD_REPORT_SOURCES_API_URL = "https://photographer-report-api-a6mwhgji4q-du.a.run.app/v1/admin-field-report-sources";
+  const PHOTOGRAPHER_REPORTS_API_URL = "https://photographer-report-api-a6mwhgji4q-du.a.run.app/api/v1/photographer-reports";
   let fieldReportDrafts = [];
   let fieldReportSaving = false;
   let fieldReportSaveMessage = "";
@@ -855,6 +856,12 @@
   let fieldReportHistoryVersion = null;
   let fieldReportHistoryRequestSequence = 0;
   let fieldReportHistoryAbortController = null;
+  const photographerReportHistoryByEventCode = {};
+  let photographerReportHistoryEventCode = "";
+  let photographerReportHistoryReportId = "";
+  let photographerReportHistoryFilter = "all";
+  let photographerReportHistoryRequestSequence = 0;
+  let photographerReportHistoryAbortController = null;
   let legacyAnalysisView = "report";
   let legacyAnalysisReportPeriod = "total";
   let legacyAnalysisReportSelectedWeekKey = sotWeekKeyFromDateKey(yesterdayKSTDateKey());
@@ -1329,6 +1336,7 @@
       <div class="sh-admin-tabs main-tabs is-hidden" data-admin-subtabs="operations" role="tablist" aria-label="대회 운영 메뉴" hidden style="display:none">
         <button class="sh-admin-tab tab-btn" type="button" data-admin-view="diary" aria-selected="false">일지 작성</button>
         <button class="sh-admin-tab tab-btn" type="button" data-admin-view="diary-view" aria-selected="false">일지 조회</button>
+        <button class="sh-admin-tab tab-btn" type="button" data-admin-view="photographer-view" aria-selected="false">포토그래퍼 일지 조회</button>
       </div>
 
       <div class="sh-admin-tabs main-tabs is-hidden" data-admin-subtabs="analysis" role="tablist" aria-label="결과 분석 메뉴" hidden style="display:none">
@@ -1396,6 +1404,10 @@
 
       <section class="sh-admin-panel is-hidden" data-admin-panel="diary-view" hidden>
         <div class="sot-current-test-content" data-current-test-content="diary-view"></div>
+      </section>
+
+      <section class="sh-admin-panel is-hidden" data-admin-panel="photographer-view" hidden>
+        <div class="sot-current-test-content" data-current-test-content="photographer-view"></div>
       </section>
 
       <section class="sh-admin-panel is-hidden" data-admin-panel="legacy" hidden>
@@ -1821,6 +1833,10 @@
     }
     if (currentDashView === "diary-view") {
       target.innerHTML = currentTestDashboardFrame(renderCurrentDashDiaryReadView(), "조회");
+      return;
+    }
+    if (currentDashView === "photographer-view") {
+      target.innerHTML = currentTestDashboardFrame(renderPhotographerReportHistoryView(), "포토그래퍼 일지");
       return;
     }
 
@@ -2501,6 +2517,31 @@
       </article>`;
   }
 
+  function fieldReportBasicEquipmentGroups(title, rows, options) {
+    const groups = new Map();
+    (rows || []).forEach(row => {
+      const owner = String(row?.owner_name || "담당자 미정").trim() || "담당자 미정";
+      const spot = String(row?.spot_name || "배치 스팟 미정").trim() || "배치 스팟 미정";
+      const key = `${owner}\u0000${spot}`;
+      if (!groups.has(key)) groups.set(key, { owner, spot, items:[], statuses:[] });
+      const group = groups.get(key);
+      group.items.push(String(row?.item_name || "장비명 미정").trim() || "장비명 미정");
+      const status = String(row?.status || "").trim();
+      if (status && !group.statuses.includes(status)) group.statuses.push(status);
+    });
+    const body = groups.size ? [...groups.values()].map(group => {
+      const statusLabel = group.statuses.length ? group.statuses.join(" · ") : "상태 미정";
+      return `<article class="fr-equipment-group">
+        <div class="fr-equipment-assignment"><span class="fr-equipment-owner">${escapeHtml(group.owner)}</span><span class="fr-equipment-spot" title="${escapeHtml(group.spot)}">${escapeHtml(group.spot)}</span><span class="fr-equipment-status">${escapeHtml(statusLabel)}</span></div>
+        <div class="fr-equipment-items">${group.items.map(item => `<span class="fr-equipment-item">${escapeHtml(item)}</span>`).join("")}</div>
+      </article>`;
+    }).join("") : `<div class="ctdash-empty">자동 반영할 데이터가 없습니다.</div>`;
+    return `<article class="ctdash-card ctdash-section fr-section fr-basic-equipment">
+      <div class="ctdash-section-head"><div><div class="ctdash-kicker">${escapeHtml(options?.kicker || "Notion")}</div><h3>${escapeHtml(title)}</h3></div><span class="ctdash-tag">자동 반영</span></div>
+      <div class="fr-equipment-groups">${body}</div>
+    </article>`;
+  }
+
   function fieldReportIssueSection(autoIssues, manualIssues, staffOptions, options) {
     const editable = options?.editable !== false;
     const issueTypes = editable ? ["운영", "장비", "고객", "안전", "기타"] : ["운영", "장비", "고객", "안전", "기타", "operation", "equipment", "customer", "safety", "other"];
@@ -2898,7 +2939,7 @@
         <div class="fr-closing-checks"><span>현장 마감 체크</span><div class="fr-check-grid"><label><input type="checkbox" disabled ${closingChecks.upload_completed ? "checked" : ""}><span>업로드 완료</span></label><label><input type="checkbox" disabled ${closingChecks.equipment_returned ? "checked" : ""}><span>장비 반납 완료</span></label><label><input type="checkbox" disabled ${closingChecks.lost_and_found_checked ? "checked" : ""}><span>분실물 확인</span></label><label><input type="checkbox" disabled ${closingChecks.teardown_completed ? "checked" : ""}><span>철수 완료</span></label></div></div></article>
       ${fieldReportAutoTable("2. 투입 인원", autoRows("staff_assignments"), [{key:"name",label:"이름"},{key:"role",label:"역할"},{key:"spot_name",label:"배치 스팟"},{key:"start_time",label:"출근"},{key:"end_time",label:"퇴근"}], {kicker:"Photographer Report"})}
       ${fieldReportAutoTable("3. 촬영 스팟", autoRows("shooting_spots"), [{key:"location",label:"위치"},{key:"spot_name",label:"명칭"},{key:"concept",label:"촬영 컨셉"},{key:"expected_people",label:"예상 인원"},{key:"camera_count",label:"카메라 수"},{key:"note",label:"비고"}], {kicker:"Photographer Report"})}
-      <div class="fr-two-col">${fieldReportAutoTable("4-1. 기본 장비", autoRows("basic_equipment"), [{key:"item_name",label:"장비명"},{key:"owner_name",label:"담당자"},{key:"spot_name",label:"배치 스팟"},{key:"status",label:"상태"}], {kicker:"Photographer Report"})}${fieldReportEquipmentTotalTable("4-2. 장비 합계", autoRows("equipment_summary"), {kicker:"Photographer Report"})}</div>
+      <div class="fr-two-col">${fieldReportBasicEquipmentGroups("4-1. 기본 장비", autoRows("basic_equipment"), {kicker:"Photographer Report"})}${fieldReportEquipmentTotalTable("4-2. 장비 합계", autoRows("equipment_summary"), {kicker:"Photographer Report"})}</div>
       ${fieldReportTable("4-3. 추가 장비", "equipment.extra", [{key:"item",label:"장비명"},{key:"owner",label:"담당자",type:"select",options:staffOptions},{key:"spot",label:"배치 스팟"},{key:"status",label:"상태",type:"select",options:["정상","확인 필요","분실","수리 필요","normal","needs_review","lost","needs_repair"]},{key:"note",label:"비고"}], {kicker:"Extra", report, editable:false})}
       ${fieldReportAutoTable("5. 스팟별 운영 시간 일지", autoRows("spot_operations"), [{key:"spot_name",label:"스팟"},{key:"start_time",label:"시작"},{key:"end_time",label:"종료"},{key:"shoot_count",label:"촬영 건수"},{key:"memo",label:"메모"}], {kicker:"Photographer Report"})}
       ${fieldReportIssueSection(autoRows("automatic_issues"), report.issues || [], staffOptions, { editable:false })}
@@ -2921,6 +2962,73 @@
     if (fieldReportHistoryEventCode && state.state === "error") detail = `<article class="ctdash-card ctdash-section fr-section"><div class="ctdash-callout warn">일지 조회에 실패했습니다. ${escapeHtml(state.message || "")}</div><button class="sh-btn-sm" type="button" data-fr-history-action="retry">다시 시도</button></article>`;
     if (activeRecord) { const model = fieldReportHistoryViewModel(activeRecord, selectedEvent); detail = renderWorkReport({ report:model.report, resolvedSections:model.resolvedSections, editable:false }); }
     return `<section class="ctdash-screen fr-shell"><article class="ctdash-card ctdash-section fr-hero"><div class="ctdash-section-head"><div><div class="ctdash-kicker">Field Report</div><h3>일지 조회</h3><p>대회별 저장 일지를 버전 기준으로 읽기 전용으로 확인합니다.</p></div><span class="ctdash-tag">읽기 전용</span></div><div class="fr-history-toolbar"><label><span>대회 선택</span><select class="ctdash-select" id="field_report_history_event_select"><option value="">대회를 선택해주세요</option>${eventOptions}</select></label><label><span>일지 버전 선택</span><select class="ctdash-select" id="field_report_history_version_select" ${!fieldReportHistoryEventCode || state.state !== "loaded" || !records.length ? "disabled" : ""}><option value="">${state.state === "loading" ? "불러오는 중..." : "버전을 선택해주세요"}</option>${versionOptions}</select></label></div></article>${detail}</section>`;
+  }
+
+  function photographerReportHistoryState(eventCode) {
+    return photographerReportHistoryByEventCode[String(eventCode || "")] || { state:"idle", reports:[], invalid:[], message:"" };
+  }
+
+  async function loadPhotographerReportHistory(eventCode) {
+    const code = String(eventCode || "").trim();
+    if (!code) return;
+    const sequence = ++photographerReportHistoryRequestSequence;
+    if (photographerReportHistoryAbortController) photographerReportHistoryAbortController.abort();
+    photographerReportHistoryAbortController = new AbortController();
+    photographerReportHistoryByEventCode[code] = { state:"loading", reports:[], invalid:[], message:"" };
+    renderCurrentTestDashboard();
+    try {
+      const token = sessionStorage.getItem("shout_access_token") || "";
+      const response = await fetch(`${PHOTOGRAPHER_REPORTS_API_URL}?event_code=${encodeURIComponent(code)}`, { headers:token ? { Authorization:`Bearer ${token}` } : {}, signal:photographerReportHistoryAbortController.signal });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) throw new Error(result?.error?.message || "포토그래퍼 일지를 불러오지 못했습니다.");
+      if (sequence !== photographerReportHistoryRequestSequence || photographerReportHistoryEventCode !== code) return;
+      const reports = Array.isArray(result?.data?.reports) ? result.data.reports : [];
+      photographerReportHistoryByEventCode[code] = { state:"loaded", reports, invalid:Array.isArray(result?.data?.invalid_reports) ? result.data.invalid_reports : [], message:"" };
+      photographerReportHistoryReportId = reports[0]?.report_id || "";
+    } catch (error) {
+      if (error?.name === "AbortError" || sequence !== photographerReportHistoryRequestSequence || photographerReportHistoryEventCode !== code) return;
+      photographerReportHistoryByEventCode[code] = { state:"error", reports:[], invalid:[], message:error?.message || "포토그래퍼 일지 조회에 실패했습니다." };
+      photographerReportHistoryReportId = "";
+    } finally {
+      if (sequence === photographerReportHistoryRequestSequence && photographerReportHistoryEventCode === code) renderCurrentTestDashboard();
+    }
+  }
+
+  function photographerReportStatus(report) {
+    const shooting = report?.shooting || {}, upload = report?.upload || {};
+    if (["partial", "stopped"].includes(shooting.result) || ["failed"].includes(upload.status) || ["unstable", "unavailable"].includes(upload.network_status)) return { label:"이슈 있음", tone:"issue" };
+    if (["pending", "not_started"].includes(upload.status)) return { label:"업로드 확인", tone:"pending" };
+    return { label:"정상", tone:"good" };
+  }
+
+  function renderPhotographerReportHistoryView() {
+    const events = (allEvents || []).filter(event => String(event?.event_code || "").trim());
+    const state = photographerReportHistoryState(photographerReportHistoryEventCode);
+    const allReports = state.reports || [];
+    const reports = allReports.filter(report => {
+      if (photographerReportHistoryFilter === "all") return true;
+      const shooting = report?.shooting || {}, upload = report?.upload || {};
+      if (photographerReportHistoryFilter === "issue") return ["partial", "stopped"].includes(shooting.result) || upload.status === "failed" || ["unstable", "unavailable"].includes(upload.network_status);
+      return ["pending", "not_started"].includes(upload.status);
+    });
+    const active = reports.find(report => report.report_id === photographerReportHistoryReportId) || reports[0] || null;
+    const eventOptions = events.map(event => `<option value="${escapeHtml(event.event_code)}" ${String(event.event_code) === photographerReportHistoryEventCode ? "selected" : ""}>${escapeHtml(fieldReportHistoryEventLabel(event))}</option>`).join("");
+    let detail = `<div class="prh-empty">대회를 선택하면 제출된 포토그래퍼 일지가 표시됩니다.</div>`;
+    if (photographerReportHistoryEventCode && state.state === "loading") detail = `<div class="prh-empty">포토그래퍼 일지를 불러오는 중입니다.</div>`;
+    if (photographerReportHistoryEventCode && state.state === "error") detail = `<div class="prh-empty"><b>일지 조회에 실패했습니다.</b><br>${escapeHtml(state.message || "")}</div>`;
+    if (photographerReportHistoryEventCode && state.state === "loaded" && !allReports.length) detail = `<div class="prh-empty">저장된 포토그래퍼 일지가 없습니다.</div>`;
+    if (active) {
+      const shooting = active.shooting || {}, equipment = active.equipment || {}, upload = active.upload || {}, feedback = active.feedback || {};
+      const status = photographerReportStatus(active);
+      const photoCounts = Array.isArray(shooting.photo_counts) ? shooting.photo_counts : [];
+      const spots = [shooting.actual_location, ...(Array.isArray(shooting.move_spots) ? shooting.move_spots : [])].filter(spot => spot?.name);
+      const dynamic = [["카메라 배터리",equipment.camera_battery],["보조배터리",equipment.power_bank],["라우터",equipment.router],["잡화가방",equipment.accessory_bag],["쿨러",equipment.cooler]].flatMap(([label,rows]) => (Array.isArray(rows) ? rows : []).map(row => `${label} ${row.code} ${row.count}개`));
+      const lenses = Object.entries(equipment.lenses || {}).filter(([key,value]) => key !== "personal" && Number(value) > 0).map(([key,value]) => `렌즈 ${key} ${value}개`);
+      const equipmentRows = [...(equipment.camera_bodies || []).map(value => `카메라 바디 ${value}`), ...lenses, `메모리카드 SD ${equipment.memory_card?.sd || 0}개`, equipment.issued_bag && equipment.issued_bag !== "none" ? `지급 가방 ${equipment.issued_bag}` : "", ...dynamic].filter(Boolean);
+      detail = `<div class="prh-detail-head"><div><div class="ctdash-kicker">Photographer Report</div><h3>${escapeHtml(active.photographer_name || "포토그래퍼 미정")} · ${escapeHtml(shooting.role || "역할 미정")}</h3><p>${escapeHtml(shooting.actual_location?.name || "촬영 위치 미정")} · 촬영일 ${escapeHtml(shooting.shooting_date || "")}</p></div><div><span class="prh-status ${status.tone}">${status.label}</span><small>${escapeHtml(active.submitted_at || "제출 시각 미정")}</small></div></div><div class="prh-detail-body"><div class="prh-metrics"><div><span>촬영 결과</span><b>${escapeHtml({complete:"정상 완료",partial:"일부 촬영",stopped:"촬영 중단"}[shooting.result] || shooting.result || "-")}</b></div><div><span>총 촬영 장수</span><b>${photoCounts.reduce((sum,row) => sum + Number(row.count || 0), 0).toLocaleString()}장</b></div><div><span>업로드 상태</span><b>${escapeHtml({complete:"업로드 완료",pending:"진행 중",not_started:"미진행",failed:"실패"}[upload.status] || upload.status || "-")}</b></div><div><span>네트워크</span><b>${escapeHtml({good:"원활",normal:"보통",unstable:"불안정",unavailable:"사용 불가"}[upload.network_status] || upload.network_status || "-")}</b></div></div><div class="prh-grid"><section><h4>촬영 기록</h4><div class="prh-panel">${spots.length ? spots.map((spot,index) => `<div class="prh-row"><span>${index === 0 ? `도착 ${escapeHtml(shooting.arrival_time || "-")}` : "이동"}</span><b>${escapeHtml(spot.name)}</b><small>${spot.distance_km === null || spot.distance_km === undefined ? "" : `${spot.distance_km}km`}</small></div>`).join("") : `<p class="ctdash-empty">등록된 촬영 스팟이 없습니다.</p>`}<div class="prh-row"><span>촬영</span><b>${escapeHtml(shooting.start_time || "-")} – ${escapeHtml(shooting.end_time || "-")}</b><small>퇴근 ${escapeHtml(shooting.leaving_time || "-")}</small></div></div></section><section><h4>바디별 촬영 장수</h4><div class="prh-panel">${photoCounts.length ? photoCounts.map(row => `<div class="prh-row"><span>${escapeHtml(row.camera_body || "-")}</span><b>${Number(row.count || 0).toLocaleString()}장</b></div>`).join("") : `<p class="ctdash-empty">촬영 장수 기록이 없습니다.</p>`}</div></section></div><section><h4>사용 장비</h4><div class="prh-equipment">${equipmentRows.length ? equipmentRows.map(row => `<span>${escapeHtml(row)}</span>`).join("") : `<p class="ctdash-empty">사용 장비 기록이 없습니다.</p>`}</div></section>${shooting.result_reason || upload.network_note || equipment.issue?.detail ? `<section><h4>확인 필요 사항</h4><div class="prh-issue">${shooting.result_reason ? `<b>촬영 결과 사유</b><p>${escapeHtml(shooting.result_reason)}</p>` : ""}${upload.network_note ? `<b>업로드·네트워크</b><p>${escapeHtml(upload.network_note)}</p>` : ""}${equipment.issue?.detail ? `<b>장비 이상</b><p>${escapeHtml(equipment.issue.detail)}</p>` : ""}</div></section>` : ""}<section><h4>현장 피드백</h4><div class="prh-feedback"><div><span>현장 특이사항</span><p>${escapeHtml(feedback.field_note || "기록 없음")}</p></div><div><span>문제점</span><p>${escapeHtml(feedback.problem || "기록 없음")}</p></div><div><span>개선 의견</span><p>${escapeHtml(feedback.improvement || "기록 없음")}</p></div></div></section></div>`;
+    }
+    const list = reports.length ? reports.map(report => { const shooting = report.shooting || {}, status = photographerReportStatus(report); const count = (shooting.photo_counts || []).reduce((sum,row) => sum + Number(row.count || 0), 0); return `<button class="prh-list-item ${report.report_id === active?.report_id ? "is-active" : ""}" type="button" data-prh-report="${escapeHtml(report.report_id || "")}"><div><b>${escapeHtml(report.photographer_name || "포토그래퍼 미정")}</b><span>${escapeHtml(shooting.role || "역할 미정")} · ${escapeHtml(shooting.actual_location?.name || "위치 미정")}</span></div><div><em class="prh-status ${status.tone}">${status.label}</em><small>${count.toLocaleString()}장</small></div></button>`; }).join("") : `<p class="ctdash-empty">${state.state === "loaded" ? "조건에 맞는 일지가 없습니다." : "대회를 선택해주세요."}</p>`;
+    return `<section class="ctdash-screen fr-shell prh-shell"><article class="ctdash-card ctdash-section fr-hero"><div class="ctdash-section-head"><div><div class="ctdash-kicker">Photographer Reports</div><h3>포토그래퍼 일지 조회</h3><p>작가별 촬영 결과, 장비, 업로드 상태와 현장 피드백을 읽기 전용으로 확인합니다.</p></div><span class="ctdash-tag">읽기 전용</span></div><div class="prh-toolbar"><label><span>대회 선택</span><select class="ctdash-select" id="photographer_report_history_event_select"><option value="">대회를 선택해주세요</option>${eventOptions}</select></label><div class="prh-filters"><button type="button" data-prh-filter="all" class="${photographerReportHistoryFilter === "all" ? "is-active" : ""}">전체</button><button type="button" data-prh-filter="issue" class="${photographerReportHistoryFilter === "issue" ? "is-active" : ""}">이슈 있음</button><button type="button" data-prh-filter="pending" class="${photographerReportHistoryFilter === "pending" ? "is-active" : ""}">업로드 확인</button></div></div></article><div class="prh-layout"><aside class="ctdash-card prh-list"><div class="prh-list-head"><b>제출 일지 ${reports.length}건</b><span>최신 제출순</span></div>${list}</aside><article class="ctdash-card prh-detail">${detail}</article></div>${state.invalid?.length ? `<p class="ctdash-callout warn">손상되었거나 대회 코드가 맞지 않는 과거 일지 ${state.invalid.length}건은 목록에서 제외했습니다.</p>` : ""}</section>`;
   }
 
   function renderCurrentDashDiaryView() {
@@ -3014,12 +3122,7 @@
         ], { kicker:"Photographer Report" })}
 
         <div class="fr-two-col">
-          ${fieldReportAutoTable("4-1. 기본 장비", autoRows("basic_equipment"), [
-            { key:"item_name", label:"장비명" },
-            { key:"owner_name", label:"담당자" },
-            { key:"spot_name", label:"배치 스팟" },
-            { key:"status", label:"상태" }
-          ], { kicker:"Photographer Report" })}
+          ${fieldReportBasicEquipmentGroups("4-1. 기본 장비", autoRows("basic_equipment"), { kicker:"Photographer Report" })}
           ${fieldReportEquipmentTotalTable("4-2. 장비 합계", autoRows("equipment_summary"), { kicker:"Photographer Report" })}
         </div>
         ${fieldReportTable("4-3. 추가 장비", "equipment.extra", [
@@ -6075,6 +6178,7 @@
       events: "events",
       diary: "operations",
       "diary-view": "operations",
+      "photographer-view": "operations",
       report: "analysis",
       "event-analysis": "analysis",
       legacy: "analysis",
@@ -6082,7 +6186,7 @@
     };
     activeAdminView = viewName;
     activeAdminGroup = groupByView[viewName] || "events";
-    if (["report", "event-analysis", "diary", "diary-view"].includes(activeAdminView)) currentDashView = activeAdminView;
+    if (["report", "event-analysis", "diary", "diary-view", "photographer-view"].includes(activeAdminView)) currentDashView = activeAdminView;
     syncAdminView();
     if (activeAdminView === "legacy") renderSotDashboard();
     if (activeAdminView === "legacy-analysis-v2") {
@@ -6098,6 +6202,9 @@
           void loadFieldReportSourcesForActiveDraft();
     }
     if (activeAdminView === "diary-view") {
+      renderCurrentTestDashboard();
+    }
+    if (activeAdminView === "photographer-view") {
       renderCurrentTestDashboard();
     }
   }
@@ -6117,6 +6224,18 @@
     });
 
     document.addEventListener("click", async function(e) {
+      const photographerFilterButton = e.target.closest("[data-prh-filter]");
+      if (photographerFilterButton) {
+        photographerReportHistoryFilter = photographerFilterButton.dataset.prhFilter || "all";
+        renderCurrentTestDashboard();
+        return;
+      }
+      const photographerReportButton = e.target.closest("[data-prh-report]");
+      if (photographerReportButton) {
+        photographerReportHistoryReportId = photographerReportButton.dataset.prhReport || "";
+        renderCurrentTestDashboard();
+        return;
+      }
       const sectionButton = e.target.closest("[data-sot-section]");
       if (sectionButton) {
         sotDashActiveSection = sectionButton.dataset.sotSection || "overview";
@@ -6326,6 +6445,14 @@
       logDashboardCacheRebuild("source filter change");
     });
 	    document.addEventListener("change", e => {
+	      if (e.target && e.target.id === "photographer_report_history_event_select") {
+	        photographerReportHistoryEventCode = String(e.target.value || "").trim();
+	        photographerReportHistoryReportId = "";
+	        photographerReportHistoryFilter = "all";
+	        renderCurrentTestDashboard();
+	        if (photographerReportHistoryEventCode) void loadPhotographerReportHistory(photographerReportHistoryEventCode);
+	        return;
+	      }
 	      if (e.target && e.target.id === "field_report_history_event_select") {
 	        fieldReportHistoryEventCode = String(e.target.value || "").trim();
 	        fieldReportHistoryVersion = null;
