@@ -1161,6 +1161,7 @@
   .fr-history-toolbar{ display:grid; grid-template-columns:minmax(0,1.55fr) minmax(260px,1fr); gap:12px; margin-top:16px; }
   .fr-history-toolbar label{ display:grid; gap:8px; color:var(--sh-muted); font-size:13px; font-weight:800; }
   .fr-history-readonly .ctdash-input[readonly],.fr-history-readonly .ctdash-textarea[readonly],.fr-history-readonly .ctdash-select:disabled,.fr-history-readonly .fr-table-input[readonly],.fr-history-readonly .fr-table-input:disabled{ opacity:1; color:#514236; -webkit-text-fill-color:#514236; background:rgba(243,238,229,.84); cursor:default; }
+  .fr-history-readonly{ display:grid; gap:20px; }
   .fr-history-readonly .fr-check-grid label{ cursor:default; }
   .fr-history-readonly .fr-check-grid input:disabled{ opacity:1; }
   .fr-section{ overflow:hidden; }
