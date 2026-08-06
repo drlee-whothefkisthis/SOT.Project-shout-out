@@ -2474,7 +2474,8 @@
   function fieldReportTextarea(path, label, rows, options) {
     const editable = options?.editable !== false;
     const value = options && Object.prototype.hasOwnProperty.call(options, "report") ? fieldReportValueFrom(options.report, path) : fieldReportValue(path);
-    return `<label><span>${escapeHtml(label)}</span><textarea class="ctdash-textarea ${rows === "tall" ? "tall" : ""} fr-input" ${editable ? `data-fr-path="${escapeHtml(path)}"` : "readonly aria-readonly=\"true\""}>${escapeHtml(value)}</textarea></label>`;
+    const sizeClass = rows === "tall" ? "tall" : rows === "compact" ? "compact" : "";
+    return `<label><span>${escapeHtml(label)}</span><textarea class="ctdash-textarea ${sizeClass} fr-input" ${editable ? `data-fr-path="${escapeHtml(path)}"` : "readonly aria-readonly=\"true\""}>${escapeHtml(value)}</textarea></label>`;
   }
 
   function fieldReportSelect(path, label, values, options) {
@@ -2943,7 +2944,7 @@
       ${fieldReportTable("4-3. 추가 장비", "equipment.extra", [{key:"item",label:"장비명"},{key:"owner",label:"담당자",type:"select",options:staffOptions},{key:"spot",label:"배치 스팟"},{key:"status",label:"상태",type:"select",options:["정상","확인 필요","분실","수리 필요","normal","needs_review","lost","needs_repair"]},{key:"note",label:"비고"}], {kicker:"Extra", report, editable:false})}
       ${fieldReportAutoTable("5. 스팟별 운영 시간 일지", autoRows("spot_operations"), [{key:"spot_name",label:"스팟"},{key:"start_time",label:"시작"},{key:"end_time",label:"종료"},{key:"shoot_count",label:"촬영 건수"},{key:"memo",label:"메모"}], {kicker:"Photographer Report"})}
       ${fieldReportIssueSection(autoRows("automatic_issues"), report.issues || [], staffOptions, { editable:false })}
-      <article class="ctdash-card ctdash-section fr-section"><div class="ctdash-section-head"><div><div class="ctdash-kicker">7</div><h3>데일리 서머리</h3></div><span class="ctdash-tag">저장 내용</span></div><div class="ctdash-form-grid">${fieldReportReadOnlyField("총 촬영 건수", resolvedSections?.total_photo_count, "number")}${readSelect("실제 개수 검증", {matched:"일치",review:"확인 필요",mismatch:"불일치"}[checkValue] || checkValue)}${checkValue === "mismatch" ? fieldReportField("daily_summary.actual_shoot_count", "실제 촬영 건수", "number", "", renderOptions) : ""}${fieldReportTextarea("daily_summary.improvement_note", "개선 사항", "", renderOptions)}${fieldReportTextarea("daily_summary.general_comment", "종합 메모", "tall", renderOptions)}</div></article>
+      <article class="ctdash-card ctdash-section fr-section"><div class="ctdash-section-head"><div><div class="ctdash-kicker">7</div><h3>데일리 서머리</h3></div><span class="ctdash-tag">저장 내용</span></div><div class="ctdash-form-grid">${fieldReportReadOnlyField("총 촬영 건수", resolvedSections?.total_photo_count, "number")}${readSelect("실제 개수 검증", {matched:"일치",review:"확인 필요",mismatch:"불일치"}[checkValue] || checkValue)}${checkValue === "mismatch" ? fieldReportField("daily_summary.actual_shoot_count", "실제 촬영 건수", "number", "", renderOptions) : ""}${fieldReportTextarea("daily_summary.improvement_note", "개선 사항", "compact", renderOptions)}${fieldReportTextarea("daily_summary.general_comment", "종합 메모", "compact", renderOptions)}</div></article>
       <article class="ctdash-card ctdash-section fr-section"><div class="ctdash-section-head"><div><div class="ctdash-kicker">8</div><h3>확인 서명</h3></div><span class="ctdash-tag">저장 내용</span></div><div class="ctdash-form-grid three">${fieldReportField("signatures.writer.name", "작성자", "text", "", renderOptions)}${fieldReportField("signatures.field_manager.name", "현장 책임자", "text", "", renderOptions)}${fieldReportField("signatures.office_confirm.name", "사무실 확인", "text", "", renderOptions)}</div><div class="ctdash-form-grid three">${fieldReportTextarea("signatures.writer.note", "작성자 메모", "", renderOptions)}${fieldReportTextarea("signatures.field_manager.note", "현장 책임자 메모", "", renderOptions)}${fieldReportTextarea("signatures.office_confirm.note", "사무실 확인 메모", "", renderOptions)}</div></article>
     </div>`;
   }
@@ -3149,8 +3150,8 @@
             ${fieldReportReadOnlyField("총 촬영 건수", sourceLoaded ? resolvedSections.total_photo_count : null, "number")}
             <label><span>실제 개수 검증</span><select class="ctdash-select fr-input" data-fr-path="daily_summary.actual_count_check" id="field_report_actual_count_check"><option value="">선택</option><option value="matched" ${checkValue === "matched" ? "selected" : ""}>일치</option><option value="review" ${checkValue === "review" ? "selected" : ""}>확인 필요</option><option value="mismatch" ${checkValue === "mismatch" ? "selected" : ""}>불일치</option></select></label>
             ${checkValue === "mismatch" ? fieldReportField("daily_summary.actual_shoot_count", "실제 촬영 건수", "number") : ""}
-            ${fieldReportTextarea("daily_summary.improvement_note", "개선 사항")}
-            ${fieldReportTextarea("daily_summary.general_comment", "종합 메모", "tall")}
+            ${fieldReportTextarea("daily_summary.improvement_note", "개선 사항", "compact")}
+            ${fieldReportTextarea("daily_summary.general_comment", "종합 메모", "compact")}
           </div>
         </article>
 

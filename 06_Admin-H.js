@@ -812,6 +812,7 @@
   .ctdash-select,.ctdash-input,.ctdash-textarea{ width:100%; min-height:46px; padding:12px 14px; border-radius:14px; border:1px solid rgba(80,58,40,.12); background:#fffdfa; color:#211812; font:inherit; box-sizing:border-box; }
   .ctdash-textarea{ min-height:120px; resize:vertical; }
   .ctdash-textarea.tall{ min-height:180px; }
+  .ctdash-textarea.compact{ min-height:86px; }
   .ctdash-table-wrap{ overflow:auto; }
   .ctdash-table{ width:100%; min-width:760px; border-collapse:collapse; }
   .ctdash-table th{ padding:14px 16px; background:rgba(243,238,229,.84); color:#6f6256; text-align:left; font-size:12px; font-weight:900; letter-spacing:.04em; text-transform:uppercase; }
