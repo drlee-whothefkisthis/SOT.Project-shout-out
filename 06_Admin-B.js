@@ -2899,6 +2899,7 @@
     if (fieldReportHistoryAbortController) fieldReportHistoryAbortController.abort();
     fieldReportHistoryAbortController = new AbortController();
     fieldReportHistoryByEventCode[code] = { state:"loading", records:[], corrupted:[], message:"" };
+    showSotLoader(SOT_LOADER_DEFAULT_MESSAGE);
     renderCurrentTestDashboard();
     try {
       const accessToken = sessionStorage.getItem("shout_access_token") || "";
@@ -2918,6 +2919,7 @@
       fieldReportHistoryByEventCode[code] = { state:"error", records:[], corrupted:[], message:error?.message || "일지 조회에 실패했습니다." };
       fieldReportHistoryVersion = null;
     } finally {
+      hideSotLoader();
       if (sequence === fieldReportHistoryRequestSequence && fieldReportHistoryEventCode === code) renderCurrentTestDashboard();
     }
   }
@@ -3004,6 +3006,7 @@
     if (photographerReportHistoryEventsState.state === "loading") return;
     if (!force && photographerReportHistoryEventsState.state === "loaded") return;
     photographerReportHistoryEventsState = { state:"loading", eventCodes:[], message:"" };
+    showSotLoader(SOT_LOADER_DEFAULT_MESSAGE);
     renderCurrentTestDashboard();
     try {
       const token = sessionStorage.getItem("shout_access_token") || "";
@@ -3023,6 +3026,7 @@
       photographerReportHistoryEventCode = "";
       photographerReportHistoryReportId = "";
     } finally {
+      hideSotLoader();
       renderCurrentTestDashboard();
     }
   }
@@ -3034,6 +3038,7 @@
     if (photographerReportHistoryAbortController) photographerReportHistoryAbortController.abort();
     photographerReportHistoryAbortController = new AbortController();
     photographerReportHistoryByEventCode[code] = { state:"loading", reports:[], invalid:[], message:"" };
+    showSotLoader(SOT_LOADER_DEFAULT_MESSAGE);
     renderCurrentTestDashboard();
     try {
       const token = sessionStorage.getItem("shout_access_token") || "";
@@ -3049,6 +3054,7 @@
       photographerReportHistoryByEventCode[code] = { state:"error", reports:[], invalid:[], message:error?.message || "포토그래퍼 일지 조회에 실패했습니다." };
       photographerReportHistoryReportId = "";
     } finally {
+      hideSotLoader();
       if (sequence === photographerReportHistoryRequestSequence && photographerReportHistoryEventCode === code) renderCurrentTestDashboard();
     }
   }
