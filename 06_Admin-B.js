@@ -3102,18 +3102,22 @@
       const spots = [shooting.actual_location, ...(Array.isArray(shooting.move_spots) ? shooting.move_spots : [])].filter(spot => spot?.name);
       const lensSource = equipment.lenses?.personal && typeof equipment.lenses.personal === "object" && !Array.isArray(equipment.lenses.personal) ? equipment.lenses.personal : (equipment.lenses || {});
       const lensItems = Object.entries(lensSource).filter(([key,value]) => !["personal","rental"].includes(key) && Number(value) > 0).map(([key,value]) => ({ label:`렌즈 ${String(key).replaceAll("_", "-")}`, value:`${Number(value).toLocaleString()}개` }));
-      const equipmentItems = [];
-      (Array.isArray(equipment.camera_bodies) ? equipment.camera_bodies : []).forEach(value => equipmentItems.push({ label:"카메라 바디", value:String(value) }));
-      equipmentItems.push(...lensItems);
+      const personalEquipmentItems = [];
+      const issuedEquipmentItems = [];
+      const issuedBagCode = equipment.issued_bag && equipment.issued_bag !== "none" ? String(equipment.issued_bag) : "";
+      (Array.isArray(equipment.camera_bodies) ? equipment.camera_bodies : []).forEach(value => personalEquipmentItems.push({ label:"카메라 바디", value:String(value) }));
+      personalEquipmentItems.push(...lensItems);
       const sdCount = Number(equipment.memory_card?.sd || 0);
       const microSdCount = Number(equipment.memory_card?.micro_sd || 0);
-      if (sdCount > 0) equipmentItems.push({ label:"메모리카드 SD", value:`${sdCount.toLocaleString()}개` });
-      if (microSdCount > 0) equipmentItems.push({ label:"메모리카드 Micro SD", value:`${microSdCount.toLocaleString()}개` });
-      if (equipment.issued_bag && equipment.issued_bag !== "none") equipmentItems.push({ label:"지급 가방", value:String(equipment.issued_bag) });
+      if (sdCount > 0) personalEquipmentItems.push({ label:"메모리카드 SD", value:`${sdCount.toLocaleString()}개` });
+      if (microSdCount > 0) personalEquipmentItems.push({ label:"메모리카드 Micro SD", value:`${microSdCount.toLocaleString()}개` });
       [["카메라 배터리",equipment.camera_battery],["보조배터리",equipment.power_bank],["라우터",equipment.router],["잡화가방",equipment.accessory_bag],["쿨러",equipment.cooler]].forEach(([label,rows]) => (Array.isArray(rows) ? rows : []).forEach(row => {
         const count = Number(row?.count || 0);
-        if (count > 0) equipmentItems.push({ label:`${label}${row?.code ? ` ${row.code}` : ""}`, value:`${count.toLocaleString()}개` });
+        const rowCode = String(row?.code || "").trim();
+        const displayCode = rowCode && rowCode !== issuedBagCode ? ` ${rowCode}` : "";
+        if (count > 0) issuedEquipmentItems.push({ label:`${label}${displayCode}`, value:`${count.toLocaleString()}개` });
       }));
+      const equipmentItems = [...personalEquipmentItems, ...(issuedBagCode ? [{ label:"지급 가방", value:issuedBagCode }] : []), ...issuedEquipmentItems];
       const totalPhotoCount = photoCounts.reduce((sum,row) => sum + Number(row.count || 0), 0);
       const shootingResultLabel = {complete:"정상 완료",partial:"일부 촬영",stopped:"촬영 중단"}[shooting.result] || shooting.result || "-";
       const uploadStatusLabel = {complete:"업로드 완료",pending:"진행 중",not_started:"미진행",failed:"실패"}[upload.status] || upload.status || "-";
@@ -3126,7 +3130,11 @@
       const bodyCard = photoCounts.length ? `<div class="prh-info"><span>카메라 바디별 장수</span>${photoCounts.map(row => `<b><em>${escapeHtml(row.camera_body || "-")}</em><strong>${Number(row.count || 0).toLocaleString()}장</strong></b>`).join("")}</div>` : "";
       const lensCard = lensItems.length ? `<div class="prh-info"><span>렌즈</span><div class="prh-lens-chips">${lensItems.map(item => `<i>${escapeHtml(item.label.replace(/^렌즈\s*/, ""))}</i>`).join("")}</div></div>` : "";
       const networkCard = upload.network_note ? `<div class="prh-info prh-info-wide"><span>업로드·네트워크 특이사항</span><b class="prh-info-note">${escapeHtml(upload.network_note)}</b></div>` : "";
-      const equipmentCard = equipmentItems.length ? `<div class="prh-panel"><div class="prh-equipment-list">${equipmentItems.map(item => `<div><span>${escapeHtml(item.label)}</span><b>${escapeHtml(item.value)}</b></div>`).join("")}</div></div>` : `<div class="prh-panel"><p class="ctdash-empty">사용 장비 기록이 없습니다.</p></div>`;
+      const equipmentRows = items => `<div class="prh-equipment-list">${items.map(item => `<div><span>${escapeHtml(item.label)}</span><b>${escapeHtml(item.value)}</b></div>`).join("")}</div>`;
+      const personalEquipmentGroup = personalEquipmentItems.length ? `<div class="prh-equipment-group"><div class="prh-equipment-group-head"><b>촬영 장비</b><span>카메라 바디 · 렌즈 · 메모리카드</span></div>${equipmentRows(personalEquipmentItems)}</div>` : "";
+      const issuedEquipmentTitle = issuedBagCode ? `지급 가방 ${issuedBagCode}` : "지급 장비";
+      const issuedEquipmentGroup = issuedBagCode || issuedEquipmentItems.length ? `<div class="prh-equipment-group"><div class="prh-equipment-group-head"><b>${escapeHtml(issuedEquipmentTitle)}</b><span>${issuedBagCode ? `${escapeHtml(issuedBagCode)} 코드 기준 지급 장비` : "가방 미지급"}</span></div>${issuedEquipmentItems.length ? equipmentRows(issuedEquipmentItems) : `<p class="prh-equipment-empty">추가 지급 장비 내역이 없습니다.</p>`}</div>` : "";
+      const equipmentCard = equipmentItems.length ? `<div class="prh-panel"><div class="prh-equipment-groups">${personalEquipmentGroup}${issuedEquipmentGroup}</div></div>` : `<div class="prh-panel"><p class="ctdash-empty">사용 장비 기록이 없습니다.</p></div>`;
       const equipmentIssueCard = hasEquipmentIssue ? `<div class="prh-issue-box"><strong>장비 이상</strong><p>${escapeHtml(equipmentIssue.detail || equipmentIssue.status)}</p></div>` : `<div class="prh-equipment-normal"><b>장비 이상 없음</b><p>제출된 장비 이상 또는 파손 기록이 없습니다.</p></div>`;
       detail = `<div class="prh-detail-head"><div><h3>${escapeHtml(active.photographer_name || "포토그래퍼 미정")} · ${escapeHtml(shooting.role || "역할 미정")}</h3><p>${escapeHtml(shooting.actual_location?.name || "촬영 위치 미정")}${shooting.actual_location?.distance_km === null || shooting.actual_location?.distance_km === undefined ? "" : ` · 출발 기준 ${escapeHtml(shooting.actual_location.distance_km)}km`} · 촬영일 ${escapeHtml(shooting.shooting_date || "")}</p><span class="prh-read-only">제출 원문 · 읽기 전용</span></div><div><small class="prh-report-id">${escapeHtml(active.report_id || "")}</small><span class="prh-status ${status.tone}">${status.label}</span></div></div><div class="prh-detail-body"><div class="prh-metrics"><div><span>촬영 결과</span><b>${escapeHtml(shootingResultLabel)}</b>${submittedLabel ? `<small>제출 ${escapeHtml(submittedLabel)}</small>` : ""}</div><div><span>총 촬영 장수</span><b>${totalPhotoCount.toLocaleString()}장</b>${photoCounts.length ? `<small>바디별 합계</small>` : ""}</div><div><span>업로드 상태</span><b class="prh-metric-compact">${escapeHtml(uploadStatusLabel)}</b>${upload.network_status ? `<small>네트워크 ${escapeHtml(networkStatusLabel)}</small>` : ""}</div><div><span>사용 장비</span><b>${equipmentItems.length.toLocaleString()}개</b><small>${equipment.issued_bag && equipment.issued_bag !== "none" ? "지급 가방 포함" : "실제 사용 내역"}</small></div></div><section class="prh-section"><div class="prh-section-title"><h4>촬영 기록</h4><span>시간·위치·바디별 결과</span></div><div class="prh-grid"><div class="prh-panel prh-route">${spotRows}${shootingTimeRow}</div><div class="prh-info-grid">${bodyCard}${lensCard}${networkCard}</div></div></section><section class="prh-section"><div class="prh-section-title"><h4>사용 장비</h4><span>작가별 실제 사용 내역</span></div><div class="prh-equipment-layout">${equipmentCard}${equipmentIssueCard}</div></section>${shooting.result_reason ? `<section class="prh-section"><div class="prh-section-title"><h4>촬영 결과 확인</h4><span>제출 사유</span></div><div class="prh-issue"><b>${escapeHtml(shootingResultLabel)} 사유</b><p>${escapeHtml(shooting.result_reason)}</p></div></section>` : ""}<section class="prh-section"><div class="prh-section-title"><h4>현장 피드백</h4><span>다음 운영을 위한 원문 메모</span></div><div class="prh-feedback"><div><span>현장 특이사항</span><p>${escapeHtml(feedback.field_note || "기록 없음")}</p></div><div><span>문제점</span><p>${escapeHtml(feedback.problem || "기록 없음")}</p></div><div><span>개선 의견</span><p>${escapeHtml(feedback.improvement || "기록 없음")}</p></div></div></section>${submittedLabel ? `<section class="prh-section"><div class="prh-section-title"><h4>제출 메타데이터</h4><span>변경 불가</span></div><div class="prh-metadata">이 일지는 ${escapeHtml(submittedLabel)}에 제출되었습니다. 조회 화면에서는 원본을 수정할 수 없습니다.</div></section>` : ""}</div>`;
     }
