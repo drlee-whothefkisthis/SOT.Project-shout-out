@@ -2504,9 +2504,33 @@
       </article>`;
   }
 
+  function fieldReportEquipmentSummaryLabel(item) {
+    const raw = String(item || "").trim();
+    const rules = [
+      [/^라우터\b/, "라우터"], [/^메모리\s*카드\b|^메모리카드\b/, "메모리카드"], [/^(카메라\s*)?바디\b/, "카메라 바디"],
+      [/^렌즈\b/, "렌즈"], [/^카메라\s*배터리\b/, "카메라 배터리"], [/^보조\s*배터리\b/, "보조배터리"],
+      [/^잡화\s*가방\b/, "잡화가방"], [/^쿨러\b/, "쿨러"], [/^삼각대\b/, "삼각대"], [/^스트랩\b/, "스트랩"],
+      [/^(?:c\s*to\s*c|ctoc).*케이블\b/i, "C to C 케이블"]
+    ];
+    const match = rules.find(([pattern]) => pattern.test(raw));
+    return match ? match[1] : (raw.replace(/\s+[A-D](?=\s|$)/g, "").replace(/\s+/g, " ") || "품목 미정");
+  }
+
+  function fieldReportEquipmentSummaryTotals(rows) {
+    const totals = new Map();
+    (rows || []).forEach(row => {
+      const item = fieldReportEquipmentSummaryLabel(row?.item_name);
+      const parsed = Number(String(row?.count ?? "").replace(/[^\d.-]/g, ""));
+      const count = Number.isFinite(parsed) ? parsed : 0;
+      totals.set(item, (totals.get(item) || 0) + count);
+    });
+    return [...totals.entries()].map(([item_name, count]) => ({ item_name, count }));
+  }
+
   function fieldReportEquipmentTotalTable(title, rows, options) {
+    const totalRows = fieldReportEquipmentSummaryTotals(rows);
     const pairs = [];
-    for (let index = 0; index < (rows || []).length; index += 2) pairs.push([rows[index], rows[index + 1]]);
+    for (let index = 0; index < totalRows.length; index += 2) pairs.push([totalRows[index], totalRows[index + 1]]);
     const body = pairs.length ? pairs.map(([left, right]) => `<tr>
       <td class="fr-auto-cell">${escapeHtml(left?.item_name || "—")}</td><td class="fr-auto-cell fr-count-cell">${escapeHtml(left?.count || "—")}</td>
       <td class="fr-auto-cell">${escapeHtml(right?.item_name || "")}</td><td class="fr-auto-cell fr-count-cell">${escapeHtml(right?.count || "")}</td>
