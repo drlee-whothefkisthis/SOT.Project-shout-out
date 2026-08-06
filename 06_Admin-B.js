@@ -2500,9 +2500,10 @@
   function fieldReportAutoTable(title, rows, columns, options) {
     const headers = columns.map(col => `<th>${escapeHtml(col.label)}</th>`).join("");
     const body = (rows || []).length ? rows.map(row => `<tr>${columns.map(col => `<td class="fr-auto-cell">${escapeHtml(row[col.key] || "—")}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${columns.length}" class="ctdash-empty">자동 반영할 데이터가 없습니다.</td></tr>`;
+    const kicker = options?.hideKicker ? "" : `<div class="ctdash-kicker">${escapeHtml(options?.kicker || "Notion")}</div>`;
     return `
       <article class="ctdash-card ctdash-section fr-section">
-        <div class="ctdash-section-head"><div><div class="ctdash-kicker">${escapeHtml(options?.kicker || "Notion")}</div><h3>${escapeHtml(title)}</h3></div><span class="ctdash-tag">자동 반영</span></div>
+        <div class="ctdash-section-head"><div>${kicker}<h3>${escapeHtml(title)}</h3></div><span class="ctdash-tag">자동 반영</span></div>
         <div class="ctdash-table-wrap"><table class="ctdash-table fr-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table></div>
       </article>`;
   }
@@ -2538,9 +2539,10 @@
       <td class="fr-auto-cell">${escapeHtml(left?.item_name || "—")}</td><td class="fr-auto-cell fr-count-cell">${escapeHtml(left?.count || "—")}</td>
       <td class="fr-auto-cell">${escapeHtml(right?.item_name || "")}</td><td class="fr-auto-cell fr-count-cell">${escapeHtml(right?.count || "")}</td>
     </tr>`).join("") : `<tr><td colspan="4" class="ctdash-empty">자동 반영할 데이터가 없습니다.</td></tr>`;
+    const kicker = options?.hideKicker ? "" : `<div class="ctdash-kicker">${escapeHtml(options?.kicker || "Notion")}</div>`;
     return `
       <article class="ctdash-card ctdash-section fr-section">
-        <div class="ctdash-section-head"><div><div class="ctdash-kicker">${escapeHtml(options?.kicker || "Notion")}</div><h3>${escapeHtml(title)}</h3></div><span class="ctdash-tag">자동 반영</span></div>
+        <div class="ctdash-section-head"><div>${kicker}<h3>${escapeHtml(title)}</h3></div><span class="ctdash-tag">자동 반영</span></div>
         <div class="ctdash-table-wrap fr-compact-table-wrap"><table class="ctdash-table fr-table fr-equipment-total"><thead><tr><th>품목</th><th>개수</th><th>품목</th><th>개수</th></tr></thead><tbody>${body}</tbody></table></div>
       </article>`;
   }
@@ -2564,8 +2566,9 @@
         <div class="fr-equipment-items">${group.items.map(item => `<span class="fr-equipment-item">${escapeHtml(item)}</span>`).join("")}</div>
       </article>`;
     }).join("") : `<div class="ctdash-empty">자동 반영할 데이터가 없습니다.</div>`;
+    const kicker = options?.hideKicker ? "" : `<div class="ctdash-kicker">${escapeHtml(options?.kicker || "Notion")}</div>`;
     return `<article class="ctdash-card ctdash-section fr-section fr-basic-equipment">
-      <div class="ctdash-section-head"><div><div class="ctdash-kicker">${escapeHtml(options?.kicker || "Notion")}</div><h3>${escapeHtml(title)}</h3></div><span class="ctdash-tag">자동 반영</span></div>
+      <div class="ctdash-section-head"><div>${kicker}<h3>${escapeHtml(title)}</h3></div><span class="ctdash-tag">자동 반영</span></div>
       <div class="fr-equipment-groups">${body}</div>
     </article>`;
   }
@@ -2590,8 +2593,9 @@
       }).join("");
       return `<tr>${cells}${editable ? `<td data-label="관리"><button class="sh-btn-sm" type="button" data-fr-delete="issues" data-fr-index="${index}">삭제</button></td>` : ""}</tr>`;
     }).join("") : `<tr><td colspan="${manualColumns.length + (editable ? 1 : 0)}" class="ctdash-empty">추가 기록이 없습니다.</td></tr>`;
+    const kicker = options?.hideKicker ? "" : `<div class="ctdash-kicker">Photographer Report</div>`;
     return `<article class="ctdash-card ctdash-section fr-section">
-      <div class="ctdash-section-head"><div><div class="ctdash-kicker">Photographer Report</div><h3>6. 이슈 및 돌발 상황</h3></div><span class="ctdash-tag">자동 반영</span></div>
+      <div class="ctdash-section-head"><div>${kicker}<h3>6. 이슈 및 돌발 상황</h3></div><span class="ctdash-tag">자동 반영</span></div>
       <div class="ctdash-table-wrap fr-compact-table-wrap"><table class="ctdash-table fr-table fr-issue-auto-table"><thead><tr>${autoColumns.map(column => `<th>${escapeHtml(column.label)}</th>`).join("")}</tr></thead><tbody>${autoBody}</tbody></table></div>
       <div class="fr-section-divider"></div>
       <div class="ctdash-section-head fr-subsection-head"><div><div class="ctdash-kicker">Admin</div><h4>관리자 추가 기록</h4></div>${editable ? `<button class="sh-btn-sm" type="button" data-fr-add="issues">이슈 추가</button>` : ""}</div>
@@ -2611,9 +2615,10 @@
       }).join("");
       return `<tr>${cells}${editable ? `<td><button class="sh-btn-sm" type="button" data-fr-delete="${escapeHtml(collectionPath)}" data-fr-index="${index}">삭제</button></td>` : ""}</tr>`;
     }).join("") : `<tr><td colspan="${columns.length + (editable ? 1 : 0)}">데이터 없음</td></tr>`;
+    const kicker = options?.hideKicker ? "" : `<div class="ctdash-kicker">${escapeHtml(options?.kicker || "Field Report")}</div>`;
     return `
       <article class="ctdash-card ctdash-section fr-section">
-        <div class="ctdash-section-head"><div><div class="ctdash-kicker">${escapeHtml(options?.kicker || "Field Report")}</div><h3>${escapeHtml(title)}</h3></div>${editable ? `<button class="sh-btn-sm" type="button" data-fr-add="${escapeHtml(collectionPath)}">행 추가</button>` : ""}</div>
+        <div class="ctdash-section-head"><div>${kicker}<h3>${escapeHtml(title)}</h3></div>${editable ? `<button class="sh-btn-sm" type="button" data-fr-add="${escapeHtml(collectionPath)}">행 추가</button>` : ""}</div>
         <div class="ctdash-table-wrap"><table class="ctdash-table fr-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table></div>
       </article>`;
   }
@@ -2973,6 +2978,7 @@
       ["철수 완료", closingChecks.teardown_completed]
     ];
     return `<div class="fr-history-readonly">
+      <div class="fr-two-col fr-history-primary-row">
       <article class="ctdash-card ctdash-section fr-section"><div class="ctdash-section-head"><div><div class="ctdash-kicker">1</div><h3>기본 정보</h3></div><span class="ctdash-tag">${escapeHtml(report.meta.weekday || "요일 미정")}</span></div>
         <div class="fr-history-basic">
           <div class="fr-history-event"><span>대회명</span><strong>${readValue(report.meta.event_name)}</strong><div class="fr-history-event-meta">${inlinePair("날짜", report.meta.report_date)}${inlinePair("장소", report.meta.location)}${inlinePair("EVENT CODE", report.meta.event_code)}</div></div>
@@ -2982,12 +2988,13 @@
           ${report.meta.upload_completion_reason ? `<div class="fr-history-basic-row"><span class="fr-history-row-label">업로드 사유</span><p class="fr-history-reason ${uploadClass}">${readValue(report.meta.upload_completion_reason)}</p></div>` : ""}
           <div class="fr-history-basic-row"><span class="fr-history-row-label">현장 마감 체크</span><div class="fr-history-check-list">${historyChecks.map(([label, checked]) => `<span class="${checked ? "is-checked" : ""}">${checked ? "✓" : "○"} ${label}</span>`).join("")}</div></div>
         </div></article>
-      ${fieldReportAutoTable("2. 투입 인원", autoRows("staff_assignments"), [{key:"name",label:"이름"},{key:"role",label:"역할"},{key:"spot_name",label:"배치 스팟"},{key:"start_time",label:"출근"},{key:"end_time",label:"퇴근"}], {kicker:"Photographer Report"})}
-      ${fieldReportAutoTable("3. 촬영 스팟", autoRows("shooting_spots"), [{key:"location",label:"위치"},{key:"spot_name",label:"명칭"},{key:"concept",label:"촬영 컨셉"},{key:"expected_people",label:"예상 인원"},{key:"camera_count",label:"카메라 수"},{key:"note",label:"비고"}], {kicker:"Photographer Report"})}
-      <div class="fr-two-col">${fieldReportBasicEquipmentGroups("4-1. 기본 장비", autoRows("basic_equipment"), {kicker:"Photographer Report"})}${fieldReportEquipmentTotalTable("4-2. 장비 합계", autoRows("equipment_summary"), {kicker:"Photographer Report"})}</div>
-      ${fieldReportTable("4-3. 추가 장비", "equipment.extra", [{key:"item",label:"장비명"},{key:"owner",label:"담당자",type:"select",options:staffOptions},{key:"spot",label:"배치 스팟"},{key:"status",label:"상태",type:"select",options:["정상","확인 필요","분실","수리 필요","normal","needs_review","lost","needs_repair"]},{key:"note",label:"비고"}], {kicker:"Extra", report, editable:false})}
-      ${fieldReportAutoTable("5. 스팟별 운영 시간 일지", autoRows("spot_operations"), [{key:"spot_name",label:"스팟"},{key:"start_time",label:"시작"},{key:"end_time",label:"종료"},{key:"shoot_count",label:"촬영 건수"},{key:"memo",label:"메모"}], {kicker:"Photographer Report"})}
-      ${fieldReportIssueSection(autoRows("automatic_issues"), report.issues || [], staffOptions, { editable:false })}
+      ${fieldReportAutoTable("2. 투입 인원", autoRows("staff_assignments"), [{key:"name",label:"이름"},{key:"role",label:"역할"},{key:"spot_name",label:"배치 스팟"},{key:"start_time",label:"출근"},{key:"end_time",label:"퇴근"}], {hideKicker:true})}
+      </div>
+      ${fieldReportAutoTable("3. 촬영 스팟", autoRows("shooting_spots"), [{key:"location",label:"위치"},{key:"spot_name",label:"명칭"},{key:"concept",label:"촬영 컨셉"},{key:"expected_people",label:"예상 인원"},{key:"camera_count",label:"카메라 수"},{key:"note",label:"비고"}], {hideKicker:true})}
+      <div class="fr-two-col">${fieldReportBasicEquipmentGroups("4-1. 기본 장비", autoRows("basic_equipment"), {hideKicker:true})}${fieldReportEquipmentTotalTable("4-2. 장비 합계", autoRows("equipment_summary"), {hideKicker:true})}</div>
+      ${fieldReportTable("4-3. 추가 장비", "equipment.extra", [{key:"item",label:"장비명"},{key:"owner",label:"담당자",type:"select",options:staffOptions},{key:"spot",label:"배치 스팟"},{key:"status",label:"상태",type:"select",options:["정상","확인 필요","분실","수리 필요","normal","needs_review","lost","needs_repair"]},{key:"note",label:"비고"}], {hideKicker:true, report, editable:false})}
+      ${fieldReportAutoTable("5. 스팟별 운영 시간 일지", autoRows("spot_operations"), [{key:"spot_name",label:"스팟"},{key:"start_time",label:"시작"},{key:"end_time",label:"종료"},{key:"shoot_count",label:"촬영 건수"},{key:"memo",label:"메모"}], {hideKicker:true})}
+      ${fieldReportIssueSection(autoRows("automatic_issues"), report.issues || [], staffOptions, { editable:false, hideKicker:true })}
       <article class="ctdash-card ctdash-section fr-section"><div class="ctdash-section-head"><div><div class="ctdash-kicker">7</div><h3>데일리 서머리</h3></div><span class="ctdash-tag">저장 내용</span></div><div class="ctdash-form-grid">${fieldReportReadOnlyField("총 촬영 건수", resolvedSections?.total_photo_count, "number")}${readSelect("실제 개수 검증", {matched:"일치",review:"확인 필요",mismatch:"불일치"}[checkValue] || checkValue)}${checkValue === "mismatch" ? fieldReportField("daily_summary.actual_shoot_count", "실제 촬영 건수", "number", "", renderOptions) : ""}${fieldReportTextarea("daily_summary.improvement_note", "개선 사항", "compact", renderOptions)}${fieldReportTextarea("daily_summary.general_comment", "종합 메모", "compact", renderOptions)}</div></article>
       <article class="ctdash-card ctdash-section fr-section"><div class="ctdash-section-head"><div><div class="ctdash-kicker">8</div><h3>확인 서명</h3></div><span class="ctdash-tag">저장 내용</span></div><div class="ctdash-form-grid three">${fieldReportField("signatures.writer.name", "작성자", "text", "", renderOptions)}${fieldReportField("signatures.field_manager.name", "현장 책임자", "text", "", renderOptions)}${fieldReportField("signatures.office_confirm.name", "사무실 확인", "text", "", renderOptions)}</div><div class="ctdash-form-grid three">${fieldReportTextarea("signatures.writer.note", "작성자 메모", "", renderOptions)}${fieldReportTextarea("signatures.field_manager.note", "현장 책임자 메모", "", renderOptions)}${fieldReportTextarea("signatures.office_confirm.note", "사무실 확인 메모", "", renderOptions)}</div></article>
     </div>`;
