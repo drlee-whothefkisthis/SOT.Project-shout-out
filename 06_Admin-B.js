@@ -844,6 +844,7 @@
   const FIELD_REPORT_API_URL = "https://photographer-report-api-a6mwhgji4q-du.a.run.app/v1/admin-field-reports";
   const FIELD_REPORT_SOURCES_API_URL = "https://photographer-report-api-a6mwhgji4q-du.a.run.app/v1/admin-field-report-sources";
   const PHOTOGRAPHER_REPORTS_API_URL = "https://photographer-report-api-a6mwhgji4q-du.a.run.app/api/v1/photographer-reports";
+  const PHOTOGRAPHER_REPORT_HISTORY_EVENTS_API_URL = "https://photographer-report-api-a6mwhgji4q-du.a.run.app/api/v1/photographer-report-history-events";
   let fieldReportDrafts = [];
   let fieldReportSaving = false;
   let fieldReportSaveMessage = "";
@@ -863,6 +864,7 @@
   let photographerReportHistorySort = "latest";
   let photographerReportHistoryRequestSequence = 0;
   let photographerReportHistoryAbortController = null;
+  let photographerReportHistoryEventsState = { state:"idle", eventCodes:[], message:"" };
   let legacyAnalysisView = "report";
   let legacyAnalysisReportPeriod = "total";
   let legacyAnalysisReportSelectedWeekKey = sotWeekKeyFromDateKey(yesterdayKSTDateKey());
@@ -2976,7 +2978,11 @@
 
   function renderCurrentDashDiaryReadView() {
     const state = fieldReportHistoryState(fieldReportHistoryEventCode);
-    const events = (allEvents || []).filter(event => String(event?.event_code || "").trim());
+    const events = (allEvents || []).filter(event => {
+      const eventCode = String(event?.event_code || "").trim();
+      const history = Array.isArray(event?.work_report_json) ? event.work_report_json : [];
+      return Boolean(eventCode) && history.some(item => String(item || "").trim());
+    });
     const selectedEvent = events.find(event => String(event.event_code) === fieldReportHistoryEventCode) || {};
     const records = state.records || [];
     const activeRecord = records.find(record => Number(record.version) === Number(fieldReportHistoryVersion)) || records[0] || null;
@@ -2992,6 +2998,33 @@
 
   function photographerReportHistoryState(eventCode) {
     return photographerReportHistoryByEventCode[String(eventCode || "")] || { state:"idle", reports:[], invalid:[], message:"" };
+  }
+
+  async function loadPhotographerReportHistoryEvents(force) {
+    if (photographerReportHistoryEventsState.state === "loading") return;
+    if (!force && photographerReportHistoryEventsState.state === "loaded") return;
+    photographerReportHistoryEventsState = { state:"loading", eventCodes:[], message:"" };
+    renderCurrentTestDashboard();
+    try {
+      const token = sessionStorage.getItem("shout_access_token") || "";
+      const response = await fetch(PHOTOGRAPHER_REPORT_HISTORY_EVENTS_API_URL, {
+        headers: token ? { Authorization:`Bearer ${token}` } : {}
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) throw new Error(result?.error?.message || "포토그래퍼 일지가 있는 대회 목록을 불러오지 못했습니다.");
+      const eventCodes = [...new Set((Array.isArray(result?.data?.events) ? result.data.events : []).map(event => String(event?.event_code || "").trim()).filter(Boolean))];
+      photographerReportHistoryEventsState = { state:"loaded", eventCodes, message:"" };
+      if (photographerReportHistoryEventCode && !eventCodes.includes(photographerReportHistoryEventCode)) {
+        photographerReportHistoryEventCode = "";
+        photographerReportHistoryReportId = "";
+      }
+    } catch (error) {
+      photographerReportHistoryEventsState = { state:"error", eventCodes:[], message:error?.message || "대회 목록 조회에 실패했습니다." };
+      photographerReportHistoryEventCode = "";
+      photographerReportHistoryReportId = "";
+    } finally {
+      renderCurrentTestDashboard();
+    }
   }
 
   async function loadPhotographerReportHistory(eventCode) {
@@ -3028,7 +3061,8 @@
   }
 
   function renderPhotographerReportHistoryView() {
-    const events = (allEvents || []).filter(event => String(event?.event_code || "").trim());
+    const availableEventCodes = new Set(photographerReportHistoryEventsState.eventCodes || []);
+    const events = (allEvents || []).filter(event => availableEventCodes.has(String(event?.event_code || "").trim()));
     const state = photographerReportHistoryState(photographerReportHistoryEventCode);
     const allReports = state.reports || [];
     const reports = allReports.filter(report => {
@@ -3049,6 +3083,9 @@
     const active = reports.find(report => report.report_id === photographerReportHistoryReportId) || reports[0] || null;
     const eventOptions = events.map(event => `<option value="${escapeHtml(event.event_code)}" ${String(event.event_code) === photographerReportHistoryEventCode ? "selected" : ""}>${escapeHtml(fieldReportHistoryEventLabel(event))}</option>`).join("");
     let detail = `<div class="prh-empty">대회를 선택하면 제출된 포토그래퍼 일지가 표시됩니다.</div>`;
+    if (photographerReportHistoryEventsState.state === "loading") detail = `<div class="prh-empty">일지가 있는 대회 목록을 불러오는 중입니다.</div>`;
+    if (photographerReportHistoryEventsState.state === "loaded" && !events.length) detail = `<div class="prh-empty">저장된 포토그래퍼 일지가 있는 대회가 없습니다.</div>`;
+    if (photographerReportHistoryEventsState.state === "error") detail = `<div class="prh-empty"><b>대회 목록 조회에 실패했습니다.</b><br>${escapeHtml(photographerReportHistoryEventsState.message || "")}</div>`;
     if (photographerReportHistoryEventCode && state.state === "loading") detail = `<div class="prh-empty">포토그래퍼 일지를 불러오는 중입니다.</div>`;
     if (photographerReportHistoryEventCode && state.state === "error") detail = `<div class="prh-empty"><b>일지 조회에 실패했습니다.</b><br>${escapeHtml(state.message || "")}</div>`;
     if (photographerReportHistoryEventCode && state.state === "loaded" && !allReports.length) detail = `<div class="prh-empty">저장된 포토그래퍼 일지가 없습니다.</div>`;
@@ -3089,7 +3126,11 @@
     }
     const list = reports.length ? reports.map(report => { const shooting = report.shooting || {}, status = photographerReportStatus(report); const count = (shooting.photo_counts || []).reduce((sum,row) => sum + Number(row.count || 0), 0); const submitted = report.submitted_at ? fieldReportHistoryDateTime(report.submitted_at) : ""; return `<button class="prh-list-item ${report.report_id === active?.report_id ? "is-active" : ""}" type="button" data-prh-report="${escapeHtml(report.report_id || "")}"><span class="prh-list-top"><b>${escapeHtml(report.photographer_name || "포토그래퍼 미정")}</b><em class="prh-status ${status.tone}">${status.label}</em></span><span class="prh-list-sub"><span>${escapeHtml(shooting.role || "역할 미정")} · ${escapeHtml(shooting.actual_location?.name || "위치 미정")}</span><b>${count.toLocaleString()}장</b></span>${submitted ? `<small>제출 ${escapeHtml(submitted)}</small>` : ""}</button>`; }).join("") : `<p class="ctdash-empty">${state.state === "loaded" ? "조건에 맞는 일지가 없습니다." : "대회를 선택해주세요."}</p>`;
     const filterButtons = `<div class="prh-filters"><button type="button" data-prh-filter="all" class="${photographerReportHistoryFilter === "all" ? "is-active" : ""}">전체</button><button type="button" data-prh-filter="issue" class="${photographerReportHistoryFilter === "issue" ? "is-active" : ""}">이슈 있음</button><button type="button" data-prh-filter="pending" class="${photographerReportHistoryFilter === "pending" ? "is-active" : ""}">업로드 확인</button></div>`;
-    return `<section class="ctdash-screen fr-shell prh-shell"><article class="ctdash-card ctdash-section fr-hero prh-hero"><div><div class="ctdash-kicker">Photographer Reports</div><h3>포토그래퍼 일지 조회</h3><p>작가별 촬영 결과와 장비·업로드·현장 피드백을 한 화면에서 비교하고, 제출 원문을 읽기 전용으로 확인합니다.</p></div><div class="prh-hero-meta"><div><span>데이터 기준</span><b>Notion Photographer Log</b></div><div><span>열람 권한</span><b>관리자 전용</b></div></div></article><div class="prh-query-toolbar"><select class="ctdash-select" id="photographer_report_history_event_select"><option value="">대회를 선택해주세요</option>${eventOptions}</select><select class="ctdash-select" id="photographer_report_history_sort"><option value="latest" ${photographerReportHistorySort === "latest" ? "selected" : ""}>최신 제출순</option><option value="name" ${photographerReportHistorySort === "name" ? "selected" : ""}>포토그래퍼 이름순</option><option value="issue" ${photographerReportHistorySort === "issue" ? "selected" : ""}>이슈 우선</option></select><button class="prh-refresh" type="button" data-prh-action="refresh" ${!photographerReportHistoryEventCode || state.state === "loading" ? "disabled" : ""}>${state.state === "loading" ? "불러오는 중" : "새로고침"}</button></div><div class="prh-layout"><aside class="ctdash-card prh-list"><div class="prh-list-head"><h4>제출 일지 ${reports.length}건</h4><p>대회를 선택하면 해당 대회의 제출 일지만 표시합니다.</p>${filterButtons}</div><div class="prh-list-body">${list}</div></aside><article class="ctdash-card prh-detail">${detail}</article></div>${state.invalid?.length ? `<p class="ctdash-callout warn">손상되었거나 대회 코드가 맞지 않는 과거 일지 ${state.invalid.length}건은 목록에서 제외했습니다.</p>` : ""}</section>`;
+    const eventSelectPlaceholder = photographerReportHistoryEventsState.state === "loading" ? "일지가 있는 대회 불러오는 중..." : photographerReportHistoryEventsState.state === "error" ? "대회 목록 조회 실패" : events.length ? "대회를 선택해주세요" : "일지가 있는 대회가 없습니다";
+    const eventSelectDisabled = photographerReportHistoryEventsState.state !== "loaded" || !events.length;
+    const refreshLabel = photographerReportHistoryEventsState.state === "error" ? "목록 다시 시도" : state.state === "loading" ? "불러오는 중" : "새로고침";
+    const refreshDisabled = photographerReportHistoryEventsState.state === "loading" || (photographerReportHistoryEventsState.state === "loaded" && (!photographerReportHistoryEventCode || state.state === "loading"));
+    return `<section class="ctdash-screen fr-shell prh-shell"><article class="ctdash-card ctdash-section fr-hero prh-hero"><div><div class="ctdash-kicker">Photographer Reports</div><h3>포토그래퍼 일지 조회</h3><p>작가별 촬영 결과와 장비·업로드·현장 피드백을 한 화면에서 비교하고, 제출 원문을 읽기 전용으로 확인합니다.</p></div><div class="prh-hero-meta"><div><span>데이터 기준</span><b>Notion Photographer Log</b></div><div><span>열람 권한</span><b>관리자 전용</b></div></div></article><div class="prh-query-toolbar"><select class="ctdash-select" id="photographer_report_history_event_select" ${eventSelectDisabled ? "disabled" : ""}><option value="">${escapeHtml(eventSelectPlaceholder)}</option>${eventOptions}</select><select class="ctdash-select" id="photographer_report_history_sort"><option value="latest" ${photographerReportHistorySort === "latest" ? "selected" : ""}>최신 제출순</option><option value="name" ${photographerReportHistorySort === "name" ? "selected" : ""}>포토그래퍼 이름순</option><option value="issue" ${photographerReportHistorySort === "issue" ? "selected" : ""}>이슈 우선</option></select><button class="prh-refresh" type="button" data-prh-action="refresh" ${refreshDisabled ? "disabled" : ""}>${escapeHtml(refreshLabel)}</button></div><div class="prh-layout"><aside class="ctdash-card prh-list"><div class="prh-list-head"><h4>제출 일지 ${reports.length}건</h4><p>대회를 선택하면 해당 대회의 제출 일지만 표시합니다.</p>${filterButtons}</div><div class="prh-list-body">${list}</div></aside><article class="ctdash-card prh-detail">${detail}</article></div>${state.invalid?.length ? `<p class="ctdash-callout warn">손상되었거나 대회 코드가 맞지 않는 과거 일지 ${state.invalid.length}건은 목록에서 제외했습니다.</p>` : ""}</section>`;
   }
 
   function renderCurrentDashDiaryView() {
@@ -6267,6 +6308,9 @@
     }
     if (activeAdminView === "photographer-view") {
       renderCurrentTestDashboard();
+      if (photographerReportHistoryEventsState.state === "idle") {
+        void loadPhotographerReportHistoryEvents(false);
+      }
     }
   }
 
@@ -6286,8 +6330,12 @@
 
     document.addEventListener("click", async function(e) {
       const photographerActionButton = e.target.closest("[data-prh-action]");
-      if (photographerActionButton?.dataset.prhAction === "refresh" && photographerReportHistoryEventCode) {
-        void loadPhotographerReportHistory(photographerReportHistoryEventCode);
+      if (photographerActionButton?.dataset.prhAction === "refresh") {
+        if (photographerReportHistoryEventsState.state === "error") {
+          void loadPhotographerReportHistoryEvents(true);
+        } else if (photographerReportHistoryEventCode) {
+          void loadPhotographerReportHistory(photographerReportHistoryEventCode);
+        }
         return;
       }
       const photographerFilterButton = e.target.closest("[data-prh-filter]");
