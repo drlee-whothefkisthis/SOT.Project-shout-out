@@ -347,10 +347,10 @@
   #shoutSelectedList { display: none; }
 
   @media (max-width: 540px) {
-    #shoutSelectedTray { padding: 8px 10px 0; background: transparent !important; }
+    #shoutSelectedTray { padding: 0 10px; background: transparent !important; }
     #shoutPackageCard {
       display: grid; grid-template-columns: 120px minmax(0, 1fr); column-gap: 8px; row-gap: 10px;
-      padding: 0 14px 14px; border-radius: 22px;
+      padding: 12px 14px 14px; border-radius: 22px;
     }
     .shout-package-badge { align-self: center; min-height: 25px; padding: 0 10px; font-size: 10px; white-space: nowrap; }
     .shout-package-price-row { min-width: 0; align-self: center; gap: 7px; margin-top: 0; white-space: nowrap; }

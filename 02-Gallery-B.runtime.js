@@ -854,7 +854,7 @@ function createCardEl(photo, sizeClass) {
           #shoutModalOverlay.has-selected-tray #shoutModalImageWrap { flex: 0 0 auto !important; height: calc(100dvh - 40px - var(--shout-selected-tray-height, 0px)) !important; }
           .shoutModalNavBtn { top: calc(40px + (100dvh - 40px - var(--shout-selected-tray-height, 0px)) / 2) !important; }
           #shoutSelectedTray { background: transparent !important; }
-          #shoutPackageCard { padding-top: 0 !important; }
+          #shoutPackageCard { padding-top: 12px !important; }
         }
       </style>
       <div id="shoutModalOverlay">
