@@ -258,7 +258,7 @@
   #shoutSelectedTray {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 100001; display: none;
     padding: 12px max(12px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
-    background: #000; border-top: 0;
+    background: transparent; border-top: 0;
     backdrop-filter: none; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   #shoutSelectedTray.is-open { display: block; transform: translateY(0); }
