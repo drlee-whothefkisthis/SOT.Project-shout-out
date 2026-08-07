@@ -2069,61 +2069,10 @@ function renderThumbs() {
       }
       const thumbsWrap = ui.wrap && ui.wrap.querySelector(".cart-preview-thumbs-wrap");
       if (!thumbsWrap) return;
-      let leftBtn = thumbsWrap.querySelector(".sh-thumb-nav-btn.is-left");
-      let rightBtn = thumbsWrap.querySelector(".sh-thumb-nav-btn.is-right");
-      const cs = window.getComputedStyle(thumbsWrap);
-      if (cs.position === "static") thumbsWrap.style.position = "relative";
-      if (!leftBtn) {
-        leftBtn = document.createElement("button");
-        leftBtn.type = "button";
-        leftBtn.className = "sh-thumb-nav-btn is-left";
-        leftBtn.setAttribute("aria-label", "이전 썸네일");
-        leftBtn.textContent = "‹";
-        thumbsWrap.appendChild(leftBtn);
-      }
-      if (!rightBtn) {
-        rightBtn = document.createElement("button");
-        rightBtn.type = "button";
-        rightBtn.className = "sh-thumb-nav-btn is-right";
-        rightBtn.setAttribute("aria-label", "다음 썸네일");
-        rightBtn.textContent = "›";
-        thumbsWrap.appendChild(rightBtn);
-      }
       const update = () => {
-        // Reserve the thumbnail-navigation area before measuring. Without this,
-        // the first render can look like it fits; a later thumbnail click then
-        // scrolls the row and makes the controls suddenly appear.
-        thumbsWrap.classList.add("is-overflow");
         const max = thumbRowEl.scrollWidth - thumbRowEl.clientWidth;
         const hasOverflow = max > 2;
         thumbsWrap.classList.toggle("is-overflow", hasOverflow);
-        if (!hasOverflow) {
-          leftBtn.disabled = true;
-          rightBtn.disabled = true;
-          leftBtn.classList.add("is-disabled");
-          rightBtn.classList.add("is-disabled");
-          return;
-        }
-        const x = thumbRowEl.scrollLeft;
-        leftBtn.disabled = x <= 1;
-        rightBtn.disabled = x >= (max - 1);
-        leftBtn.classList.toggle("is-disabled", leftBtn.disabled);
-        rightBtn.classList.toggle("is-disabled", rightBtn.disabled);
-      };
-      const step = () => Math.max(140, Math.floor(thumbRowEl.clientWidth * 0.7));
-      leftBtn.onclick = () => {
-        thumbRowEl.scrollBy({
-          left: -step(),
-          behavior: "smooth"
-        });
-        setTimeout(update, 180);
-      };
-      rightBtn.onclick = () => {
-        thumbRowEl.scrollBy({
-          left: step(),
-          behavior: "smooth"
-        });
-        setTimeout(update, 180);
       };
       if (!thumbRowEl.dataset.thumbNavBound) {
         thumbRowEl.dataset.thumbNavBound = "1";
