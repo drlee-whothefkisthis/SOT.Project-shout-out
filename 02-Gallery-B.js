@@ -1,35 +1,78 @@
 <script>
-/* =========================================================
-   Shout-out Gallery Engine v2.3 (Modal Swipe Fix Pack v2)
-   - FIX-A: iOS 탭 토글 "2번" 문제 해결 (touchend 후 click suppress)
-   - FIX-B: 우측 패널 일부 노출(peek) 문제 해결 (idle은 -100% 고정, drag만 px)
-   ========================================================= */
-
 (function () {
 
   const USE_TEST_IMAGES = false;
   const TEST_COUNT = 75;
 
-  const BUBBLE_SEARCH_API = "https://plp-62309.bubbleapps.io/version-test/api/1.1/wf/find-photos";
-  const UNIT_PRICE = 5000;
-  const PACKAGE_THRESHOLD = 6; // ✅ 패키지 기준 장수
-  const PACKAGE_PRICE = 24900; // ✅ 무제한 패키지 가격
+  const BUBBLE_SEARCH_API = "https://plp-62309.bubbleapps.io/api/1.1/wf/find-photos";
+  const SEARCH_PAGE_LIMIT = 50;
+  const INITIAL_VISIBLE_PHOTOS = 12;
+  const PHOTO_REVEAL_BATCH_SIZE = 12;
+  const UNIT_PRICE = 6000;
+  const PACKAGE_THRESHOLD = 5; 
+  const PACKAGE_PRICE = 24900; 
   const CART_PAGE_PATH = "/cart";
 
-  // ✅ [추가] 이벤트 메타 조회 (event_code / event_display_name)
-  const BUBBLE_EVENT_OBJ_API = "https://plp-62309.bubbleapps.io/version-test/api/1.1/obj/event/";
+  const BUBBLE_EVENT_OBJ_API = "https://plp-62309.bubbleapps.io/api/1.1/obj/event/";
 
-  // ✅ [추가] 현재 갤러리 이벤트 메타 (카트 저장용)
-  let currentEventMeta = { event_id: null, event_code: null, event_display_name: null };
+  let currentEventMeta = { event_code: null, event_display_name: null };
 
   let photos = [];
   let photosByKey = new Map();
   let orderKeys = [];
+  let modalKeys = [];
   let currentModalKey = null;
-  // cart state now handled by window.ShoutCart
-  let currentSearchBib = null; // ✅ 이번 검색에서 사용한 배번호(q)
-  // ✅ 갤러리 로컬 선택 상태 (전역 카트와 별개)
+  let currentSearchBib = null; 
+  let currentSearchName = null;
   let localSelectedKeys = new Set();
+  let lockedCartKeys = new Set();
+  let mainRenderCount = 0;
+  let mainRevealObserver = null;
+  let mainRevealSentinel = null;
+
+  const SESSION_SELECTED_KEY_BASE = "shout_gallery_selected_keys";
+  function getSessionSelectedKey() {
+    const ev = (getQueryParam("event_code") || "").trim();
+    const bib = (getQueryParam("q") || "").trim();
+    return `${SESSION_SELECTED_KEY_BASE}:${ev || "noevent"}:${bib || "nobib"}`;
+  }
+  function saveLocalSelectedToSession() {
+    try {
+      sessionStorage.setItem(
+        getSessionSelectedKey(),
+        JSON.stringify(Array.from(localSelectedKeys))
+      );
+    } catch (e) {
+      console.warn("[Gallery] saveLocalSelectedToSession failed:", e);
+    }
+  }
+  function loadLocalSelectedFromSession() {
+    localSelectedKeys = new Set();
+
+    try {
+      const raw = sessionStorage.getItem(getSessionSelectedKey());
+      if (!raw) return;
+
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        for (const k of arr) {
+          if (photosByKey.has(k) && !isLockedByKey(k)) {
+            localSelectedKeys.add(k);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[Gallery] loadLocalSelectedFromSession failed:", e);
+    }
+  }
+  function clearLocalSelectedSession() {
+    try {
+      sessionStorage.removeItem(getSessionSelectedKey());
+    } catch (e) {
+      console.warn("[Gallery] sessionStorage.removeItem failed:", e);
+    }
+  }
+
   let mainSizePlan = [];
   let lastCols = null;
 
@@ -81,23 +124,22 @@
     return new URLSearchParams(window.location.search).get(name);
   }
 
-  // ✅ [수정됨] event_code를 검색(constraints)하여 event_display_name 조회
-  async function fetchEventMeta(eventId) {
-    if (!eventId) return null;
+  async function fetchEventMeta(eventCode) {
+    if (!eventCode) return null;
     try {
       const constraints = encodeURIComponent(JSON.stringify([
-        { key: "event_code", constraint_type: "equals", value: String(eventId) }
+        { key: "event_code", constraint_type: "equals", value: String(eventCode) }
       ]));
-      
+
       const url = BUBBLE_EVENT_OBJ_API + "?constraints=" + constraints;
-      
+
       const r = await fetch(url, {
         method: "GET",
         headers: { "Content-Type": "application/json" }
       });
-      
+
       const json = await r.json();
-      
+
       const results = (json && json.response && json.response.results) ? json.response.results : [];
       const obj = results.length > 0 ? results[0] : null;
 
@@ -105,8 +147,7 @@
       const name = obj && (obj.event_display_name || obj.eventDisplayName || obj.display_name || obj.name);
 
       return {
-        event_id: eventId,
-        event_code: code ? String(code) : null,
+        event_code: code ? String(code) : (eventCode ? String(eventCode) : null),
         event_display_name: name ? String(name) : null
       };
     } catch (e) {
@@ -121,15 +162,11 @@
     if (window.CSS && CSS.escape) return CSS.escape(str);
     return String(str).replace(/["\\#.;?+*~':!^$[\]()=>|/@]/g, "\\$&");
   }
-    /* =========================================================
-     ✅ Deduplicate photos (same file appears multiple times)
-     - Prefer items that have bib bbox data for current search
-  ========================================================= */
+    
   function extractFileNameFromUrl(url) {
     try {
       if (!url) return "";
       const u = String(url);
-      // strip url("...") wrapper if present
       const cleaned = u.replace(/^url\(["']?/, "").replace(/["']?\)$/, "");
       const noQuery = cleaned.split("?")[0];
       const last = noQuery.split("/").pop() || "";
@@ -139,36 +176,64 @@
     }
   }
 
+  function getPhotoFileName(photo) {
+    if (!photo) return "";
+
+    const direct = (
+      photo.fileName ||
+      photo.filename ||
+      photo.file_name ||
+      photo.photo_name ||
+      photo.photoName ||
+      ""
+    ).toString().trim();
+
+    if (direct) return direct;
+
+    return extractFileNameFromUrl(photo.preview_url || photo.previewUrl || photo.preview || "");
+  }
+
+  function getMpFileRank(photo) {
+    const filename = getPhotoFileName(photo);
+    if (!filename) return 1;
+
+    const base = filename.split("?")[0].split("/").pop() || "";
+    let upper = "";
+
+    try {
+      upper = decodeURIComponent(base).toUpperCase();
+    } catch (_) {
+      upper = String(base).toUpperCase();
+    }
+
+    if (/^[A-Z]M[_-]/.test(upper)) return 0;
+    if (/^[A-Z]P[_-]/.test(upper)) return 2;
+
+    return 1;
+  }
+
   function getDedupeKey(p) {
     if (!p) return "";
     const file = (p.fileName || p.filename || p.file_name || "").toString().trim();
     if (file) return file.toLowerCase();
     const fromPreview = extractFileNameFromUrl(p.preview_url || p.previewUrl || p.preview);
     if (fromPreview) return fromPreview.toLowerCase();
-    // fallback to photo key (may still be unique per row)
     const k = getPhotoKey(p);
     return (k || "").toString().toLowerCase();
   }
 
   function scoreForDedupe(p) {
-    // higher score wins when same file duplicates exist
     let s = 0;
+    const map = getParsedBboxMap(p);
 
-    // prefer having bbox map at all
-    if (p && p.bib_bbox_map_json) s += 5;
+    if (map) s += 5;
 
-    // prefer having bbox for the current searched bib
-    if (p && p.bib_bbox_map_json && currentSearchBib) {
-      try {
-        const map = safeJsonParse(p.bib_bbox_map_json, {});
-        if (map && map[currentSearchBib]) s += 20;
-      } catch (_) {}
+    if (map && currentSearchBib && map[currentSearchBib]) {
+      s += 20;
     }
 
-    // slight preference if it has explicit bbox too (future-proof)
     if (p && (p.bbox || p.bib_bbox)) s += 1;
 
-    // keep deterministic: prefer earlier "created" rows? (if exists)
     return s;
   }
 
@@ -179,9 +244,7 @@
     (list || []).forEach((p) => {
       const k = getDedupeKey(p);
       if (!k) {
-        // no key: keep it as-is (rare)
         order.push(p);
-        return;
       }
 
       const prev = bestByKey.get(k);
@@ -191,19 +254,15 @@
         return;
       }
 
-      // choose the better one
       const a = scoreForDedupe(prev);
       const b = scoreForDedupe(p);
       if (b > a) {
         bestByKey.set(k, p);
-        // also replace in order list (first occurrence position)
         const idx = order.indexOf(prev);
         if (idx >= 0) order[idx] = p;
       }
-      // else: drop p
     });
 
-    // also ensure no duplicates from the "no key" path
     const seen = new Set();
     const out = [];
     order.forEach((p) => {
@@ -216,30 +275,108 @@
     return out;
   }
 
-/* =========================
-     ✅ Bib Focus (bbox -> background-position)
-     - photo.bib_bbox_map_json 안에서 currentSearchBib 키를 찾아
-       가장 conf 높은 박스의 center를 %로 변환
-     ========================= */
+  function splitOcrValues(raw) {
+    if (!raw) return [];
 
-  function safeJsonParse(str) {
-    if (!str || typeof str !== "string") return null;
-    try { return JSON.parse(str); } catch { return null; }
+    return String(raw)
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
+  }
+
+  function getOcrBibValues(photo) {
+    return splitOcrValues(photo && photo.ocr_bib);
+  }
+
+  function getOcrNameValues(photo) {
+    return splitOcrValues(photo && photo.ocr_name);
+  }
+
+  function getOcrMatchRank(values, query) {
+    const target = query ? String(query).trim() : "";
+    if (!target) return 2;
+
+    const list = Array.isArray(values) ? values : [];
+    if (list.some((v) => v === target)) return 0;
+    if (list.some((v) => v.includes(target))) return 1;
+    return 2;
+  }
+
+  function getBboxKeyMatchRank(photo, query) {
+    const target = query ? String(query).trim() : "";
+    if (!target || !photo) return 2;
+
+    const map = getParsedBboxMap(photo);
+    if (!map || typeof map !== "object") return 2;
+
+    const keys = Object.keys(map);
+    if (keys.some((key) => key === target)) return 0;
+    if (keys.some((key) => key.includes(target))) return 1;
+    return 2;
+  }
+
+  function sortPhotosByOcrSearchMatch(list, query, searchType) {
+    const target = query ? String(query).trim() : "";
+    if (!target || !Array.isArray(list) || list.length <= 1) return list || [];
+
+    const isBibSearch = searchType === "bib";
+
+    return list
+      .map((photo, originalIndex) => {
+        const values = isBibSearch ? getOcrBibValues(photo) : getOcrNameValues(photo);
+        const matchRank = getOcrMatchRank(values, target);
+
+        return {
+          photo,
+          originalIndex,
+          matchRank,
+          mpRank: getMpFileRank(photo)
+        };
+      })
+      .sort((a, b) => {
+        if (a.matchRank !== b.matchRank) return a.matchRank - b.matchRank;
+        if (a.matchRank < 2 && b.matchRank < 2 && a.mpRank !== b.mpRank) {
+          return a.mpRank - b.mpRank;
+        }
+
+        return a.originalIndex - b.originalIndex;
+      })
+      .map((item) => item.photo);
+  }
+
+  function safeJsonParse(value) {
+    if (!value) return null;
+    if (typeof value === "object") return value;
+    if (typeof value !== "string") return null;
+    try { return JSON.parse(value); } catch { return null; }
+  }
+
+  function getParsedBboxMap(photo) {
+    if (!photo) return null;
+    if (photo.parsed_bbox_map && typeof photo.parsed_bbox_map === "object") {
+      return photo.parsed_bbox_map;
+    }
+
+    const mapStr = photo.bbox_map || photo.bib_bbox_map_json;
+    const parsed = safeJsonParse(mapStr);
+    if (parsed && typeof parsed === "object") {
+      photo.parsed_bbox_map = parsed;
+      return parsed;
+    }
+
+    return null;
   }
 
   function getBibFocusFromPhoto(photo, bibStr) {
     if (!photo || !bibStr) return null;
 
-    // Bubble 응답 기준 필드명: bib_bbox_map_json
-    const mapStr = photo.bib_bbox_map_json;
-    const map = safeJsonParse(mapStr);
+    const map = getParsedBboxMap(photo);
     if (!map) return null;
 
     const bibKey = String(bibStr).trim();
     const boxes = map[bibKey];
     if (!Array.isArray(boxes) || boxes.length === 0) return null;
 
-    // conf 가장 높은 박스 선택
     let best = boxes[0];
     for (const b of boxes) {
       if ((b?.conf ?? 0) > (best?.conf ?? 0)) best = b;
@@ -251,15 +388,22 @@
     const h = Number(best?.h);
     if ([x, y, w, h].some(n => Number.isNaN(n))) return null;
 
-    // bbox는 좌상단(x,y) + 크기(w,h), 모두 0~1 정규화
     const cx = x + (w / 2);
     const cy = y + (h / 2);
 
-    // CSS background-position (%)
     const px = Math.max(0, Math.min(100, cx * 100));
     const py = Math.max(0, Math.min(100, cy * 100));
 
     return { x: px, y: py };
+  }
+
+  function isNumericSearch(value) {
+    return /^[0-9]+$/.test(String(value || "").trim());
+  }
+
+  function toPositivePrice(value) {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : UNIT_PRICE;
   }
 
   function normalizeGridRows(el) {
@@ -286,75 +430,62 @@
     normalizeGridRows(el);
   }
 
-  /* =========================
-     ✅ Selection & Cart
-     ========================= */
+  
   function isSelectedByKey(key){
     if (!key) return false;
-    if(!window.ShoutCart) return false;
-    return window.ShoutCart.has(key);
+    return localSelectedKeys.has(key);
   }
 
-  function toggleSelectByKey(key) {
-    if (!window.ShoutCart) return;
+  function isLockedByKey(key){
+    if (!key) return false;
+    return lockedCartKeys.has(key);
+  }
+
+  
+  function recomputeModalKeys() {
+    try {
+      modalKeys = (orderKeys || []).filter(k => !isLockedByKey(k));
+    } catch (e) {
+      modalKeys = (orderKeys || []).slice();
+    }
+  }
+function toggleSelectByKey(key) {
     const photo = photosByKey.get(key);
     if (!photo) return;
 
-    const bibStr = String(currentSearchBib || "");
-    const eventId = String(currentEventMeta.event_id || "");
-
-    // 이미 전역에 담겨 있으면 → 제거
-    if (window.ShoutCart.has(photo._id)) {
-      window.ShoutCart.remove(photo._id);
-      localSelectedKeys.delete(key); // ✅ 로컬 상태 제거
+    if (isLockedByKey(key)) {
       syncUI(key);
-      updateSelectedTray();
       return;
     }
 
-    // 추가
-    window.ShoutCart.add({
-      _id: photo._id,
-      fileName: photo.fileName,
-      preview_url: photo.preview_url,
-      price: UNIT_PRICE,
-      bib: bibStr,
-      event_id: eventId,
-      event_display_name: currentEventMeta.event_display_name
-    });
-
-    localSelectedKeys.add(key); // ✅ 로컬 상태 추가
-
-    syncUI(key);
-    updateSelectedTray();
-  }
-  function hydrateLocalSelectedFromGlobal(){
-    if(!window.ShoutCart) return;
-    localSelectedKeys.clear();
-
-    const globalItems = window.ShoutCart.getItems();
-    for(const it of globalItems){
-      const id = String(it && it._id || "").trim();
-      if(!id) continue;
-      if(photosByKey && photosByKey.has(id)){
-        localSelectedKeys.add(id);
-      }
+    if (localSelectedKeys.has(key)) {
+      localSelectedKeys.delete(key);
+    } else {
+      localSelectedKeys.add(key);
     }
+
+    saveLocalSelectedToSession();
+    syncUI(key);
   }
+
   function syncUI(key) {
     const card = document.querySelector(`.gallery-card[data-photo-key="${cssEscape(key)}"]`);
     if (card) {
-      if (isSelectedByKey(key)) card.classList.add("is-selected");
-      else card.classList.remove("is-selected");
+      if (isLockedByKey(key)) {
+        card.classList.add("is-in-cart");
+        card.classList.remove("is-selected");
+      } else {
+        card.classList.remove("is-in-cart");
+        if (isSelectedByKey(key)) card.classList.add("is-selected");
+        else card.classList.remove("is-selected");
+      }
     }
     if (currentModalKey === key) syncModalCheckUI(key);
-    updateSelectedTray();
+    syncSelectedTrayUI();
   }
 
-  /* =========================
-     ✅ Card DOM
-     ========================= */
-  function createCardEl(photo, sizeClass) {
+
+function createCardEl(photo, sizeClass) {
     const key = getPhotoKey(photo);
 
     const card = document.createElement("div");
@@ -366,16 +497,26 @@
     const media = document.createElement("div");
     media.className = "gallery-media";
     media.style.backgroundImage = `url("${imgUrl}")`;
-    // ✅ 배번호 중심으로 crop 기준점 이동 (레이아웃은 그대로)
     const focus = getBibFocusFromPhoto(photo, currentSearchBib);
     if (focus) {
       media.style.backgroundPosition = `${focus.x}% ${focus.y}%`;
     }
 
 
-    // (모달만 컨트롤) 갤러리 그리드는 여백 추가 없음
     media.addEventListener("contextmenu", (e) => e.preventDefault());
+
     media.setAttribute("draggable", "false");
+
+
+
+    if (isLockedByKey(key)) {
+      card.classList.add("is-in-cart");
+
+      card.append(media, window.ShoutGallery.buildCartLockIconEl());
+
+
+      return card;
+    }
 
     const badge = document.createElement("div");
     badge.className = "sel-badge";
@@ -395,12 +536,11 @@
 
     if (isSelectedByKey(key)) card.classList.add("is-selected");
 
+
+
     return card;
   }
 
-  /* =========================
-     Intro Hard-Pin
-     ========================= */
   function getIntroPinnedPlacements(cols) {
     if (cols === 4) {
       return [
@@ -437,21 +577,80 @@
     introEl.appendChild(frag);
   }
 
-  function renderMainGrid(gridEl, mainPhotos) {
-    gridEl.innerHTML = "";
+  function appendMainGridCards(gridEl, mainPhotos, startIndex, endIndex) {
     const frag = document.createDocumentFragment();
 
-    mainPhotos.forEach((p, i) => {
+    mainPhotos.slice(startIndex, endIndex).forEach((p, offset) => {
+      const i = startIndex + offset;
       const sizeClass = mainSizePlan[i] || "size-normal";
-      frag.appendChild(createCardEl(p, sizeClass));
+      const card = createCardEl(p, sizeClass);
+      frag.appendChild(card);
     });
 
     gridEl.appendChild(frag);
   }
 
-  /* =========================
-     Cell size sync
-     ========================= */
+  function renderMainGrid(gridEl, mainPhotos, visibleCount) {
+    gridEl.innerHTML = "";
+    mainRenderCount = Math.min(visibleCount, mainPhotos.length);
+    appendMainGridCards(gridEl, mainPhotos, 0, mainRenderCount);
+  }
+
+  function fillMainGridBelowViewport(g, p) {
+    if (!g || mainRenderCount >= p.length) return;
+    const h = Math.max(innerHeight * .34, 240);
+    const row = parseFloat(getComputedStyle(g).getPropertyValue("--cell")) || 120;
+    if (window.ShoutGallery.getGalleryGridCoveredBottom(g) >= innerHeight + h + Math.max(row, 120)) return;
+    const n = Math.min(mainRenderCount + PHOTO_REVEAL_BATCH_SIZE, p.length);
+    appendMainGridCards(g, p, mainRenderCount, n);
+    mainRenderCount = n;
+    syncCellSizeSoon();
+    requestAnimationFrame(() => fillMainGridBelowViewport(g, p));
+  }
+
+  function clearMainRevealObserver() {
+    if (mainRevealObserver) {
+      mainRevealObserver.disconnect();
+      mainRevealObserver = null;
+    }
+    if (mainRevealSentinel) {
+      mainRevealSentinel.remove();
+      mainRevealSentinel = null;
+    }
+  }
+
+  function setupMainRevealObserver(gridEl, mainPhotos) {
+    clearMainRevealObserver();
+    if (mainRenderCount >= mainPhotos.length) return;
+
+    mainRevealSentinel = document.createElement("div");
+    mainRevealSentinel.className = "gallery-load-sentinel";
+    mainRevealSentinel.setAttribute("aria-hidden", "true");
+    mainRevealSentinel.style.height = "1px";
+    mainRevealSentinel.style.width = "100%";
+    gridEl.insertAdjacentElement("afterend", mainRevealSentinel);
+
+    const revealMore = () => {
+      const nextCount = Math.min(mainRenderCount + PHOTO_REVEAL_BATCH_SIZE, mainPhotos.length);
+      appendMainGridCards(gridEl, mainPhotos, mainRenderCount, nextCount);
+      mainRenderCount = nextCount;
+      syncCellSizeSoon();
+
+      if (mainRenderCount >= mainPhotos.length) clearMainRevealObserver();
+    };
+
+    if (!window.IntersectionObserver) {
+      revealMore();
+      return;
+    }
+
+    mainRevealObserver = new IntersectionObserver((entries) => {
+      if (entries.some(entry => entry.isIntersecting)) revealMore();
+    }, { rootMargin: "0px 0px 40% 0px" });
+    mainRevealObserver.observe(mainRevealSentinel);
+  }
+
+  
   function updateCellSize() {
     const mainEl = document.getElementById("galleryGrid");
     if (!mainEl) return;
@@ -478,10 +677,6 @@
     setTimeout(updateCellSize, 120);
     setTimeout(updateCellSize, 420);
   }
-
-  /* =========================
-     ✅ Modal (iOS-style swipe)
-     ========================= */
 
   let __modalScrollY = 0;
   let __isBodyLocked = false;
@@ -519,7 +714,6 @@
     return !!(overlay && overlay.classList.contains("is-open"));
   }
 
-  // ✅ 탭 2번(터치+클릭) 방지용
   let __suppressClickUntil = 0;
 
   function suppressNextClick(ms) {
@@ -534,11 +728,11 @@
     const curEl  = document.getElementById("shoutModalCurrent");
     const nextEl = document.getElementById("shoutModalNext");
 
-    const idx = orderKeys.indexOf(key);
+    const idx = modalKeys.indexOf(key);
     if (idx === -1) return;
 
-    const prevKey = orderKeys[(idx <= 0) ? (orderKeys.length - 1) : (idx - 1)];
-    const nextKey = orderKeys[(idx >= orderKeys.length - 1) ? 0 : (idx + 1)];
+    const prevKey = modalKeys[(idx <= 0) ? (modalKeys.length - 1) : (idx - 1)];
+    const nextKey = modalKeys[(idx >= modalKeys.length - 1) ? 0 : (idx + 1)];
 
     const curPhoto  = photosByKey.get(key);
     const prevPhoto = photosByKey.get(prevKey);
@@ -549,7 +743,6 @@
     if (nextEl && nextPhoto) nextEl.style.backgroundImage = `url("${toHttps(nextPhoto.preview_url)}")`;
   }
 
-  // ✅ 정지(Idle) 상태는 %로 딱 고정 -> peek 방지
   function snapTrackToCenterIdle() {
     const track = document.getElementById("shoutModalTrack");
     if (!track) return;
@@ -610,7 +803,6 @@
       el.style.backgroundRepeat = "no-repeat";
       el.style.backgroundSize = "contain";
 
-      // ✅ 이미지(배경)만 안쪽으로 패딩: 테두리(엘리먼트)는 프레임에 붙고, 이미지가 안으로 들어감
       el.style.boxSizing = "border-box";
       el.style.padding = "clamp(6px, 1vw, 10px) clamp(10px, 2.2vw, 16px)";
       el.style.backgroundClip = "content-box";
@@ -627,15 +819,15 @@
     if (wrap && track) {
       wrap.style.overflow = "hidden";
       wrap.style.background = "#000";
-            wrap.style.boxSizing = "border-box";
-      wrap.style.padding = "14px 0px 18px 0px"; // ✅ 상하만 여백(코너 잘림 방지), 좌우는 프레임에 붙임
+      wrap.style.boxSizing = "border-box";
+      wrap.style.padding = "14px 0px 18px 0px"; 
 
       track.style.display = "flex";
       track.style.width = "300%";
       track.style.height = "100%";
       track.style.willChange = "transform";
       track.style.transition = "none";
-      track.style.transform = "translateX(-100%)"; // ✅ idle은 항상 -100%
+      track.style.transform = "translateX(-100%)"; 
 
       const panels = track.querySelectorAll(".shoutModalPanel");
       panels.forEach((p) => {
@@ -654,7 +846,6 @@
       if (currentModalKey) toggleSelectByKey(currentModalKey);
     };
 
-    // ✅ click은 유지하되, touch 직후엔 무시해서 "2번 토글" 차단
     document.getElementById("shoutModalCurrent").addEventListener("click", (e) => {
       if (isClickSuppressed()) return;
       e.preventDefault();
@@ -683,7 +874,6 @@
       const MAX_Y = 90;
       const ANIM_MS = 220;
 
-
       function getViewportW() {
         const cs = getComputedStyle(wrap);
         const pl = parseFloat(cs.paddingLeft) || 0;
@@ -704,7 +894,7 @@
         if (!t) return;
 
         if (currentModalKey) preloadPanelsForKey(currentModalKey);
-        snapTrackToCenterIdle(); // ✅ 시작 시점에 중앙 고정 상태로 정렬
+        snapTrackToCenterIdle(); 
 
         startX = t.clientX;
         startY = t.clientY;
@@ -713,7 +903,6 @@
         axisLocked = null;
         dragging = true;
 
-        // ✅ 드래그는 px 기반으로 시작
         const w = getViewportW();
         setTrackPx(-w, false);
       }, { passive: true });
@@ -754,18 +943,16 @@
         const w = getViewportW();
         const threshold = w * THRESHOLD_RATIO;
 
-        // ✅ 탭 판정이면: 토글은 즉시(체감 빠름), click은 suppress 유지
         if (Math.abs(dx) <= TAP_SLOP && Math.abs(dy) <= TAP_SLOP) {
-          suppressNextClick(450); // ✅ click이 뒤늦게 와도 무시
+          suppressNextClick(450); 
 
-          // ✅ (핵심) 선택 반응을 버튼급으로 즉시 처리
           if (currentModalKey) toggleSelectByKey(currentModalKey);
 
           animating = true;
           setTrackPx(-w, true);
           setTimeout(() => {
             animating = false;
-            snapTrackToCenterIdle(); // ✅ idle은 항상 -100%로 고정
+            snapTrackToCenterIdle(); 
           }, ANIM_MS + 30);
           return;
         }
@@ -806,13 +993,15 @@
     const photo = photosByKey.get(key);
     if (!photo) return;
 
+    if (isLockedByKey(key)) return;
+
     currentModalKey = key;
 
     const overlay = document.getElementById("shoutModalOverlay");
     const counter = document.getElementById("shoutModalCounter");
 
-    const idx = orderKeys.indexOf(key);
-    if (counter) counter.textContent = `${idx + 1} / ${orderKeys.length}`;
+    const idx = modalKeys.indexOf(key);
+    if (counter) counter.textContent = `${idx + 1} / ${modalKeys.length}`;
 
     lockBodyScroll();
     if (overlay) overlay.classList.add("is-open");
@@ -821,12 +1010,16 @@
       snapTrackToCenterIdle();
       preloadPanelsForKey(key);
       syncModalCheckUI(key);
+      syncModalSelectedTraySpace();
     });
   }
 
   function closeModal() {
     const overlay = document.getElementById("shoutModalOverlay");
-    if (overlay) overlay.classList.remove("is-open");
+    if (overlay) {
+      overlay.classList.remove("is-open", "has-selected-tray");
+      overlay.style.removeProperty("--shout-selected-tray-height");
+    }
     unlockBodyScroll();
     currentModalKey = null;
   }
@@ -834,6 +1027,16 @@
   function syncModalCheckUI(key) {
     const btn = document.getElementById("shoutModalCheckBtn");
     const media = document.getElementById("shoutModalCurrent");
+
+    if (isLockedByKey(key)) {
+      if (btn) btn.classList.remove("is-selected");
+      if (media) {
+        media.classList.remove("is-selected");
+        media.style.outline = "none";
+        media.style.outlineOffset = "";
+      }
+      return;
+    }
 
     if (isSelectedByKey(key)) {
       if (btn) btn.classList.add("is-selected");
@@ -854,20 +1057,20 @@
 
   function goPrevInModal() {
     if (!currentModalKey) return;
-    const idx = orderKeys.indexOf(currentModalKey);
+    const idx = modalKeys.indexOf(currentModalKey);
     if (idx === -1) return;
 
-    const nextIdx = (idx <= 0) ? (orderKeys.length - 1) : (idx - 1);
-    openModalByKey(orderKeys[nextIdx]);
+    const nextIdx = (idx <= 0) ? (modalKeys.length - 1) : (idx - 1);
+    openModalByKey(modalKeys[nextIdx]);
   }
 
   function goNextInModal() {
     if (!currentModalKey) return;
-    const idx = orderKeys.indexOf(currentModalKey);
+    const idx = modalKeys.indexOf(currentModalKey);
     if (idx === -1) return;
 
-    const nextIdx = (idx >= orderKeys.length - 1) ? 0 : (idx + 1);
-    openModalByKey(orderKeys[nextIdx]);
+    const nextIdx = (idx >= modalKeys.length - 1) ? 0 : (idx + 1);
+    openModalByKey(modalKeys[nextIdx]);
   }
 
   function onModalKeyDown(e) {
@@ -896,76 +1099,345 @@
     }
   }
 
+  function syncModalSelectedTraySpace() {
+    const overlay = document.getElementById("shoutModalOverlay");
+    const tray = document.getElementById("shoutSelectedTray");
+    if (!overlay || !tray) return;
+
+    const shouldReserve =
+      Boolean(currentModalKey) &&
+      localSelectedKeys.size > 0 &&
+      tray.classList.contains("is-open");
+
+    if (!shouldReserve) {
+      overlay.classList.remove("has-selected-tray");
+      overlay.style.removeProperty("--shout-selected-tray-height");
+      return;
+    }
+
+    const trayHeight = Math.ceil(tray.getBoundingClientRect().height);
+    overlay.style.setProperty("--shout-selected-tray-height", `${trayHeight}px`);
+    overlay.classList.add("has-selected-tray");
+  }
+
   function updateSelectedTray() {
     const tray = document.getElementById("shoutSelectedTray");
     const info = document.getElementById("shoutSelectedInfo");
     const list = document.getElementById("shoutSelectedList");
 
     if (!tray || !info || !list) return;
-    if (!window.ShoutCart) return;
 
-    const eventId = String(currentEventMeta.event_id || "");
-    const bibStr = String(currentSearchBib);
-
-    // ✅ 갤러리 가격/패키지 표시는 "현재 컨텍스트(event_id + bib)"만 기준
-    // ✅ 갤러리 트레이는 '이번 갤러리에서 선택한 것'만 표시
-    const selected = Array.from(localSelectedKeys).map(k => photosByKey.get(k)).filter(Boolean);
+    const selected = Array.from(localSelectedKeys)
+      .map((k) => photosByKey.get(k))
+      .filter(Boolean);
 
     if (selected.length === 0) {
       tray.classList.remove("is-open");
       list.innerHTML = "";
-      info.textContent = "";
+      info.textContent = "0장 선택";
+      syncModalSelectedTraySpace();
       return;
     }
 
     tray.classList.add("is-open");
 
     const count = selected.length;
-    const totalPrice = (count >= PACKAGE_THRESHOLD) ? PACKAGE_PRICE : (count * UNIT_PRICE);
-    const packageLabel = (count >= PACKAGE_THRESHOLD)
-      ? `<span style="font-size:12px; color:#fff; background:#e11d48; padding:2px 6px; border-radius:4px; margin-left:6px;">패키지 적용</span>`
-      : "";
+    const totalPrice =
+      count >= PACKAGE_THRESHOLD ? PACKAGE_PRICE : count * UNIT_PRICE;
+
+    const packageLabel =
+      count >= PACKAGE_THRESHOLD
+        ? `<span style="font-size:12px; color:#fff; background:#e11d48; padding:2px 6px; border-radius:4px; margin-left:6px;">패키지 적용</span>`
+        : "";
 
     info.innerHTML = `${count}장 <span style="color:#60a5fa; margin-left:4px;">(${totalPrice.toLocaleString()}원)</span> ${packageLabel}`;
 
     list.innerHTML = "";
-    selected.forEach(item => {
+    selected.forEach((item) => {
       const wrap = document.createElement("div");
       wrap.className = "shoutMiniThumb";
       wrap.innerHTML = `<img src="${toHttps(item.preview_url)}">`;
       list.appendChild(wrap);
     });
+
+    requestAnimationFrame(syncModalSelectedTraySpace);
   }
 
+  function updatePackageUI() {
+    const fillEl = document.querySelector(".package-gauge-fill");
+    const countWrapEl = document.querySelector(".package-gauge-count");
+    const countTextEl = document.querySelector(".package-count-text");
+    const lottieEl = document.querySelector(".success-badge-lottie");
 
+    if (!fillEl || !countWrapEl || !countTextEl || !lottieEl) return;
 
-  function goToCartPage() {
-   if(!window.ShoutCart || window.ShoutCart.count() === 0){
-     return alert("사진을 선택해주세요.");
-   }
-   window.location.href = CART_PAGE_PATH;
-  }
+    const eventCode = String(currentEventMeta.event_code || "").trim();
+    const searchType = currentSearchBib ? "bib" : (currentSearchName ? "name" : "");
+    const searchValue = String(currentSearchBib || currentSearchName || "").trim();
 
-  /* =========================
-     Data fetch
-     ========================= */
-  async function fetchPhotos(eventId, bib) {
-    if (!eventId) return [];
+    if (!eventCode || !searchValue) {
+      fillEl.style.width = "0%";
+      countTextEl.textContent = "0/5";
+      countWrapEl.style.display = "";
+      lottieEl.style.display = "none";
+      return;
+    }
+
+    const matchedKeys = new Set();
+
     try {
-      const res = await fetch(BUBBLE_SEARCH_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ event_id: eventId, ocr_bib: bib ? bib.trim() : undefined })
-      });
-      const data = await res.json();
+      if (window.ShoutCart && typeof window.ShoutCart.getItems === "function") {
+        const cartItems = window.ShoutCart.getItems() || [];
+        cartItems.forEach((it) => {
+          const itemEventCode = String((it && it.event_code) || "").trim();
+          const itemType = String((it && (it.identifier_type || it.search_type)) || (it && it.bib ? "bib" : "")).trim();
+          const itemValue = String((it && (it.identifier_value || it.search_value || it.bib || it.ocr_name)) || "").trim();
+          if (itemEventCode !== eventCode || itemType !== searchType || itemValue !== searchValue) return;
 
-      let list = [];
-      if (data && data.response) {
-        for (const k in data.response) {
-          if (Array.isArray(data.response[k])) { list = data.response[k]; break; }
-        }
+          const key = getPhotoKey(it);
+          if (key) matchedKeys.add(key);
+        });
       }
-      return list;
+    } catch (e) {
+      console.warn("[Gallery] updatePackageUI cart read failed:", e);
+    }
+
+    try {
+      Array.from(localSelectedKeys).forEach((key) => {
+        const photo = photosByKey.get(key);
+        if (!photo) return;
+        if (isLockedByKey(key)) return;
+
+        matchedKeys.add(key);
+      });
+    } catch (e) {
+      console.warn("[Gallery] updatePackageUI local selected read failed:", e);
+    }
+
+    const matchedCount = matchedKeys.size;
+    const cappedCount = Math.min(matchedCount, 5);
+
+    fillEl.style.width = `${cappedCount * 20}%`;
+
+    if (matchedCount < 5) {
+      countTextEl.textContent = `${matchedCount}/5`;
+      countWrapEl.style.display = "";
+      lottieEl.style.display = "none";
+    } else {
+      countWrapEl.style.display = "none";
+      lottieEl.style.display = "";
+    }
+  }
+
+  function syncSelectedTrayUI() {
+    updateSelectedTray();
+    updatePackageUI();
+  }
+
+  async function commitLocalSelectionToCart() {
+    if (!window.ShoutCart || typeof window.ShoutCart.add !== "function") return 0;
+
+    const searchType = currentSearchBib ? "bib" : (currentSearchName ? "name" : "");
+    const searchValueForCart = currentSearchBib || currentSearchName || "";
+    const eventCode = String(currentEventMeta.event_code || "");
+    const itemsToAdd = [];
+
+    for (const key of Array.from(localSelectedKeys)) {
+      const p = photosByKey.get(key);
+      if (!p) continue;
+
+      if (isLockedByKey(key)) continue;
+      if (window.ShoutCart.has && window.ShoutCart.has(getPhotoKey(p))) continue;
+
+      itemsToAdd.push({
+        _id: getPhotoKey(p),
+        fileName: p.fileName,
+        preview_url: p.preview_url,
+        price: UNIT_PRICE,
+        bib: currentSearchBib || "",
+        searched_query: searchValueForCart,
+        search_type: searchType,
+        search_value: searchValueForCart,
+        identifier_type: searchType,
+        identifier_value: searchValueForCart,
+        ocr_name: currentSearchName || p.ocr_name || "",
+        event_code: eventCode,
+        event_display_name: currentEventMeta.event_display_name
+      });
+    }
+
+    if (itemsToAdd.length > 0) {
+      window.ShoutCart.add(itemsToAdd);
+
+      if (window.ShoutCart.logAddedToSot) {
+        await window.ShoutCart.logAddedToSot(itemsToAdd);
+      }
+    }
+
+    const added = itemsToAdd.length;
+
+    localSelectedKeys.clear();
+    clearLocalSelectedSession();
+    updateSelectedTray();
+    updatePackageUI();
+
+    try { if (window.ShoutCart.refresh) window.ShoutCart.refresh(); } catch(e) {}
+
+    return added;
+  }
+
+  async function goToCartPage() {
+    await commitLocalSelectionToCart();
+
+    const hasAnyInCart = !!(window.ShoutCart && typeof window.ShoutCart.count === "function" && window.ShoutCart.count() > 0);
+    if (!hasAnyInCart) {
+      return alert("사진을 선택해주세요.");
+    }
+
+    let cartUrl = CART_PAGE_PATH;
+    if (window.ShoutTracking && typeof window.ShoutTracking.appendTrackingParamsToUrl === "function") {
+      try {
+        cartUrl = window.ShoutTracking.appendTrackingParamsToUrl(
+          cartUrl,
+          typeof window.ShoutTracking.getTrackingContext === "function"
+            ? window.ShoutTracking.getTrackingContext()
+            : null
+        );
+      } catch (e) {
+        console.warn("[Gallery] tracking cart URL append failed:", e);
+      }
+    }
+    window.location.href = cartUrl;
+  }
+
+  
+  function extractPhotoListFromResponse(data) {
+    const response = data && data.response ? data.response : data;
+    if (!response || typeof response !== "object") return [];
+
+    if (Array.isArray(response.Photo)) return response.Photo;
+
+    const photoId = Array.isArray(response.photo_id) ? response.photo_id : [];
+    const previewUrl = Array.isArray(response.preview_url) ? response.preview_url : [];
+    const bboxMap = Array.isArray(response.bbox_map) ? response.bbox_map : [];
+    const eventCode = Array.isArray(response.event_code) ? response.event_code : [];
+    const price = Array.isArray(response.price) ? response.price : [];
+    const ocrBib = Array.isArray(response.ocr_bib) ? response.ocr_bib : [];
+    const ocrName = Array.isArray(response.ocr_name) ? response.ocr_name : [];
+
+    if (!photoId.length && !previewUrl.length) return [];
+
+    const count = Math.max(
+      photoId.length,
+      previewUrl.length,
+      bboxMap.length,
+      eventCode.length,
+      price.length,
+      ocrBib.length,
+      ocrName.length
+    );
+
+    const out = [];
+
+    for (let i = 0; i < count; i += 1) {
+      const id = photoId[i] == null ? "" : String(photoId[i]).trim();
+      const url = previewUrl[i] == null ? "" : String(previewUrl[i]).trim();
+
+      if (!id && !url) continue;
+
+      const rawBboxMap = bboxMap[i] || "";
+      const parsedBboxMap = safeJsonParse(rawBboxMap) || {};
+
+      out.push({
+        _id: id,
+        photo_id: id,
+        preview_url: url,
+        bbox_map: rawBboxMap,
+        bib_bbox_map_json: rawBboxMap,
+        parsed_bbox_map: parsedBboxMap,
+        ocr_bib: ocrBib[i] || "",
+        ocr_name: ocrName[i] || "",
+        event_code: eventCode[i] || "",
+        price: toPositivePrice(price[i])
+      });
+    }
+
+    return out;
+  }
+
+  function extractTotalCountFromResponse(data, fallbackCount) {
+    const raw = data && data.response
+      ? (data.response.total_count ?? data.response.debug_count ?? data.response.debug_limited_count)
+      : null;
+
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : fallbackCount;
+  }
+
+  async function fetchPhotoPage(eventCode, query, index, limit) {
+    const tracking = window.ShoutTracking && typeof window.ShoutTracking.getTrackingContext === "function"
+      ? window.ShoutTracking.getTrackingContext()
+      : null;
+    const sessionId = tracking ? tracking.session_id : (sessionStorage.getItem("sot_session_id") || "");
+    const searchValue = String(query || "").trim();
+
+    const payload = {
+      event_code: eventCode,
+      index,
+      limit,
+      session_id: sessionId,
+      local_user: tracking ? tracking.local_user : "",
+      session_key: tracking ? tracking.ses_k : "",
+      utm_source: tracking ? tracking.utm_s : "",
+      utm_campaign: tracking ? tracking.utm_campaign : ""
+    };
+
+    if (searchValue) {
+      if (isNumericSearch(searchValue)) {
+        payload.ocr_bib = searchValue;
+      } else {
+        payload.ocr_name = searchValue;
+      }
+    }
+
+    const res = await fetch(BUBBLE_SEARCH_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    const list = extractPhotoListFromResponse(data);
+    const totalCount = extractTotalCountFromResponse(data, list.length);
+
+    return { list, totalCount, raw: data };
+  }
+
+  async function fetchPhotos(eventCode, query) {
+    if (!eventCode) return [];
+
+    const limit = SEARCH_PAGE_LIMIT;
+    const searchValue = String(query || "").trim();
+
+    try {
+      const firstPage = await fetchPhotoPage(eventCode, searchValue, 1, limit);
+      const totalPages = Math.max(1, Math.ceil(firstPage.totalCount / limit));
+
+      if (totalPages <= 1) return firstPage.list;
+
+      const pageStartIndexes = [];
+      for (let page = 2; page <= totalPages; page++) {
+        pageStartIndexes.push(((page - 1) * limit) + 1);
+      }
+
+      const restPages = await Promise.all(
+        pageStartIndexes.map((startIndex) => fetchPhotoPage(eventCode, searchValue, startIndex, limit))
+      );
+
+      return [
+        ...firstPage.list,
+        ...restPages.flatMap((page) => page.list)
+      ];
     } catch (e) {
       console.error("API Error:", e);
       return [];
@@ -993,8 +1465,84 @@
     return introEl;
   }
 
+  function hydrateLocalSelectedFromGlobal() {
+    lockedCartKeys = new Set();
+
+    try {
+      if (window.ShoutCart && typeof window.ShoutCart.getItems === "function") {
+        const items = window.ShoutCart.getItems() || [];
+        for (const it of items) {
+          const k = getPhotoKey(it);
+          if (k) lockedCartKeys.add(k);
+        }
+      }
+    } catch (e) {
+      console.warn("[Gallery] hydrateLocalSelectedFromGlobal getItems failed:", e);
+    }
+
+    try {
+      const raw = localStorage.getItem("shout_cart_data");
+      if (raw) {
+        const data = JSON.parse(raw);
+
+        const out = [];
+        const pushKey = (v) => {
+          const s = v == null ? "" : String(v);
+          if (s) out.push(s);
+        };
+
+        const walk = (node) => {
+          if (!node) return;
+
+          if (Array.isArray(node)) {
+            for (const x of node) walk(x);
+            return;
+          }
+
+          if (typeof node === "object") {
+            if (node._id) pushKey(node._id);
+            if (node.photo_id) pushKey(node.photo_id);
+            if (node.photoId) pushKey(node.photoId);
+            if (node.id) pushKey(node.id);
+            if (node.fileName) pushKey(node.fileName);
+
+            for (const k of Object.keys(node)) {
+              walk(node[k]);
+            }
+          }
+        };
+
+        walk(data);
+        for (const k of out) lockedCartKeys.add(k);
+      }
+    } catch (e) {
+      console.warn("[Gallery] hydrateLocalSelectedFromGlobal localStorage parse failed:", e);
+    }
+
+    recomputeModalKeys();
+  }
+  
+  function hydrateLocalSelectedFromGlobalWithRetry(retryCount = 0) {
+    hydrateLocalSelectedFromGlobal();
+
+    const ready =
+      window.ShoutCart &&
+      typeof window.ShoutCart.getItems === "function";
+
+    if (ready) return;
+    if (retryCount >= 20) {
+      console.warn("[Gallery] ShoutCart not ready after retry limit");
+      return;
+    }
+
+    setTimeout(() => {
+      hydrateLocalSelectedFromGlobalWithRetry(retryCount + 1);
+    }, 150);
+  }
+
   async function initGallery() {
-    hydrateLocalSelectedFromGlobal(); // ✅ 초기 동기화
+    hydrateLocalSelectedFromGlobal(); 
+    loadLocalSelectedFromSession(); 
     ensureModalUI();
 
     const mainEl = document.getElementById("galleryGrid");
@@ -1012,21 +1560,22 @@
     if (USE_TEST_IMAGES) {
       list = buildTestPhotos(TEST_COUNT);
     } else {
-      const eventId = getQueryParam("event_id");
-      const bib = getQueryParam("q");
+      const eventCode = getQueryParam("event_code");
+      const query = getQueryParam("q");
+      const searchValue = String(query || "").trim();
 
-      // ✅ [추가] 현재 이벤트 메타 확보 (카트 저장/표시용)
-      currentEventMeta.event_id = eventId || null;
-      const meta = await fetchEventMeta(eventId);
+      currentEventMeta.event_code = eventCode || null;
+
+      const meta = await fetchEventMeta(eventCode);
       if (meta) currentEventMeta = meta;
 
-      // ✅ 이번 검색 bib 기억 (없으면 null)
-      currentSearchBib = (bib && String(bib).trim()) ? String(bib).trim() : null;
-
-      list = await fetchPhotos(eventId, bib);
-
-      // ✅ 같은 파일 중복 제거 (Bubble 중복 데이터 방어)
+      currentSearchBib = isNumericSearch(searchValue) ? searchValue : null;
+      currentSearchName = searchValue && !currentSearchBib ? searchValue : null;
+      list = await fetchPhotos(eventCode, searchValue);
       list = dedupePhotoList(list);
+      list = searchValue
+        ? sortPhotosByOcrSearchMatch(list, searchValue, currentSearchBib ? "bib" : "name")
+        : list;
 
     }
 
@@ -1037,10 +1586,12 @@
       const k = getPhotoKey(p);
       if (k) { photosByKey.set(k, p); orderKeys.push(k); }
     });
+    recomputeModalKeys();
 
     if (photos.length === 0) {
       if (introEl) introEl.innerHTML = "";
       mainEl.innerHTML = "<div style='color:white; text-align:center; padding:50px;'>사진이 없습니다.</div>";
+      updatePackageUI();
       return;
     }
 
@@ -1051,21 +1602,36 @@
     mainSizePlan = buildMainSizePlan(mainPhotos.length, cols);
 
     renderIntroGridPinned(introEl, introPhotos, cols);
-    renderMainGrid(mainEl, mainPhotos);
+    renderMainGrid(mainEl, mainPhotos, Math.max(0, INITIAL_VISIBLE_PHOTOS - introPhotos.length));
+    setupMainRevealObserver(mainEl, mainPhotos);
 
     applyGridInline(introEl, cols, true);
     applyGridInline(mainEl, cols, false);
 
     syncCellSizeSoon();
+    syncSelectedTrayUI();
+    requestAnimationFrame(() => requestAnimationFrame(() => fillMainGridBelowViewport(mainEl, mainPhotos)));
+
     window.addEventListener("load", () => {
       applyGridInline(introEl, lastCols, true);
       applyGridInline(mainEl, lastCols, false);
       updateCellSize();
+      fillMainGridBelowViewport(mainEl, mainPhotos);
 
-      // ✅ [추가] 리스트가 렌더링된 이후에 동기화 & UI 갱신
-      hydrateLocalSelectedFromGlobal();
-      if (window.ShoutCart) window.ShoutCart.refresh(); // UI 싱크 맞추기
+      hydrateLocalSelectedFromGlobalWithRetry();
+      if (window.ShoutCart && typeof window.ShoutCart.refresh === "function") {
+        window.ShoutCart.refresh();
+      }
+      for (const k of lockedCartKeys) {
+        syncUI(k);
+      }
+      updatePackageUI();
     }, { once: true });
+
+    window.addEventListener("shout_cart_changed", () => {
+      hydrateLocalSelectedFromGlobal();
+      updatePackageUI();
+    });
 
     if (window.ResizeObserver) {
       const ro = new ResizeObserver(() => {
@@ -1083,6 +1649,7 @@
 
         if (newCols === lastCols) {
           syncCellSizeSoon();
+          fillMainGridBelowViewport(mainEl, mainPhotos);
           return;
         }
 
@@ -1098,17 +1665,19 @@
         mainSizePlan = buildMainSizePlan(newMainPhotos.length, newCols);
 
         renderIntroGridPinned(introEl, newIntroPhotos, newCols);
-        renderMainGrid(mainEl, newMainPhotos);
+        renderMainGrid(mainEl, newMainPhotos, Math.max(0, INITIAL_VISIBLE_PHOTOS - newIntroPhotos.length));
+        setupMainRevealObserver(mainEl, newMainPhotos);
 
         applyGridInline(introEl, newCols, true);
         applyGridInline(mainEl, newCols, false);
 
         syncCellSizeSoon();
+        syncSelectedTrayUI();
+        requestAnimationFrame(() => fillMainGridBelowViewport(mainEl, newMainPhotos));
       }, 120);
     });
   }
 
   document.addEventListener("DOMContentLoaded", initGallery);
-
 })();
 </script>
