@@ -344,7 +344,7 @@
   #shoutSelectedList { display: none; }
 
   @media (max-width: 540px) {
-    #shoutSelectedTray { padding: 8px 10px 0; }
+    #shoutSelectedTray { padding: 8px 10px 0; background: transparent !important; }
     #shoutPackageCard {
       display: grid; grid-template-columns: 120px minmax(0, 1fr); column-gap: 8px; row-gap: 10px;
       padding: 12px 14px 14px; border-radius: 22px;

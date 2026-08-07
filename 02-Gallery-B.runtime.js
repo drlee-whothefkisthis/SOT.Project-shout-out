@@ -851,6 +851,7 @@ function createCardEl(photo, sizeClass) {
           #shoutModalOverlay.has-selected-tray { padding-bottom: 0 !important; background: #000 !important; }
           #shoutModalOverlay.has-selected-tray #shoutModalContainer { height: 100dvh !important; max-height: 100dvh !important; }
           #shoutModalOverlay.has-selected-tray #shoutModalImageWrap { flex: 0 0 auto !important; height: calc(100dvh - 50px - var(--shout-selected-tray-height, 0px)) !important; }
+          #shoutSelectedTray { background: transparent !important; }
         }
       </style>
       <div id="shoutModalOverlay">
@@ -936,7 +937,7 @@ function createCardEl(photo, sizeClass) {
       wrap.style.overflow = "hidden";
       wrap.style.background = "#000";
       wrap.style.boxSizing = "border-box";
-      wrap.style.padding = "14px 0px 18px 0px"; 
+      wrap.style.padding = "14px 0px 10px 0px";
 
       track.style.display = "flex";
       track.style.width = "300%";
