@@ -113,6 +113,8 @@ window.ShoutGallery.getGalleryGridCoveredBottom = function (gridEl) {
   let currentSearchBib = null; 
   let currentSearchName = null;
   let localSelectedKeys = new Set();
+  let lastSelectedTrayCount = 0;
+  let packageTraySparkleTimer = null;
   let lockedCartKeys = new Set();
   let mainRenderCount = 0;
   let mainRevealObserver = null;
@@ -1225,6 +1227,20 @@ function createCardEl(photo, sizeClass) {
     overlay.classList.add("has-selected-tray");
   }
 
+  function triggerPackageTraySparkle(card) {
+    if (!card) return;
+    if (packageTraySparkleTimer) window.clearTimeout(packageTraySparkleTimer);
+
+    card.classList.remove("is-sparkling");
+    void card.offsetWidth;
+    card.classList.add("is-sparkling");
+
+    packageTraySparkleTimer = window.setTimeout(() => {
+      card.classList.remove("is-sparkling");
+      packageTraySparkleTimer = null;
+    }, 980);
+  }
+
   function updateSelectedTray() {
     const tray = document.getElementById("shoutSelectedTray");
     const info = document.getElementById("shoutSelectedInfo");
@@ -1234,8 +1250,9 @@ function createCardEl(photo, sizeClass) {
     const countEl = document.getElementById("shoutPackageCount");
     const benefitTitle = document.getElementById("shoutPackageBenefitTitle");
     const benefitSub = document.getElementById("shoutPackageBenefitSub");
+    const packageCard = document.getElementById("shoutPackageCard");
 
-    if (!tray || !info || !list || !original || !progress || !countEl || !benefitTitle || !benefitSub) return;
+    if (!tray || !info || !list || !original || !progress || !countEl || !benefitTitle || !benefitSub || !packageCard) return;
 
     const selected = Array.from(localSelectedKeys)
       .map((k) => photosByKey.get(k))
@@ -1251,6 +1268,8 @@ function createCardEl(photo, sizeClass) {
       countEl.innerHTML = `0 <span>/ ${PACKAGE_THRESHOLD}</span>`;
       benefitTitle.textContent = "사진을 선택해 주세요";
       benefitSub.textContent = `${PACKAGE_THRESHOLD}장 이상이면 전부 ${PACKAGE_PRICE.toLocaleString()}원이 적용됩니다`;
+      packageCard.classList.remove("is-sparkling");
+      lastSelectedTrayCount = 0;
       syncModalSelectedTraySpace();
       return;
     }
@@ -1277,6 +1296,10 @@ function createCardEl(photo, sizeClass) {
       benefitTitle.textContent = `${remaining}장만 더 고르면 패키지 가격이 열려요`;
       benefitSub.textContent = `${PACKAGE_THRESHOLD}장 이상이면 장당 가격 대신 한 번에 ${PACKAGE_PRICE.toLocaleString()}원`;
     }
+
+    const justReachedPackage = count === PACKAGE_THRESHOLD && lastSelectedTrayCount !== PACKAGE_THRESHOLD;
+    lastSelectedTrayCount = count;
+    if (justReachedPackage) triggerPackageTraySparkle(packageCard);
 
     list.innerHTML = "";
     selected.forEach((item) => {

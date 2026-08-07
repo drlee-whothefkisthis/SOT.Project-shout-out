@@ -264,10 +264,17 @@
   }
   #shoutSelectedTray.is-open { display: block; transform: translateY(0); }
   #shoutPackageCard {
-    max-width: 860px; margin: 0 auto; padding: 18px 20px; border-radius: 28px;
+    position: relative; max-width: 860px; margin: 0 auto; padding: 18px 20px; border-radius: 28px;
     color: #f7f8ff; background: #202022; border: 1px solid rgba(120,153,255,0.32);
     box-shadow: 0 -8px 30px rgba(0,0,0,0.22);
   }
+  #shoutPackageCard::before,
+  #shoutPackageCard::after {
+    position: absolute; z-index: 2; color: #b9c9ff; opacity: 0; pointer-events: none; content: "✦";
+    text-shadow: 0 0 14px rgba(91,125,255,0.95); transform: translate(-50%, -50%) scale(0.25);
+  }
+  #shoutPackageCard::before { left: 32%; top: 60%; font-size: 26px; }
+  #shoutPackageCard::after { left: 72%; top: 49%; font-size: 20px; }
   .shout-package-badge {
     display: inline-flex; align-items: center; min-height: 30px; padding: 0 12px; border-radius: 12px;
     color: #7e9cff; background: rgba(77,112,255,0.15); font-size: 12px; font-weight: 800; letter-spacing: 0.02em;
@@ -275,9 +282,43 @@
   .shout-package-price-row { display: flex; align-items: baseline; gap: 14px; margin-top: 10px; }
   .shout-package-price { color: #f8f9ff; font-size: clamp(25px, 4vw, 38px); line-height: 1.08; font-weight: 800; letter-spacing: -0.055em; }
   .shout-package-original { color: #9295a3; font-size: clamp(14px, 2.3vw, 21px); font-weight: 500; text-decoration: line-through; text-decoration-thickness: 1.5px; }
-  .shout-package-progress-row { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
+  .shout-package-progress-row { position: relative; display: flex; align-items: center; gap: 14px; margin-top: 18px; }
   .shout-package-progress-track { flex: 1; height: 14px; overflow: hidden; border-radius: 999px; background: #34353c; }
   .shout-package-progress-fill { width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #3561ff 0%, #7998ff 100%); transition: width 260ms ease; }
+  .shout-package-progress-row::after {
+    position: absolute; z-index: 2; left: 54%; top: 45%; color: #fff; opacity: 0; pointer-events: none; content: "✦";
+    font-size: 16px; text-shadow: 0 0 13px rgba(111,143,255,1); transform: translate(-50%, -50%) scale(0.2);
+  }
+  #shoutPackageCard.is-sparkling .shout-package-progress-track { animation: shout-package-gauge-burst 900ms cubic-bezier(.16,.84,.32,1) both; }
+  #shoutPackageCard.is-sparkling .shout-package-progress-fill { animation: shout-package-gauge-flash 760ms ease-out both; }
+  #shoutPackageCard.is-sparkling::before { animation: shout-package-sparkle-left 780ms cubic-bezier(.12,.82,.25,1) both; }
+  #shoutPackageCard.is-sparkling::after { animation: shout-package-sparkle-right 830ms cubic-bezier(.12,.82,.25,1) both; }
+  #shoutPackageCard.is-sparkling .shout-package-progress-row::after { animation: shout-package-sparkle-center 700ms cubic-bezier(.12,.82,.25,1) both; }
+  @keyframes shout-package-gauge-burst {
+    0% { box-shadow: 0 0 0 0 rgba(104,137,255,0); }
+    22% { box-shadow: 0 0 0 3px rgba(131,158,255,0.95), 0 0 24px 8px rgba(73,109,255,0.72); }
+    100% { box-shadow: 0 0 0 11px rgba(104,137,255,0), 0 0 0 0 rgba(73,109,255,0); }
+  }
+  @keyframes shout-package-gauge-flash {
+    0%, 25% { filter: brightness(1); }
+    38% { filter: brightness(1.9); }
+    100% { filter: brightness(1); }
+  }
+  @keyframes shout-package-sparkle-left {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(.25) rotate(0deg); }
+    24% { opacity: 1; }
+    100% { opacity: 0; transform: translate(-160%, -190%) scale(1.35) rotate(100deg); }
+  }
+  @keyframes shout-package-sparkle-right {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(.25) rotate(0deg); }
+    26% { opacity: 1; }
+    100% { opacity: 0; transform: translate(95%, -250%) scale(1.18) rotate(-110deg); }
+  }
+  @keyframes shout-package-sparkle-center {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(.2); }
+    22% { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -260%) scale(1.3); }
+  }
   .shout-package-count { flex: 0 0 auto; color: #82a0ff; font-size: 27px; line-height: 1; font-weight: 800; letter-spacing: -0.05em; }
   .shout-package-count span { color: #f3f4f8; font-size: 16px; font-weight: 700; letter-spacing: -0.03em; }
   .shout-package-bottom-row { display: flex; align-items: stretch; gap: 12px; margin-top: 16px; }
