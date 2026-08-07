@@ -147,7 +147,7 @@
   #shoutModalContainer {
     position: relative; width: min(980px, 100%); min-width: 320px; height: min(85vh, 900px);
     border-radius: 18px; overflow: hidden; background: rgba(20,20,20,0.95);
-    border: 1px solid rgba(255,255,255,0.10); display: flex; flex-direction: column;
+    border: 0; display: flex; flex-direction: column;
   }
 
   /* Mobile viewer uses the whole visual viewport. When the fixed selected tray is
@@ -176,11 +176,16 @@
       height: calc(100dvh - var(--shout-selected-tray-height, 0px));
       max-height: calc(100dvh - var(--shout-selected-tray-height, 0px));
     }
+
+    #shoutModalTopbar { height: 50px; padding: 0 12px; }
+    .shoutModalBtn { height: 32px; padding: 0 11px; font-size: 13px; }
+    .shoutModalNavBtn { width: 32px; height: 32px; }
+    .shoutModalNavBtn svg { width: 22px; height: 22px; }
   }
 
   #shoutModalTopbar {
     height: 60px; display: flex; align-items: center; justify-content: space-between;
-    padding: 0 16px; background: #202022; border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 0 16px; background: #202022; border-bottom: 0;
   }
   .shoutModalBtn {
     height: 38px; padding: 0 14px; border-radius: 999px;
@@ -216,15 +221,15 @@
     transform: translateY(-50%);
     width: clamp(22px, 4vw, 44px);
     height: clamp(22px, 4vw, 44px);
-    border-radius: 999px;
-    border: 1px solid rgba(255,255,255,0.22);
-    background: rgba(255,255,255,0.10);
+    border-radius: 0;
+    border: 0;
+    background: transparent;
     color: #fff;
     display: grid;
     place-items: center;
     cursor: pointer;
-    backdrop-filter: blur(18px);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.22);
+    backdrop-filter: none;
+    box-shadow: none;
     z-index: 5;
     -webkit-tap-highlight-color: transparent;
     transition: transform 140ms ease, background 140ms ease, border-color 140ms ease, opacity 140ms ease;
@@ -234,14 +239,14 @@
     line-height: 0; 
   }
   .shoutModalNavBtn:hover{
-    background: rgba(255,255,255,0.14);
-    border-color: rgba(255,255,255,0.30);
+    background: transparent;
   }
   .shoutModalNavBtn:active{
     transform: translateY(-50%) scale(0.96);
   }
   .shoutModalNavBtn.is-left{ left: 14px; right: auto; }
   .shoutModalNavBtn.is-right{ right: 14px; left: auto; }
+  .shoutModalNavBtn.is-right svg { transform: translateX(1.5px); }
   .shoutModalNavBtn svg{
     width: 18px; height: 18px;
     display: block; 

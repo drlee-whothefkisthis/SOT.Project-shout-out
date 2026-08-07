@@ -759,7 +759,7 @@ function createCardEl(photo, sizeClass) {
       <div id="shoutModalOverlay">
         <div id="shoutModalContainer">
           <div id="shoutModalTopbar">
-            <button id="shoutModalCloseBtn" class="shoutModalBtn">← 닫기</button>
+            <button id="shoutModalCloseBtn" class="shoutModalBtn">닫기</button>
             <div id="shoutModalCounter" style="color:#fff; font-weight:600;"></div>
             <button id="shoutModalCheckBtn" class="shoutModalBtn">선택</button>
           </div>
