@@ -20,7 +20,7 @@
   --cart-arrow-zone: 22%;
   --cart-arrow-color: rgba(255,255,255,0.70);
   --cart-arrow-color-hover: rgba(255,255,255,1);
-  --cart-acc-gap: 14px;
+  --cart-acc-gap: 0px;
   --cart-acc-radius: 18px;
   --cart-acc-border: rgba(255,255,255,0.10);
   --cart-acc-bg: rgba(255,255,255,0.06);
