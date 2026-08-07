@@ -844,6 +844,15 @@ function createCardEl(photo, sizeClass) {
     if (document.getElementById("shoutModalOverlay")) return;
 
     const html = `
+      <style id="shoutModalRuntimeOverrides">
+        @media (max-width: 767px) {
+          #shoutModalTopbar { height: 50px !important; padding: 0 12px !important; border-bottom: 0 !important; }
+          #shoutModalTopbar .shoutModalBtn { height: 32px !important; padding: 0 11px !important; font-size: 13px !important; }
+          #shoutModalOverlay.has-selected-tray { padding-bottom: 0 !important; background: #000 !important; }
+          #shoutModalOverlay.has-selected-tray #shoutModalContainer { height: 100dvh !important; max-height: 100dvh !important; }
+          #shoutModalOverlay.has-selected-tray #shoutModalImageWrap { flex: 0 0 auto !important; height: calc(100dvh - 50px - var(--shout-selected-tray-height, 0px)) !important; }
+        }
+      </style>
       <div id="shoutModalOverlay">
         <div id="shoutModalContainer">
           <div id="shoutModalTopbar">

@@ -160,7 +160,8 @@
     }
 
     #shoutModalOverlay.has-selected-tray {
-      padding-bottom: var(--shout-selected-tray-height, 0px);
+      padding-bottom: 0;
+      background: #000;
     }
 
     #shoutModalContainer,
@@ -173,8 +174,15 @@
     }
 
     #shoutModalOverlay.has-selected-tray #shoutModalContainer {
-      height: calc(100dvh - var(--shout-selected-tray-height, 0px));
-      max-height: calc(100dvh - var(--shout-selected-tray-height, 0px));
+      height: 100dvh;
+      max-height: 100dvh;
+    }
+
+    /* Keep the image stage anchored below the top bar while the tray overlays
+       the remaining modal background. */
+    #shoutModalOverlay.has-selected-tray #shoutModalImageWrap {
+      flex: 0 0 auto;
+      height: calc(100dvh - 50px - var(--shout-selected-tray-height, 0px));
     }
 
     #shoutModalTopbar { height: 50px; padding: 0 12px; }
