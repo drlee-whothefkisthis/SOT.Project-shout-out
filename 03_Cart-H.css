@@ -163,7 +163,7 @@
 .cart-event-section{  border: 1px solid var(--cart-acc-border);
   background: var(--cart-acc-bg);
   border-radius: var(--cart-acc-radius);
-  padding: 14px 14px;
+  padding: 0 14px 14px;
   margin-top: var(--cart-acc-gap);
   position: relative;
   width: 100%;}
@@ -176,7 +176,7 @@
 .cart-event-left-wrapper{
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: 0;
   min-width: 0;
 }
 .cart-event-index{
