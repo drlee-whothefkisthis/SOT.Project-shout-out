@@ -846,11 +846,12 @@ function createCardEl(photo, sizeClass) {
     const html = `
       <style id="shoutModalRuntimeOverrides">
         @media (max-width: 767px) {
-          #shoutModalTopbar { height: 50px !important; padding: 0 12px !important; border-bottom: 0 !important; }
+          #shoutModalTopbar { height: 40px !important; padding: 0 12px !important; align-items: flex-start !important; border-bottom: 0 !important; }
           #shoutModalTopbar .shoutModalBtn { height: 32px !important; padding: 0 11px !important; font-size: 13px !important; }
           #shoutModalOverlay.has-selected-tray { padding-bottom: 0 !important; background: #000 !important; }
           #shoutModalOverlay.has-selected-tray #shoutModalContainer { height: 100dvh !important; max-height: 100dvh !important; }
-          #shoutModalOverlay.has-selected-tray #shoutModalImageWrap { flex: 0 0 auto !important; height: calc(100dvh - 50px - var(--shout-selected-tray-height, 0px)) !important; }
+          #shoutModalOverlay.has-selected-tray #shoutModalImageWrap { flex: 0 0 auto !important; height: calc(100dvh - 40px - var(--shout-selected-tray-height, 0px)) !important; }
+          .shoutModalNavBtn { top: calc(40px + (100dvh - 40px - var(--shout-selected-tray-height, 0px)) / 2) !important; }
           #shoutSelectedTray { background: transparent !important; }
         }
       </style>

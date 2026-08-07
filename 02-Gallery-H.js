@@ -182,12 +182,15 @@
        the remaining modal background. */
     #shoutModalOverlay.has-selected-tray #shoutModalImageWrap {
       flex: 0 0 auto;
-      height: calc(100dvh - 50px - var(--shout-selected-tray-height, 0px));
+      height: calc(100dvh - 40px - var(--shout-selected-tray-height, 0px));
     }
 
-    #shoutModalTopbar { height: 50px; padding: 0 12px; }
+    #shoutModalTopbar { height: 40px; padding: 0 12px; align-items: flex-start; }
     .shoutModalBtn { height: 32px; padding: 0 11px; font-size: 13px; }
-    .shoutModalNavBtn { width: 32px; height: 32px; }
+    .shoutModalNavBtn {
+      top: calc(40px + (100dvh - 40px - var(--shout-selected-tray-height, 0px)) / 2);
+      width: 32px; height: 32px;
+    }
     .shoutModalNavBtn svg { width: 22px; height: 22px; }
   }
 
