@@ -303,6 +303,7 @@ onShoutCartReady(function() {
     }
   }
   const TOSS_CLIENT_KEY = "live_gck_GePWvyJnrKJE7jdbB9L1VgLzN97E";
+  const TOSS_SDK_URL = "https://js.tosspayments.com/v2/standard";
   const SUCCESS_URL = window.location.origin + "/payments-results/success";
   const FAIL_URL = window.location.origin + "/payments-results/fail";
   const CHECKOUT_PAGE_URL = window.location.origin + "/checkout";
@@ -336,6 +337,52 @@ onShoutCartReady(function() {
   let paymentWidgetCustomerKey = "";
   let paymentWidgetLastAmount = null;
   let paymentModalOpen = false;
+  let tossSdkPromise = null;
+
+  function ensureTossPaymentsSdk() {
+    if (typeof window.TossPayments === "function") return Promise.resolve(window.TossPayments);
+    if (tossSdkPromise) return tossSdkPromise;
+
+    tossSdkPromise = new Promise((resolve, reject) => {
+      const selector = `script[src="${TOSS_SDK_URL}"]`;
+      const existing = document.querySelector(selector);
+      const sdkScript = existing || document.createElement("script");
+      let settled = false;
+      let timeoutId = null;
+
+      const settle = (error) => {
+        if (settled) return;
+        settled = true;
+        if (timeoutId) window.clearTimeout(timeoutId);
+        sdkScript.removeEventListener("load", onLoad);
+        sdkScript.removeEventListener("error", onError);
+        if (error) {
+          tossSdkPromise = null;
+          reject(error);
+        } else {
+          resolve(window.TossPayments);
+        }
+      };
+      const onLoad = () => {
+        if (typeof window.TossPayments === "function") settle();
+        else settle(new Error("TossPayments SDK loaded without a global API"));
+      };
+      const onError = () => settle(new Error("TossPayments SDK failed to load"));
+
+      sdkScript.addEventListener("load", onLoad, { once: true });
+      sdkScript.addEventListener("error", onError, { once: true });
+      timeoutId = window.setTimeout(() => onError(), 15000);
+
+      if (!existing) {
+        sdkScript.src = TOSS_SDK_URL;
+        sdkScript.async = true;
+        sdkScript.dataset.shoutTossSdk = "true";
+        document.head.appendChild(sdkScript);
+      }
+    });
+
+    return tossSdkPromise;
+  }
 
   function getOrCreateAnonymousCustomerKey() {
     try {
@@ -620,8 +667,10 @@ onShoutCartReady(function() {
     if (!hasItems) return;
     updatePaymentModalSummary(amountValue);
 
-    if (typeof TossPayments !== "function") {
-      warn("widget.sdkMissing", new Error("TossPayments SDK missing"));
+    try {
+      await ensureTossPaymentsSdk();
+    } catch (e) {
+      warn("widget.sdkMissing", e);
       return;
     }
 
@@ -632,7 +681,7 @@ onShoutCartReady(function() {
     try {
       if (shouldRecreate) {
         paymentWidgetCustomerKey = nextCustomerKey;
-        tossPaymentsInstance = TossPayments(TOSS_CLIENT_KEY);
+        tossPaymentsInstance = window.TossPayments(TOSS_CLIENT_KEY);
         paymentWidgets = tossPaymentsInstance.widgets({
           customerKey: paymentWidgetCustomerKey
         });
@@ -839,7 +888,10 @@ onShoutCartReady(function() {
         alert("주문 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
         return; 
       }
-      if (typeof TossPayments !== "function") {
+      try {
+        await ensureTossPaymentsSdk();
+      } catch (e) {
+        warn("payment.sdkMissing", e);
         alert("결제 모듈을 불러오지 못했습니다. (TossPayments)");
         return;
       }
