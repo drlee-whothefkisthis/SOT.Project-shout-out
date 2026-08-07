@@ -332,16 +332,19 @@
 
   @media (max-width: 540px) {
     #shoutSelectedTray { padding: 8px 10px 0; }
-    #shoutPackageCard { padding: 14px; border-radius: 22px; }
-    .shout-package-badge { min-height: 27px; padding: 0 10px; font-size: 11px; }
-    .shout-package-price-row { gap: 10px; margin-top: 8px; }
-    .shout-package-price { font-size: 26px; }
-    .shout-package-original { font-size: 14px; }
-    .shout-package-progress-row { gap: 10px; margin-top: 14px; }
+    #shoutPackageCard {
+      display: grid; grid-template-columns: 120px minmax(0, 1fr); column-gap: 8px; row-gap: 10px;
+      padding: 12px 14px 14px; border-radius: 22px;
+    }
+    .shout-package-badge { align-self: center; min-height: 25px; padding: 0 10px; font-size: 10px; white-space: nowrap; }
+    .shout-package-price-row { min-width: 0; align-self: center; gap: 7px; margin-top: 0; white-space: nowrap; }
+    .shout-package-price { font-size: 24px; }
+    .shout-package-original { flex: 0 0 auto; font-size: 12px; }
+    .shout-package-progress-row { grid-column: 1 / -1; gap: 10px; margin-top: 0; }
     .shout-package-progress-track { height: 12px; }
     .shout-package-count { font-size: 23px; }
     .shout-package-count span { font-size: 14px; }
-    .shout-package-bottom-row { gap: 8px; margin-top: 12px; }
+    .shout-package-bottom-row { grid-column: 1 / -1; gap: 8px; margin-top: 0; }
     .shout-package-benefit { gap: 9px; padding: 8px 10px; border-radius: 15px; }
     .shout-package-star { flex-basis: 33px; width: 33px; height: 33px; border-radius: 11px; font-size: 19px; }
     .shout-package-benefit-copy strong { font-size: 12px; }
