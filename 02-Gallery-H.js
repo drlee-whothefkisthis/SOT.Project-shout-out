@@ -180,7 +180,7 @@
 
   #shoutModalTopbar {
     height: 60px; display: flex; align-items: center; justify-content: space-between;
-    padding: 0 16px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 0 16px; background: #202022; border-bottom: 1px solid rgba(255,255,255,0.08);
   }
   .shoutModalBtn {
     height: 38px; padding: 0 14px; border-radius: 999px;
@@ -259,8 +259,8 @@
   #shoutSelectedTray {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 100001; display: none;
     padding: 12px max(12px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
-    background: rgba(32,32,34,0.88); border-top: 1px solid rgba(255,255,255,0.08);
-    backdrop-filter: blur(18px); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    background: #000; border-top: 0;
+    backdrop-filter: none; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   #shoutSelectedTray.is-open { display: block; transform: translateY(0); }
   #shoutPackageCard {
