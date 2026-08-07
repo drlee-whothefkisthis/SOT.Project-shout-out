@@ -148,6 +148,35 @@
     border-radius: 18px; overflow: hidden; background: rgba(20,20,20,0.95);
     border: 1px solid rgba(255,255,255,0.10); display: flex; flex-direction: column;
   }
+
+  /* Mobile viewer uses the whole visual viewport. When the fixed selected tray is
+     visible, the modal fills every remaining pixel above it instead of re-centring. */
+  @media (max-width: 767px) {
+    #shoutModalOverlay {
+      padding: 0;
+      align-items: stretch;
+      justify-content: stretch;
+    }
+
+    #shoutModalOverlay.has-selected-tray {
+      padding-bottom: var(--shout-selected-tray-height, 0px);
+    }
+
+    #shoutModalContainer,
+    #shoutModalOverlay.has-selected-tray #shoutModalContainer {
+      width: 100%;
+      min-width: 0;
+      height: 100dvh;
+      max-height: 100dvh;
+      border-radius: 0;
+    }
+
+    #shoutModalOverlay.has-selected-tray #shoutModalContainer {
+      height: calc(100dvh - var(--shout-selected-tray-height, 0px));
+      max-height: calc(100dvh - var(--shout-selected-tray-height, 0px));
+    }
+  }
+
   #shoutModalTopbar {
     height: 60px; display: flex; align-items: center; justify-content: space-between;
     padding: 0 16px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.08);
