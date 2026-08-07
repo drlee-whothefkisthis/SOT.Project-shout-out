@@ -291,7 +291,13 @@
 .cart-preview-thumbs{
   display: flex;
   gap: var(--cart-thumb-gap);
-  overflow-x: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
   overflow-y: visible;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -345,12 +351,10 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity 160ms ease, transform 160ms ease;
-  opacity: 1 !important;
-  pointer-events: auto !important;}
+}
 .cart-preview-thumbs-wrap.is-overflow .sh-thumb-nav-btn{  opacity: 1;
   pointer-events: auto;
-  opacity: 1 !important;
-  pointer-events: auto !important;}
+}
 .cart-preview-thumbs-wrap .sh-thumb-nav-btn.is-left{ left: var(--thumb-nav-btn-offset); }
 .cart-preview-thumbs-wrap .sh-thumb-nav-btn.is-right{ right: var(--thumb-nav-btn-offset); }
 .cart-preview-thumbs-wrap .sh-thumb-nav-btn:disabled{
@@ -378,8 +382,8 @@
 }
 
 .cart-preview-thumbs-wrap .sh-thumb-nav-btn.is-disabled{
-  opacity: 0.35 !important;
-  pointer-events: auto !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 body{

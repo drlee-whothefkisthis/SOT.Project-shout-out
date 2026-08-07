@@ -1464,23 +1464,23 @@ onShoutCartReady(function() {
     const ui = buildSectionPreviewDOM();
     mountEl.innerHTML = "";
     mountEl.appendChild(ui.wrap);
-    const __thumbWrap = ui.thumbsWrap;
+    const __thumbScroller = ui.thumbs;
     const __gk = (list && list[0]) ? getGroupKey(list[0]) : "";
     let idx = 0;
     if (__gk && list.length) {
       const saved = __secPreviewIdxByGroupKey.get(__gk);
       if (Number.isFinite(saved)) idx = Math.max(0, Math.min(list.length - 1, saved));
     }
-    if (__gk && __thumbWrap) {
+    if (__gk && __thumbScroller) {
       const sLeft = __secThumbScrollByGroupKey.get(__gk);
       if (Number.isFinite(sLeft)) {
         try {
-          __thumbWrap.scrollLeft = sLeft;
+          __thumbScroller.scrollLeft = sLeft;
         } catch (e) { warn("silent catch: thumbScroll.restore", e); }
       }
-      __thumbWrap.addEventListener('scroll', () => {
+      __thumbScroller.addEventListener('scroll', () => {
         try {
-          __secThumbScrollByGroupKey.set(__gk, __thumbWrap.scrollLeft || 0);
+          __secThumbScrollByGroupKey.set(__gk, __thumbScroller.scrollLeft || 0);
         } catch (e) { warn("silent catch: thumbScroll.save", e); }
       }, {
         passive: true
@@ -1538,7 +1538,7 @@ onShoutCartReady(function() {
         const pid = getSecPid();
         if (!pid) return;
         const __y = window.scrollY || 0;
-        const __sl = (__thumbWrap && __thumbWrap.scrollLeft) ? __thumbWrap.scrollLeft : 0;
+        const __sl = (__thumbScroller && __thumbScroller.scrollLeft) ? __thumbScroller.scrollLeft : 0;
         toggleSelectedId(pid);
         try {
           snapshotOpenGroupKeys();
@@ -1554,7 +1554,7 @@ onShoutCartReady(function() {
             window.scrollTo(0, __y);
           } catch (e4) {}
           try {
-            if (__gk && __thumbWrap) __thumbWrap.scrollLeft = __sl;
+            if (__gk && __thumbScroller) __thumbScroller.scrollLeft = __sl;
           } catch (e5) {}
         }, 0);
       });
@@ -1598,7 +1598,7 @@ onShoutCartReady(function() {
       if (scroller.dataset) scroller.dataset.grabScrollReady = "1";
       try { scroller.dataset.grabDragged = "0"; } catch (e) { warn("silent catch: grabScroll.dataset", e); }
 
-      const DRAG_THRESHOLD_PX = 6;
+      const DRAG_THRESHOLD_PX = 10;
       const DRAG_SPEED = 1.2;
 
       let isDown = false;
@@ -1626,7 +1626,11 @@ onShoutCartReady(function() {
         if (!isDown) return;
         if (activePointerId != null && e.pointerId !== activePointerId) return;
         const dx = e.clientX - startX;
-        if (Math.abs(dx) > DRAG_THRESHOLD_PX) { dragged = true; try { scroller.dataset.grabDragged = "1"; } catch (e) { warn("silent catch: grabScroll.dataset", e); } }
+        if (Math.abs(dx) > DRAG_THRESHOLD_PX) {
+          dragged = true;
+          try { scroller.dataset.grabDragged = "1"; } catch (e) { warn("silent catch: grabScroll.dataset", e); }
+        }
+        if (!dragged) return;
         e.preventDefault();
         scroller.scrollLeft = startScrollLeft - dx * DRAG_SPEED;
       }
@@ -2073,6 +2077,7 @@ function renderThumbs() {
         leftBtn = document.createElement("button");
         leftBtn.type = "button";
         leftBtn.className = "sh-thumb-nav-btn is-left";
+        leftBtn.setAttribute("aria-label", "이전 썸네일");
         leftBtn.textContent = "‹";
         thumbsWrap.appendChild(leftBtn);
       }
@@ -2080,6 +2085,7 @@ function renderThumbs() {
         rightBtn = document.createElement("button");
         rightBtn.type = "button";
         rightBtn.className = "sh-thumb-nav-btn is-right";
+        rightBtn.setAttribute("aria-label", "다음 썸네일");
         rightBtn.textContent = "›";
         thumbsWrap.appendChild(rightBtn);
       }
@@ -2090,11 +2096,15 @@ function renderThumbs() {
         if (!hasOverflow) {
           leftBtn.disabled = true;
           rightBtn.disabled = true;
+          leftBtn.classList.add("is-disabled");
+          rightBtn.classList.add("is-disabled");
           return;
         }
         const x = thumbRowEl.scrollLeft;
         leftBtn.disabled = x <= 1;
         rightBtn.disabled = x >= (max - 1);
+        leftBtn.classList.toggle("is-disabled", leftBtn.disabled);
+        rightBtn.classList.toggle("is-disabled", rightBtn.disabled);
       };
       const step = () => Math.max(140, Math.floor(thumbRowEl.clientWidth * 0.7));
       leftBtn.onclick = () => {
@@ -2117,9 +2127,16 @@ function renderThumbs() {
           passive: true
         });
         window.addEventListener("resize", update);
+        thumbRowEl.addEventListener("wheel", (e) => {
+          const delta = Math.abs(e.deltaX) > 0.5 ? e.deltaX : (e.shiftKey ? e.deltaY : 0);
+          if (!delta || thumbRowEl.scrollWidth <= thumbRowEl.clientWidth + 2) return;
+          e.preventDefault();
+          thumbRowEl.scrollBy({ left: delta, behavior: "auto" });
+        }, { passive: false });
       }
       requestAnimationFrame(() => requestAnimationFrame(update));
       setTimeout(update, 120);
+      setTimeout(update, 420);
     }
     ui.prev.addEventListener("click", () => {
       if (idx <= 0) return;
