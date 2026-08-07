@@ -1147,6 +1147,7 @@ function createCardEl(photo, sizeClass) {
   function syncModalCheckUI(key) {
     const btn = document.getElementById("shoutModalCheckBtn");
     const media = document.getElementById("shoutModalCurrent");
+    const wrap = document.getElementById("shoutModalImageWrap");
 
     if (isLockedByKey(key)) {
       if (btn) btn.classList.remove("is-selected");
@@ -1155,15 +1156,23 @@ function createCardEl(photo, sizeClass) {
         media.style.outline = "none";
         media.style.outlineOffset = "";
       }
+      if (wrap) {
+        wrap.classList.remove("is-selected");
+        wrap.style.boxShadow = "none";
+      }
       return;
     }
 
     if (isSelectedByKey(key)) {
       if (btn) btn.classList.add("is-selected");
       if (media) {
-        media.classList.add("is-selected");
-        media.style.outline = "3px solid #2F80FF";
-        media.style.outlineOffset = "-3px";
+        media.classList.remove("is-selected");
+        media.style.outline = "none";
+        media.style.outlineOffset = "";
+      }
+      if (wrap) {
+        wrap.classList.add("is-selected");
+        wrap.style.boxShadow = "inset 0 0 0 3px #2F80FF";
       }
     } else {
       if (btn) btn.classList.remove("is-selected");
@@ -1171,6 +1180,10 @@ function createCardEl(photo, sizeClass) {
         media.classList.remove("is-selected");
         media.style.outline = "none";
         media.style.outlineOffset = "";
+      }
+      if (wrap) {
+        wrap.classList.remove("is-selected");
+        wrap.style.boxShadow = "none";
       }
     }
   }
