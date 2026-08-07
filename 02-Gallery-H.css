@@ -255,20 +255,57 @@
   }
 
 
-    #shoutSelectedTray {
+  #shoutSelectedTray {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 100001; display: none;
-    padding: 14px 16px 20px 16px; background: rgba(20,20,20,0.92);
-    border-top: 1px solid rgba(255,255,255,0.12);
-    backdrop-filter: blur(16px); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    padding: 12px max(12px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    background: rgba(32,32,34,0.88); border-top: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(18px); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   #shoutSelectedTray.is-open { display: block; transform: translateY(0); }
-  #shoutSelectedTrayTop { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-  #shoutSelectedInfo { color: #fff; font-weight: 700; font-size: 15px; }
-  #shoutGoCartBtn { background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; }
-  #shoutSelectedList { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
-  #shoutSelectedList::-webkit-scrollbar { display: none; }
-  .shoutMiniThumb { flex: 0 0 50px; height: 50px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.2); }
-  .shoutMiniThumb img { width: 100%; height: 100%; object-fit: cover; }
+  #shoutPackageCard {
+    max-width: 860px; margin: 0 auto; padding: 18px 20px; border-radius: 28px;
+    color: #f7f8ff; background: #202022; border: 1px solid rgba(120,153,255,0.32);
+    box-shadow: 0 -8px 30px rgba(0,0,0,0.22);
+  }
+  .shout-package-badge {
+    display: inline-flex; align-items: center; min-height: 30px; padding: 0 12px; border-radius: 12px;
+    color: #7e9cff; background: rgba(77,112,255,0.15); font-size: 12px; font-weight: 800; letter-spacing: 0.02em;
+  }
+  .shout-package-price-row { display: flex; align-items: baseline; gap: 14px; margin-top: 10px; }
+  .shout-package-price { color: #f8f9ff; font-size: clamp(25px, 4vw, 38px); line-height: 1.08; font-weight: 800; letter-spacing: -0.055em; }
+  .shout-package-original { color: #9295a3; font-size: clamp(14px, 2.3vw, 21px); font-weight: 500; text-decoration: line-through; text-decoration-thickness: 1.5px; }
+  .shout-package-progress-row { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
+  .shout-package-progress-track { flex: 1; height: 14px; overflow: hidden; border-radius: 999px; background: #34353c; }
+  .shout-package-progress-fill { width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #3561ff 0%, #7998ff 100%); transition: width 260ms ease; }
+  .shout-package-count { flex: 0 0 auto; color: #82a0ff; font-size: 27px; line-height: 1; font-weight: 800; letter-spacing: -0.05em; }
+  .shout-package-count span { color: #f3f4f8; font-size: 16px; font-weight: 700; letter-spacing: -0.03em; }
+  .shout-package-bottom-row { display: flex; align-items: stretch; gap: 12px; margin-top: 16px; }
+  .shout-package-benefit { flex: 1; display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 14px; border: 1px solid rgba(106,142,255,0.48); border-radius: 18px; background: #292a31; }
+  .shout-package-star { flex: 0 0 40px; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 13px; color: #80a0ff; background: rgba(77,112,255,0.2); font-size: 23px; }
+  .shout-package-benefit-copy { display: grid; gap: 3px; min-width: 0; }
+  .shout-package-benefit-copy strong { overflow: hidden; color: #f5f6fa; font-size: 14px; font-weight: 750; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+  .shout-package-benefit-copy span { overflow: hidden; color: #b1b4c0; font-size: 12px; font-weight: 500; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+  #shoutGoCartBtn { flex: 0 0 auto; min-width: 116px; padding: 0 18px; border: 1px solid #b7c7ff; border-radius: 18px; color: #202022; background: #f5f6fb; font-size: 18px; font-weight: 800; cursor: pointer; }
+  #shoutSelectedList { display: none; }
+
+  @media (max-width: 540px) {
+    #shoutSelectedTray { padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); }
+    #shoutPackageCard { padding: 14px; border-radius: 22px; }
+    .shout-package-badge { min-height: 27px; padding: 0 10px; font-size: 11px; }
+    .shout-package-price-row { gap: 10px; margin-top: 8px; }
+    .shout-package-price { font-size: 26px; }
+    .shout-package-original { font-size: 14px; }
+    .shout-package-progress-row { gap: 10px; margin-top: 14px; }
+    .shout-package-progress-track { height: 12px; }
+    .shout-package-count { font-size: 23px; }
+    .shout-package-count span { font-size: 14px; }
+    .shout-package-bottom-row { gap: 8px; margin-top: 12px; }
+    .shout-package-benefit { gap: 9px; padding: 8px 10px; border-radius: 15px; }
+    .shout-package-star { flex-basis: 33px; width: 33px; height: 33px; border-radius: 11px; font-size: 19px; }
+    .shout-package-benefit-copy strong { font-size: 12px; }
+    .shout-package-benefit-copy span { font-size: 10px; }
+    #shoutGoCartBtn { min-width: 84px; padding: 0 10px; border-radius: 15px; font-size: 16px; }
+  }
 
 .gallery-card{
   position:relative;

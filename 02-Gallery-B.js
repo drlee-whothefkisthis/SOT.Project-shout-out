@@ -780,11 +780,28 @@ function createCardEl(photo, sizeClass) {
       </div>
 
       <div id="shoutSelectedTray">
-        <div id="shoutSelectedTrayTop">
-          <div id="shoutSelectedInfo">0장 선택</div>
-          <button id="shoutGoCartBtn">장바구니 →</button>
+        <div id="shoutPackageCard">
+          <div class="shout-package-badge">✦&nbsp; ALL-IN PACKAGE</div>
+          <div class="shout-package-price-row">
+            <div id="shoutSelectedInfo" class="shout-package-price">0장 0원</div>
+            <div id="shoutPackageOriginal" class="shout-package-original" hidden></div>
+          </div>
+          <div class="shout-package-progress-row">
+            <div class="shout-package-progress-track"><div id="shoutPackageProgressFill" class="shout-package-progress-fill"></div></div>
+            <div id="shoutPackageCount" class="shout-package-count">0 <span>/ 5</span></div>
+          </div>
+          <div class="shout-package-bottom-row">
+            <div class="shout-package-benefit">
+              <div class="shout-package-star">✦</div>
+              <div class="shout-package-benefit-copy">
+                <strong id="shoutPackageBenefitTitle">사진을 선택해 주세요</strong>
+                <span id="shoutPackageBenefitSub">5장 이상이면 전부 24,900원이 적용됩니다</span>
+              </div>
+            </div>
+            <button id="shoutGoCartBtn">장바구니</button>
+          </div>
         </div>
-        <div id="shoutSelectedList"></div>
+        <div id="shoutSelectedList" aria-hidden="true"></div>
       </div>
     `;
 
@@ -1124,8 +1141,13 @@ function createCardEl(photo, sizeClass) {
     const tray = document.getElementById("shoutSelectedTray");
     const info = document.getElementById("shoutSelectedInfo");
     const list = document.getElementById("shoutSelectedList");
+    const original = document.getElementById("shoutPackageOriginal");
+    const progress = document.getElementById("shoutPackageProgressFill");
+    const countEl = document.getElementById("shoutPackageCount");
+    const benefitTitle = document.getElementById("shoutPackageBenefitTitle");
+    const benefitSub = document.getElementById("shoutPackageBenefitSub");
 
-    if (!tray || !info || !list) return;
+    if (!tray || !info || !list || !original || !progress || !countEl || !benefitTitle || !benefitSub) return;
 
     const selected = Array.from(localSelectedKeys)
       .map((k) => photosByKey.get(k))
@@ -1134,7 +1156,13 @@ function createCardEl(photo, sizeClass) {
     if (selected.length === 0) {
       tray.classList.remove("is-open");
       list.innerHTML = "";
-      info.textContent = "0장 선택";
+      info.textContent = "0장 0원";
+      original.textContent = "";
+      original.hidden = true;
+      progress.style.width = "0%";
+      countEl.innerHTML = `0 <span>/ ${PACKAGE_THRESHOLD}</span>`;
+      benefitTitle.textContent = "사진을 선택해 주세요";
+      benefitSub.textContent = `${PACKAGE_THRESHOLD}장 이상이면 전부 ${PACKAGE_PRICE.toLocaleString()}원이 적용됩니다`;
       syncModalSelectedTraySpace();
       return;
     }
@@ -1142,15 +1170,25 @@ function createCardEl(photo, sizeClass) {
     tray.classList.add("is-open");
 
     const count = selected.length;
+    const regularPrice = count * UNIT_PRICE;
+    const hasPackage = count >= PACKAGE_THRESHOLD;
     const totalPrice =
-      count >= PACKAGE_THRESHOLD ? PACKAGE_PRICE : count * UNIT_PRICE;
+      hasPackage ? PACKAGE_PRICE : regularPrice;
 
-    const packageLabel =
-      count >= PACKAGE_THRESHOLD
-        ? `<span style="font-size:12px; color:#fff; background:#e11d48; padding:2px 6px; border-radius:4px; margin-left:6px;">패키지 적용</span>`
-        : "";
+    info.textContent = `${count}장 ${totalPrice.toLocaleString()}원`;
+    original.textContent = hasPackage ? `${regularPrice.toLocaleString()}원` : "";
+    original.hidden = !hasPackage;
+    progress.style.width = `${Math.min(100, (count / PACKAGE_THRESHOLD) * 100)}%`;
+    countEl.innerHTML = `${count} <span>/ ${PACKAGE_THRESHOLD}</span>`;
 
-    info.innerHTML = `${count}장 <span style="color:#60a5fa; margin-left:4px;">(${totalPrice.toLocaleString()}원)</span> ${packageLabel}`;
+    if (hasPackage) {
+      benefitTitle.textContent = "패키지 혜택이 적용됐어요";
+      benefitSub.textContent = `${regularPrice.toLocaleString()}원 대신 전부 ${PACKAGE_PRICE.toLocaleString()}원`;
+    } else {
+      const remaining = PACKAGE_THRESHOLD - count;
+      benefitTitle.textContent = `${remaining}장만 더 고르면 패키지 가격이 열려요`;
+      benefitSub.textContent = `${PACKAGE_THRESHOLD}장 이상이면 장당 가격 대신 한 번에 ${PACKAGE_PRICE.toLocaleString()}원`;
+    }
 
     list.innerHTML = "";
     selected.forEach((item) => {
