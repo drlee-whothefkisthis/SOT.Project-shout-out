@@ -248,6 +248,12 @@
   -webkit-user-select: none;
   user-select: none;
 }
+@media (max-width: 767px){
+  .cart-preview-current{
+    /* Keep the portrait image contained while extending the preview card to the fixed checkout bar. */
+    aspect-ratio: 1 / 1.18;
+  }
+}
 .cart-preview-nav{
   display: flex;
   justify-content: space-between;
