@@ -2090,6 +2090,10 @@ function renderThumbs() {
         thumbsWrap.appendChild(rightBtn);
       }
       const update = () => {
+        // Reserve the thumbnail-navigation area before measuring. Without this,
+        // the first render can look like it fits; a later thumbnail click then
+        // scrolls the row and makes the controls suddenly appear.
+        thumbsWrap.classList.add("is-overflow");
         const max = thumbRowEl.scrollWidth - thumbRowEl.clientWidth;
         const hasOverflow = max > 2;
         thumbsWrap.classList.toggle("is-overflow", hasOverflow);
@@ -2137,6 +2141,7 @@ function renderThumbs() {
       requestAnimationFrame(() => requestAnimationFrame(update));
       setTimeout(update, 120);
       setTimeout(update, 420);
+      setTimeout(update, 900);
     }
     ui.prev.addEventListener("click", () => {
       if (idx <= 0) return;
