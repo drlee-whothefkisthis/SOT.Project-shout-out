@@ -1362,7 +1362,6 @@ onShoutCartReady(function() {
     next.className = "cart-preview-btn cart-preview-next";
     next.textContent = "다음";
     wrap.classList.add("sh-cart-preview-host");
-    injectArrowZones(wrap);
     const csWrap = window.getComputedStyle(wrap);
     if (csWrap.position === "static") wrap.style.position = "relative";
     const prevOverlay = document.createElement("button");
@@ -1388,6 +1387,7 @@ onShoutCartReady(function() {
     thumbsWrap.appendChild(thumbs);
     wrap.appendChild(current);
     wrap.appendChild(thumbsWrap);
+    injectArrowZones(wrap);
     return {
       wrap,
       current,
@@ -2265,9 +2265,11 @@ function renderThumbs() {
   function removeItem(index) {
     const removed = cartItems[index];
     const removedId = removed && removed._id ? String(removed._id) : "";
+    let rerenderHandledByCartEvent = false;
     if (removedId && window.ShoutCart && typeof window.ShoutCart.remove === "function") {
       try {
         window.ShoutCart.remove(removedId);
+        rerenderHandledByCartEvent = true;
         cartItems = (window.ShoutCart.getItems && window.ShoutCart.getItems()) || [];
         cartData = {
           items: cartItems
@@ -2288,7 +2290,7 @@ function renderThumbs() {
       cartData = __shout_syncRootBib(cartData);
     localStorage.setItem("shout_cart_data", JSON.stringify(cartData));
     }
-rerenderCartUI();
+    if (!rerenderHandledByCartEvent) rerenderCartUI();
   }
 
   function encourageTag(t) {
@@ -2388,18 +2390,24 @@ function injectArrowZones(root) {
     } catch (e) {}
 
     hosts.forEach((host) => {
-      if (host.querySelector(".sh-arrow-zone")) return;
-
       const prevBtn = host.querySelector("#cart-prev-btn, .sh-cart-nav-btn.is-prev");
       const nextBtn = host.querySelector("#cart-next-btn, .sh-cart-nav-btn.is-next");
+      if (!prevBtn && !nextBtn) return;
+
+      const zoneHost = host.querySelector(".cart-preview-current") || host;
+      if (zoneHost.querySelector(".sh-arrow-zone")) return;
+      try {
+        const zoneHostStyle = window.getComputedStyle(zoneHost);
+        if (zoneHostStyle.position === "static") zoneHost.style.position = "relative";
+      } catch (e) {}
 
       const leftZone = document.createElement("div");
       leftZone.className = "sh-arrow-zone is-left";
       const rightZone = document.createElement("div");
       rightZone.className = "sh-arrow-zone is-right";
 
-      host.appendChild(leftZone);
-      host.appendChild(rightZone);
+      zoneHost.appendChild(leftZone);
+      zoneHost.appendChild(rightZone);
 
       function setHot(which, on) {
         if (which === "prev") host.classList.toggle("sh-arrow-hot-prev", !!on);

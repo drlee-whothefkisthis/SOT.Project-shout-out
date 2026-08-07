@@ -354,7 +354,8 @@
 .cart-preview-thumbs-wrap .sh-thumb-nav-btn.is-left{ left: var(--thumb-nav-btn-offset); }
 .cart-preview-thumbs-wrap .sh-thumb-nav-btn.is-right{ right: var(--thumb-nav-btn-offset); }
 .cart-preview-thumbs-wrap .sh-thumb-nav-btn:disabled{
-  opacity: 0.35 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
   cursor: default;
 }
 .cart-preview-thumbs-wrap.is-overflow::before,
