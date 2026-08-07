@@ -331,7 +331,7 @@
   #shoutSelectedList { display: none; }
 
   @media (max-width: 540px) {
-    #shoutSelectedTray { padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); }
+    #shoutSelectedTray { padding: 8px 10px 0; }
     #shoutPackageCard { padding: 14px; border-radius: 22px; }
     .shout-package-badge { min-height: 27px; padding: 0 10px; font-size: 11px; }
     .shout-package-price-row { gap: 10px; margin-top: 8px; }
