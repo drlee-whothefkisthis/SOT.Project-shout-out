@@ -766,8 +766,7 @@
   }
 
   const BUBBLE_API_BASE = "https://plp-62309.bubbleapps.io"; 
-  const API_CREATE_EVENT = "/api/1.1/wf/auto-create-event";
-  const API_DATA_EVENT = "/api/1.1/obj/event";
+  const API_ADMIN = "/api/1.1/wf/admin-api";
   const API_AUTH_LOGIN = "/api/1.1/wf/auth-kakao-login"; 
   const BIB_MIN_DIGITS_DEFAULT = 4;
   const SOT_LOADER_DEFAULT_MESSAGE = "데이터를 가져오는 중입니다!!";
@@ -798,6 +797,49 @@
   let sotDashActiveSection = "overview";
   let sotDashActiveTab = "summary";
   let sotDashEventFilter = "all";
+
+  function adminAccessToken() {
+    return sessionStorage.getItem("shout_access_token") || "";
+  }
+
+  async function callAdminApi(action, payload) {
+    const accessToken = adminAccessToken();
+    if (!accessToken) throw new Error("ADMIN_AUTH_REQUIRED");
+
+    const res = await fetch(BUBBLE_API_BASE + API_ADMIN, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...(payload || {}),
+        action,
+        access_token: accessToken
+      })
+    });
+
+    const text = await res.text().catch(() => "");
+    let data = {};
+    if (text) {
+      try { data = JSON.parse(text); }
+      catch (_) { data = { message: text }; }
+    }
+
+    if (!res.ok) {
+      const message = data?.response?.message || data?.message || `HTTP ${res.status}`;
+      const error = new Error(message);
+      error.status = res.status;
+      error.body = data;
+      throw error;
+    }
+
+    return data && (data.response || data);
+  }
+
+  function adminEventList(payload) {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.events)) return payload.events;
+    if (Array.isArray(payload?.results)) return payload.results;
+    return [];
+  }
   let sotDashPeriodFilter = "all";
   let sotDashSourceFilter = "all";
   let sotDashFetchCount = 0;
@@ -1461,9 +1503,8 @@
     const refreshDashboard = opts.refreshDashboard === true;
     $("#sh_tbody").innerHTML = "<tr><td colspan='6' style='text-align:center;'>로드 중...</td></tr>";
     try {
-      const res = await fetch(BUBBLE_API_BASE + API_DATA_EVENT);
-      const data = await res.json();
-      allEvents = data.response.results || [];
+      const data = await callAdminApi("event_list");
+      allEvents = adminEventList(data);
       syncFieldReportDraftsFromEvents(allEvents);
       syncMonthFilterOptions();
       applyEventFilters();
@@ -1473,7 +1514,10 @@
         if (activeAdminView === "legacy") renderSotDashboard();
       }
       if (activeAdminView === "diary") renderCurrentTestDashboard();
-    } catch(e) { $("#sh_tbody").innerHTML = "<tr><td colspan='6' style='color:red;'>로드 실패</td></tr>"; }
+    } catch(e) {
+      console.error("[Admin] event list failed", e);
+      $("#sh_tbody").innerHTML = "<tr><td colspan='6' style='color:red;'>로드 실패</td></tr>";
+    }
   }
 
   function getKSTMonthKey(value) {
@@ -6194,48 +6238,55 @@
   }
 
   window.deleteEvent = async function(id) {
-    if(!confirm("정말 이 대회를 삭제하시겠습니까?")) return;
+    const event = allEvents.find(item => item && item._id === id);
+    const eventCode = event && String(event.event_code || "").trim();
+    if (!eventCode) {
+      alert("삭제할 대회의 event_code를 확인할 수 없습니다.");
+      return;
+    }
+    if(!confirm(`정말 ${eventCode} 대회를 삭제하시겠습니까?`)) return;
     try {
-      const res = await fetch(`${BUBBLE_API_BASE}${API_DATA_EVENT}/${id}`, { method: "DELETE" });
-      if(res.ok) fetchData({ refreshDashboard: true }); else alert("권한이 없습니다.");
-    } catch(e) { alert("삭제 오류"); }
+      await callAdminApi("event_delete", {
+        event_id: id,
+        confirm_event_code: eventCode
+      });
+      await fetchData({ refreshDashboard: true });
+    } catch(e) {
+      console.error("[Admin] event delete failed", e);
+      alert("삭제 오류");
+    }
   };
 
   window.togglePublic = async function(id, current) {
     try {
-      const res = await fetch(`${BUBBLE_API_BASE}${API_DATA_EVENT}/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_public: !current })
+      await callAdminApi("event_update", {
+        event_id: id,
+        is_public: !current,
+        has_is_public: true
       });
-      if(res.ok) fetchData({ refreshDashboard: true });
+      await fetchData({ refreshDashboard: true });
     } catch(e) { alert("수정 실패"); }
   };
 
   window.toggleNameSearch = async function(id, current) {
     try {
-      const res = await fetch(`${BUBBLE_API_BASE}${API_DATA_EVENT}/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name_search_enabled: !current })
+      await callAdminApi("event_update", {
+        event_id: id,
+        name_search_enabled: !current,
+        has_name_search_enabled: true
       });
-      if(res.ok) fetchData({ refreshDashboard: true });
+      await fetchData({ refreshDashboard: true });
     } catch(e) { alert("수정 실패"); }
   };
 
   window.toggleBibMinDigits = async function(id, current) {
     const next = normalizeBibMinDigits(current) === 3 ? 4 : 3;
     try {
-      const res = await fetch(`${BUBBLE_API_BASE}${API_DATA_EVENT}/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bib_min_digits: next })
+      await callAdminApi("event_update", {
+        event_id: id,
+        bib_min_digits: next
       });
-      if (!res.ok) {
-        alert("저장하지 못했습니다. Bubble event 데이터에 bib_min_digits(숫자) 필드가 있는지 확인해주세요.");
-        return;
-      }
-      fetchData({ refreshDashboard: true });
+      await fetchData({ refreshDashboard: true });
     } catch(e) {
       console.error("[Admin] bib minimum update failed", e);
       alert("배번호 최소 자리 수정 실패");
@@ -6276,12 +6327,15 @@
     }
 
     const payload = {
+      event_id: id,
       event_date: kstDateInputToISO(eventDate && eventDate.value),
       event_display_name: (displayName && displayName.value.trim()) || "",
       event_code: (eventCode && eventCode.value.trim()) || "",
       publish_at: kstDateTimeInputToISO(publishAt && publishAt.value),
       name_search_enabled: nameSearch && nameSearch.value === "true",
       is_public: isPublic && isPublic.value === "true",
+      has_name_search_enabled: true,
+      has_is_public: true,
       spots_config_json: spotsConfigText
     };
     applyPeoplePayload(payload, people && people.value);
@@ -6292,17 +6346,7 @@
     });
 
     try {
-      const res = await fetch(`${BUBBLE_API_BASE}${API_DATA_EVENT}/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        console.error("[Admin] event update failed", { status: res.status, body: text.slice(0, 500), payload });
-        alert("대회 수정 실패");
-        return;
-      }
+      await callAdminApi("event_update", payload);
       editingEventId = "";
       await fetchData({ refreshDashboard: true });
     } catch(e) {
@@ -6834,26 +6878,21 @@
           event_code: $("#sh_event_code").value.trim(),
           event_date: kstDateInputToISO($("#sh_event_date").value),
           publish_at: kstDateTimeInputToISO($("#sh_publish_at").value),
-          is_public: "no",
+          is_public: false,
           name_search_enabled: $("#sh_name_search_enabled").value === "true",
           bib_min_digits: BIB_MIN_DIGITS_DEFAULT
         };
         applyPeoplePayload(payload, $("#sh_people").value);
-        const res = await fetch(BUBBLE_API_BASE + API_CREATE_EVENT, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+        await callAdminApi("create_event", payload);
+        ensureFieldReportDraftForEvent({
+          event_code: payload.event_code,
+          event_display_name: payload.event_display_name,
+          event_date: payload.event_date
         });
-        if(res.ok) {
-          ensureFieldReportDraftForEvent({
-            event_code: payload.event_code,
-            event_display_name: payload.event_display_name,
-            event_date: payload.event_date
-          });
-          writeStoredFieldReports();
-          alert("생성 성공");
-          $("#sh_people").value = "";
-          fetchData({ refreshDashboard: true });
-        }
+        writeStoredFieldReports();
+        alert("생성 성공");
+        $("#sh_people").value = "";
+        await fetchData({ refreshDashboard: true });
       } catch(err){ alert("오류 발생"); }
       this.disabled = false;
     });
