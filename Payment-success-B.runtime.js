@@ -1,4 +1,3 @@
-<script>
 (function () {
 function onReady(fn) {
     if (document.readyState === "loading") {
@@ -239,4 +238,3 @@ onReady(async function () {
     }
 });
 })();
-</script>

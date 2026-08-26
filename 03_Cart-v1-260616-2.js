@@ -750,7 +750,8 @@ onShoutCartReady(function() {
         return;
       }
       const userId = localStorage.getItem("shout_users_id");
-      if (!userId) {
+      const accessToken = sessionStorage.getItem("shout_access_token") || "";
+      if (!userId || !accessToken) {
         try {
           sessionStorage.setItem(AUTH_INTENT_KEY, JSON.stringify({
             after: "start_payment",
@@ -825,6 +826,7 @@ onShoutCartReady(function() {
           const body = new URLSearchParams();
 
           body.set("users_id", userId);
+          body.set("access_token", accessToken);
           body.set("orderId", orderId);
           body.set("session_id", getTrackingSessionId(tracking));
           body.set("local_user", (tracking && tracking.local_user) || "");

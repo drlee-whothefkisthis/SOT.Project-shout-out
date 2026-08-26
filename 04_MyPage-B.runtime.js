@@ -1,4 +1,3 @@
-<script>
 (function () {
 function onReady(fn) {
   if (document.readyState === "loading") {
@@ -632,4 +631,3 @@ function collectVisibleFileNamesForSelectedEvent() {
   })();
 });
 })();
-</script>
