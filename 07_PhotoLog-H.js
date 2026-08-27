@@ -120,6 +120,12 @@
   .pl-section__title { margin: 0; font-size: 22px; letter-spacing: -.02em; }
   .pl-section__copy { margin: 5px 0 0; color: var(--pl-muted); font-size: 14px; }
   .pl-subtitle { margin: 28px 0 12px; font-size: 16px; }
+  .pl-equipment-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .pl-disclosure { margin-top: 24px; padding: 16px 18px; border: 1px solid var(--pl-line); border-radius: 14px; background: var(--pl-soft); }
+  .pl-disclosure summary { cursor: pointer; font-weight: 850; }
+  .pl-disclosure summary span { display: grid; gap: 3px; }
+  .pl-disclosure summary small { color: var(--pl-muted); font-size: 13px; font-weight: 500; }
+  .pl-disclosure__body { margin-top: 18px; }
 
   .pl-checks { display: flex; flex-wrap: wrap; gap: 10px; }
   .pl-check { display: inline-flex; align-items: center; gap: 7px; padding: 9px 12px; border: 1px solid var(--pl-line); border-radius: 10px; background: #fff; }
@@ -128,6 +134,7 @@
   .pl-repeat { display: grid; gap: 10px; }
   .pl-repeat__row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(100px, .45fr) auto; align-items: end; gap: 10px; }
   .pl-repeat__row--equipment { grid-template-columns: minmax(110px, .5fr) minmax(100px, .5fr) auto; }
+  .pl-repeat__row--choice { grid-template-columns: minmax(0, 1fr) minmax(90px, .55fr) minmax(0, 1fr) auto; }
   .pl-remove { width: 42px; min-height: 48px; padding: 0; border: 1px solid var(--pl-line); border-radius: 10px; background: #fff; color: var(--pl-red); font-weight: 900; cursor: pointer; }
   .pl-add { margin-top: 10px; }
   .pl-divider { height: 1px; margin: 28px 0; border: 0; background: var(--pl-line); }
@@ -142,13 +149,16 @@
     .pl-grid,
     .pl-grid--3,
     .pl-grid--4,
-    .pl-context { grid-template-columns: 1fr; }
+    .pl-context,
+    .pl-equipment-columns { grid-template-columns: 1fr; }
     .pl-span-2 { grid-column: auto; }
     .pl-toolbar { display: grid; }
     .pl-event { grid-template-columns: 1fr; }
     .pl-event .pl-button { width: 100%; }
     .pl-repeat__row,
-    .pl-repeat__row--equipment { grid-template-columns: 1fr 1fr auto; }
+    .pl-repeat__row--equipment,
+    .pl-repeat__row--choice { grid-template-columns: 1fr; }
+    .pl-remove { width: 100%; }
     .pl-actions { position: static; display: grid; grid-template-columns: 1fr; }
     .pl-submit-note { margin: 0; }
   }
