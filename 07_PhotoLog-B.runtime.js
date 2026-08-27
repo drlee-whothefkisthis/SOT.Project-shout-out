@@ -4,10 +4,16 @@
   const CONFIG = Object.freeze({
     apiBase: "https://photographer-report-api-a6mwhgji4q-du.a.run.app",
     tokenKey: "sot_photographer_access_v2",
+    draftPrefix: "sot_photographer_report_draft_v1",
     requestTimeoutMs: 25000,
   });
 
   const CAMERA_CODES = ["AM", "AP", "BM", "BP", "CM", "DM"];
+  const LENS_CODES = [
+    ["50_300", "50-300"],
+    ["70_180", "70-180"],
+    ["24_70", "24-70"],
+  ];
   const EQUIPMENT_CODES = ["A", "B", "C", "D"];
   const state = {
     token: sessionStorage.getItem(CONFIG.tokenKey) || "",
@@ -16,6 +22,7 @@
     selectedEvent: null,
     requestId: null,
   };
+  let draftTimer = null;
 
   const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
@@ -88,6 +95,31 @@
     const matched = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ""));
     if (!matched) return "날짜 미정";
     return `${Number(matched[1])}년 ${Number(matched[2])}월 ${Number(matched[3])}일`;
+  }
+
+  function eventDateValue(value) {
+    const matched = /^(\d{4}-\d{2}-\d{2})/.exec(String(value || ""));
+    return matched ? matched[1] : "";
+  }
+
+  function draftKey() {
+    const photographer = String(state.photographer?.name || "").trim();
+    const eventCode = String(state.selectedEvent?.event_code || "").trim();
+    return `${CONFIG.draftPrefix}:${encodeURIComponent(photographer)}:${encodeURIComponent(eventCode)}`;
+  }
+
+  function readDraft() {
+    try {
+      const draft = JSON.parse(localStorage.getItem(draftKey()) || "null");
+      if (!draft || draft.version !== 1 || Date.now() - Number(draft.saved_at || 0) > 604800000) return null;
+      return draft;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function removeDraft() {
+    try { localStorage.removeItem(draftKey()); } catch (_error) {}
   }
 
   function clearSession() {
@@ -248,7 +280,7 @@
           <div class="pl-context">
             <div class="pl-context__item"><div class="pl-context__label">작성자</div><div class="pl-context__value">${escapeHtml(state.photographer.name)}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">대회</div><div class="pl-context__value">${escapeHtml(event.event_name || event.event_code)}</div></div>
-            <div class="pl-context__item"><div class="pl-context__label">촬영일</div><div class="pl-context__value">${escapeHtml(event.event_date || "날짜 미정")}</div></div>
+            <div class="pl-context__item"><div class="pl-context__label">촬영일</div><div class="pl-context__value">${escapeHtml(formatEventDate(event.event_date))}</div></div>
           </div>
         </section>
 
@@ -256,13 +288,10 @@
           <section class="pl-section">
             <div class="pl-section__head"><h2 class="pl-section__title">1. 촬영 정보</h2><p class="pl-section__copy">실제 촬영 위치와 시간을 기록해 주세요.</p></div>
             <div class="pl-grid">
-              <label class="pl-field"><span class="pl-label">작성자</span><input class="pl-input" name="photographer_name" value="${escapeHtml(state.photographer.name)}" readonly></label>
-              <label class="pl-field"><span class="pl-label">대회 코드</span><input class="pl-input" name="event_code" value="${escapeHtml(event.event_code)}" readonly></label>
-              <label class="pl-field"><span class="pl-label">촬영일</span><input class="pl-input" type="date" name="shooting_date" value="${escapeHtml(event.event_date || "")}" readonly required></label>
               <label class="pl-field"><span class="pl-label">담당 역할</span><input class="pl-input" name="role" placeholder="예: 메인 구간 촬영" required></label>
               <label class="pl-field"><span class="pl-label">실제 촬영 위치</span><input class="pl-input" name="actual_location_name" placeholder="예: 10km 반환점" required></label>
-              <label class="pl-field"><span class="pl-label">이동 거리(km)</span><input class="pl-input" type="number" name="actual_location_distance" min="0" step="0.1" placeholder="선택 입력"></label>
             </div>
+            <label class="pl-field" style="margin-top:16px"><span class="pl-label">촬영 위치까지 이동 거리(km)</span><input class="pl-input" type="number" name="actual_location_distance" min="0" step="0.1" placeholder="선택 입력"></label>
             <h3 class="pl-subtitle">추가 이동 촬영 지점</h3>
             <div class="pl-repeat" data-pl-list="move_spots"></div>
             <button class="pl-button pl-button--ghost pl-button--small pl-add" type="button" data-pl-add="move_spots">+ 이동 지점 추가</button>
@@ -281,9 +310,8 @@
           </section>
 
           <section class="pl-section">
-            <div class="pl-section__head"><h2 class="pl-section__title">2. 바디별 촬영 장수</h2><p class="pl-section__copy">사용한 카메라 바디와 촬영 장수를 입력해 주세요.</p></div>
+            <div class="pl-section__head"><h2 class="pl-section__title">2. 바디별 촬영 장수</h2><p class="pl-section__copy">사용한 카메라 바디를 장비 영역에서 선택하면 자동으로 연결됩니다.</p></div>
             <div class="pl-repeat" data-pl-list="photo_counts"></div>
-            <button class="pl-button pl-button--ghost pl-button--small pl-add" type="button" data-pl-add="photo_counts">+ 바디 추가</button>
           </section>
 
           <section class="pl-section">
@@ -298,27 +326,33 @@
 
           <section class="pl-section">
             <div class="pl-section__head"><h2 class="pl-section__title">4. 사용 장비</h2><p class="pl-section__copy">실제로 사용하거나 지급받은 장비를 기록해 주세요.</p></div>
-            <h3 class="pl-subtitle" style="margin-top:0">카메라 바디</h3>
-            <div class="pl-checks">${CAMERA_CODES.map((code) => `<label class="pl-check"><input type="checkbox" name="camera_bodies" value="${code}">${code}</label>`).join("")}</div>
-            <label class="pl-field" style="margin-top:14px"><span class="pl-label">개인 카메라</span><input class="pl-input" name="personal_camera" placeholder="여러 대면 쉼표로 구분"></label>
-
-            <h3 class="pl-subtitle">렌즈</h3>
-            <div class="pl-grid pl-grid--3">
-              <label class="pl-field"><span class="pl-label">50-300 수량</span><input class="pl-input" type="number" name="lens_50_300" value="0" min="0" step="1" required></label>
-              <label class="pl-field"><span class="pl-label">70-180 수량</span><input class="pl-input" type="number" name="lens_70_180" value="0" min="0" step="1" required></label>
-              <label class="pl-field"><span class="pl-label">24-70 수량</span><input class="pl-input" type="number" name="lens_24_70" value="0" min="0" step="1" required></label>
+            <div class="pl-equipment-columns">
+              <div>
+                <h3 class="pl-subtitle" style="margin-top:0">카메라 바디</h3>
+                <div class="pl-repeat" data-pl-list="camera_bodies"></div>
+                <button class="pl-button pl-button--ghost pl-button--small pl-add" type="button" data-pl-add="camera_bodies">+ 카메라 추가</button>
+              </div>
+              <div>
+                <h3 class="pl-subtitle" style="margin-top:0">렌즈</h3>
+                <div class="pl-repeat" data-pl-list="lenses"></div>
+                <button class="pl-button pl-button--ghost pl-button--small pl-add" type="button" data-pl-add="lenses">+ 렌즈 추가</button>
+              </div>
             </div>
-            <label class="pl-field" style="margin-top:14px"><span class="pl-label">개인 렌즈</span><input class="pl-input" name="personal_lenses" placeholder="여러 개면 쉼표로 구분"></label>
 
             <h3 class="pl-subtitle">지급품</h3>
             <div class="pl-grid">
               <label class="pl-field"><span class="pl-label">지급 가방</span><select class="pl-select" name="issued_bag" required><option value="none">없음</option>${EQUIPMENT_CODES.map((code) => `<option value="${code}">${code}</option>`).join("")}</select></label>
-              <label class="pl-field"><span class="pl-label">SD 카드 수량</span><input class="pl-input" type="number" name="sd_count" value="0" min="0" step="1" required></label>
+              <label class="pl-field"><span class="pl-label">메모리카드 수량</span><input class="pl-input" type="number" name="sd_count" value="1" min="0" step="1" required></label>
             </div>
-            ${equipmentRows.map(([key, label]) => `
-              <h3 class="pl-subtitle">${label}</h3>
-              <div class="pl-repeat" data-pl-list="${key}"></div>
-              <button class="pl-button pl-button--ghost pl-button--small pl-add" type="button" data-pl-add="${key}">+ ${label} 추가</button>`).join("")}
+            <details class="pl-disclosure" data-pl-components>
+              <summary>구성품 확인</summary>
+              <div class="pl-disclosure__body">
+                ${equipmentRows.map(([key, label]) => `
+                  <h3 class="pl-subtitle">${label}</h3>
+                  <div class="pl-repeat" data-pl-list="${key}"></div>
+                  <button class="pl-button pl-button--ghost pl-button--small pl-add" type="button" data-pl-add="${key}">+ ${label} 추가</button>`).join("")}
+              </div>
+            </details>
 
             <h3 class="pl-subtitle">장비 이상</h3>
             <div class="pl-grid">
@@ -328,17 +362,19 @@
           </section>
 
           <section class="pl-section">
-            <div class="pl-section__head"><h2 class="pl-section__title">5. 피드백</h2><p class="pl-section__copy">운영 개선에 필요한 내용을 자유롭게 남겨 주세요.</p></div>
-            <div class="pl-grid">
-              <label class="pl-field"><span class="pl-label">현장 메모</span><textarea class="pl-textarea" name="field_note"></textarea></label>
-              <label class="pl-field"><span class="pl-label">문제점</span><textarea class="pl-textarea" name="problem"></textarea></label>
-              <label class="pl-field"><span class="pl-label">개선 의견</span><textarea class="pl-textarea" name="improvement"></textarea></label>
-              <label class="pl-field"><span class="pl-label">관리자 요청사항</span><textarea class="pl-textarea" name="manager_request"></textarea></label>
-            </div>
+            <details class="pl-disclosure" data-pl-feedback>
+              <summary><span><b>5. 현장 피드백</b><small>운영 개선에 필요한 내용이 있을 때 작성해 주세요.</small></span></summary>
+              <div class="pl-disclosure__body pl-grid">
+                <label class="pl-field"><span class="pl-label">현장 메모</span><textarea class="pl-textarea" name="field_note"></textarea></label>
+                <label class="pl-field"><span class="pl-label">문제점</span><textarea class="pl-textarea" name="problem"></textarea></label>
+                <label class="pl-field"><span class="pl-label">개선 의견</span><textarea class="pl-textarea" name="improvement"></textarea></label>
+                <label class="pl-field"><span class="pl-label">관리자 요청사항</span><textarea class="pl-textarea" name="manager_request"></textarea></label>
+              </div>
+            </details>
           </section>
 
           <div class="pl-actions">
-            <span class="pl-submit-note" data-pl-submit-message aria-live="assertive">제출 전 내용을 한 번 더 확인해 주세요.</span>
+            <span class="pl-submit-note" data-pl-submit-message aria-live="assertive">입력 내용은 이 브라우저에 임시 저장됩니다.</span>
             <button class="pl-button pl-button--ghost" type="button" data-pl-back>목록으로</button>
             <button class="pl-button" type="submit">일지 제출</button>
           </div>
@@ -346,7 +382,11 @@
       </div>`;
 
     bindReport();
-    addRepeatRow("photo_counts", { camera_body: "AM", count: 0 });
+    if (!restoreDraft()) {
+      addRepeatRow("camera_bodies", { code: "", name: "" });
+      addRepeatRow("lenses", { code: "", count: 1, name: "" });
+      syncPhotoCountRows();
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -360,9 +400,25 @@
     }
     if (type === "photo_counts") {
       return `<div class="pl-repeat__row" data-pl-row>
-        <label class="pl-field"><span class="pl-label">바디</span><select class="pl-select" data-key="camera_body" required>${CAMERA_CODES.map((code) => `<option value="${code}" ${code === values.camera_body ? "selected" : ""}>${code}</option>`).join("")}</select></label>
+        <label class="pl-field"><span class="pl-label">바디</span><input class="pl-input" data-key="camera_body" value="${escapeHtml(values.camera_body || "")}" readonly></label>
         <label class="pl-field"><span class="pl-label">촬영 장수</span><input class="pl-input" data-key="count" type="number" min="0" step="1" value="${escapeHtml(values.count ?? 0)}" required></label>
-        <button class="pl-remove" type="button" aria-label="삭제" data-pl-remove>×</button>
+      </div>`;
+    }
+    if (type === "camera_bodies") {
+      const personal = values.code === "personal";
+      return `<div class="pl-repeat__row pl-repeat__row--choice" data-pl-row>
+        <label class="pl-field"><span class="pl-label">카메라</span><select class="pl-select" data-key="code" data-pl-equipment-choice required><option value="">선택</option>${CAMERA_CODES.map((code) => `<option value="${code}" ${code === values.code ? "selected" : ""}>${code}</option>`).join("")}<option value="personal" ${personal ? "selected" : ""}>개인 카메라</option></select></label>
+        <label class="pl-field" data-pl-personal-field ${personal ? "" : "data-pl-hidden"}><span class="pl-label">개인 카메라명</span><input class="pl-input" data-key="name" value="${escapeHtml(values.name || "")}" ${personal ? "required" : ""}></label>
+        <button class="pl-remove" type="button" aria-label="카메라 삭제" data-pl-remove>×</button>
+      </div>`;
+    }
+    if (type === "lenses") {
+      const personal = values.code === "personal";
+      return `<div class="pl-repeat__row pl-repeat__row--choice" data-pl-row>
+        <label class="pl-field"><span class="pl-label">렌즈</span><select class="pl-select" data-key="code" data-pl-equipment-choice required><option value="">선택</option>${LENS_CODES.map(([code, label]) => `<option value="${code}" ${code === values.code ? "selected" : ""}>${label}</option>`).join("")}<option value="personal" ${personal ? "selected" : ""}>개인 렌즈</option></select></label>
+        <label class="pl-field" data-pl-standard-field ${personal ? "data-pl-hidden" : ""}><span class="pl-label">수량</span><input class="pl-input" data-key="count" type="number" min="1" step="1" value="${escapeHtml(values.count ?? 1)}" ${personal ? "" : "required"}></label>
+        <label class="pl-field" data-pl-personal-field ${personal ? "" : "data-pl-hidden"}><span class="pl-label">개인 렌즈명</span><input class="pl-input" data-key="name" value="${escapeHtml(values.name || "")}" ${personal ? "required" : ""}></label>
+        <button class="pl-remove" type="button" aria-label="렌즈 삭제" data-pl-remove>×</button>
       </div>`;
     }
     return `<div class="pl-repeat__row pl-repeat__row--equipment" data-pl-row>
@@ -376,13 +432,159 @@
     const list = root.querySelector(`[data-pl-list="${type}"]`);
     if (!list) return;
     list.insertAdjacentHTML("beforeend", repeatRowHtml(type, values));
-    list.lastElementChild.querySelector("[data-pl-remove]").addEventListener("click", (event) => event.currentTarget.closest("[data-pl-row]").remove());
+    const row = list.lastElementChild;
+    const removeButton = row.querySelector("[data-pl-remove]");
+    if (removeButton) removeButton.addEventListener("click", () => {
+      row.remove();
+      if (type === "camera_bodies") syncPhotoCountRows();
+      scheduleDraft();
+    });
+    const choice = row.querySelector("[data-pl-equipment-choice]");
+    if (choice) choice.addEventListener("change", () => {
+      togglePersonalFields(row, choice.value === "personal");
+      if (type === "camera_bodies") syncPhotoCountRows();
+      scheduleDraft();
+    });
+    row.querySelectorAll("input, select, textarea").forEach((field) => {
+      field.addEventListener("input", scheduleDraft);
+      field.addEventListener("change", scheduleDraft);
+    });
+  }
+
+  function togglePersonalFields(row, personal) {
+    const personalField = row.querySelector("[data-pl-personal-field]");
+    const personalInput = personalField?.querySelector("input");
+    const standardField = row.querySelector("[data-pl-standard-field]");
+    const standardInput = standardField?.querySelector("input");
+    if (personalField) personalField.toggleAttribute("data-pl-hidden", !personal);
+    if (personalInput) {
+      personalInput.required = personal;
+      if (!personal) personalInput.value = "";
+    }
+    if (standardField) standardField.toggleAttribute("data-pl-hidden", personal);
+    if (standardInput) standardInput.required = !personal;
+  }
+
+  function syncPhotoCountRows(savedCounts = null) {
+    const previous = new Map((savedCounts || rows("photo_counts")).map((row) => [row.camera_body, row.count]));
+    const bodies = [...new Set(rows("camera_bodies")
+      .map((row) => row.code)
+      .filter((code) => CAMERA_CODES.includes(code)))];
+    const list = root.querySelector('[data-pl-list="photo_counts"]');
+    if (!list) return;
+    list.innerHTML = "";
+    bodies.forEach((cameraBody) => addRepeatRow("photo_counts", {
+      camera_body: cameraBody,
+      count: previous.has(cameraBody) ? previous.get(cameraBody) : 0,
+    }));
+  }
+
+  function listSnapshot(type) {
+    return rows(type).map((row) => Object.fromEntries(
+      Object.entries(row).map(([key, value]) => [key, String(value ?? "")])
+    ));
+  }
+
+  function saveDraft() {
+    const form = root.querySelector("[data-pl-report]");
+    if (!form || !state.selectedEvent) return;
+    const fields = {};
+    [...form.elements].forEach((field) => {
+      if (field.name && !["submit", "button"].includes(field.type)) fields[field.name] = field.value;
+    });
+    const lists = Object.fromEntries([
+      "move_spots", "photo_counts", "camera_bodies", "lenses",
+      ...equipmentRows.map(([key]) => key),
+    ].map((type) => [type, listSnapshot(type)]));
+    try {
+      localStorage.setItem(draftKey(), JSON.stringify({
+        version: 1,
+        saved_at: Date.now(),
+        request_id: state.requestId,
+        fields,
+        lists,
+        components_open: Boolean(root.querySelector("[data-pl-components]")?.open),
+        feedback_open: Boolean(root.querySelector("[data-pl-feedback]")?.open),
+      }));
+      const message = root.querySelector("[data-pl-submit-message]");
+      if (message && !message.dataset.kind) {
+        message.textContent = "입력 내용이 임시 저장되었습니다.";
+        message.style.color = "";
+      }
+    } catch (_error) {}
+  }
+
+  function scheduleDraft() {
+    window.clearTimeout(draftTimer);
+    draftTimer = window.setTimeout(saveDraft, 250);
+  }
+
+  function restoreDraft() {
+    const draft = readDraft();
+    const form = root.querySelector("[data-pl-report]");
+    if (!draft || !form) return false;
+    state.requestId = draft.request_id || uuid();
+    Object.entries(draft.fields || {}).forEach(([name, value]) => {
+      const field = form.elements.namedItem(name);
+      if (field && typeof field.value !== "undefined") field.value = value;
+    });
+    const listTypes = ["move_spots", "photo_counts", "camera_bodies", "lenses", ...equipmentRows.map(([key]) => key)];
+    listTypes.forEach((type) => {
+      const list = root.querySelector(`[data-pl-list="${type}"]`);
+      if (list) list.innerHTML = "";
+    });
+    const lists = draft.lists || {};
+    (lists.camera_bodies || []).forEach((row) => addRepeatRow("camera_bodies", row));
+    (lists.lenses || []).forEach((row) => addRepeatRow("lenses", row));
+    (lists.move_spots || []).forEach((row) => addRepeatRow("move_spots", row));
+    equipmentRows.forEach(([type]) => (lists[type] || []).forEach((row) => addRepeatRow(type, row)));
+    if (!(lists.camera_bodies || []).length) addRepeatRow("camera_bodies", { code: "", name: "" });
+    if (!(lists.lenses || []).length) addRepeatRow("lenses", { code: "", count: 1, name: "" });
+    syncPhotoCountRows(lists.photo_counts || []);
+    const components = root.querySelector("[data-pl-components]");
+    const feedback = root.querySelector("[data-pl-feedback]");
+    if (components) components.open = Boolean(draft.components_open);
+    if (feedback) feedback.open = Boolean(draft.feedback_open);
+    return true;
+  }
+
+  function applyIssuedBag() {
+    const form = root.querySelector("[data-pl-report]");
+    const bag = form?.elements.issued_bag.value;
+    if (!EQUIPMENT_CODES.includes(bag)) {
+      if (bag === "none") equipmentRows.forEach(([type]) => {
+        const list = root.querySelector(`[data-pl-list="${type}"]`);
+        if (list) list.innerHTML = "";
+      });
+      scheduleDraft();
+      return;
+    }
+    if (integer(form.elements.sd_count.value) < 1) form.elements.sd_count.value = "1";
+    equipmentRows.forEach(([type]) => {
+      const list = root.querySelector(`[data-pl-list="${type}"]`);
+      if (!list) return;
+      if (!list.children.length) addRepeatRow(type, { code: bag, count: 1 });
+      else {
+        const firstCode = list.firstElementChild.querySelector('[data-key="code"]');
+        if (firstCode) firstCode.value = bag;
+      }
+    });
+    const details = root.querySelector("[data-pl-components]");
+    if (details) details.open = true;
+    scheduleDraft();
   }
 
   function bindReport() {
     root.querySelectorAll("[data-pl-back]").forEach((button) => button.addEventListener("click", loadEvents));
-    root.querySelectorAll("[data-pl-add]").forEach((button) => button.addEventListener("click", () => addRepeatRow(button.dataset.plAdd)));
-    root.querySelector("[data-pl-report]").addEventListener("submit", submitReport);
+    root.querySelectorAll("[data-pl-add]").forEach((button) => button.addEventListener("click", () => {
+      addRepeatRow(button.dataset.plAdd);
+      scheduleDraft();
+    }));
+    const form = root.querySelector("[data-pl-report]");
+    form.elements.issued_bag.addEventListener("change", applyIssuedBag);
+    form.addEventListener("input", scheduleDraft);
+    form.addEventListener("change", scheduleDraft);
+    form.addEventListener("submit", submitReport);
   }
 
   function rows(type) {
@@ -393,10 +595,17 @@
 
   const numberOrNull = (value) => value === "" ? null : Number(value);
   const integer = (value) => Number.parseInt(value || "0", 10);
-  const csv = (value) => [...new Set(String(value || "").split(",").map((part) => part.trim()).filter(Boolean))];
 
   function buildPayload(form) {
-    const selectedBodies = [...form.querySelectorAll("input[name='camera_bodies']:checked")].map((field) => field.value);
+    const cameraRows = rows("camera_bodies");
+    const lensRows = rows("lenses");
+    const selectedBodies = [...new Set(cameraRows.filter((row) => CAMERA_CODES.includes(row.code)).map((row) => row.code))];
+    const personalCameras = [...new Set(cameraRows.filter((row) => row.code === "personal").map((row) => row.name.trim()).filter(Boolean))];
+    const lensCounts = Object.fromEntries(LENS_CODES.map(([code]) => [code, 0]));
+    lensRows.filter((row) => Object.hasOwn(lensCounts, row.code)).forEach((row) => {
+      lensCounts[row.code] += integer(row.count);
+    });
+    const personalLenses = [...new Set(lensRows.filter((row) => row.code === "personal").map((row) => row.name.trim()).filter(Boolean))];
     const mapLocation = (row) => ({ name: row.name.trim(), distance_km: numberOrNull(row.distance_km) });
     const mapEquipment = (row) => ({ code: row.code, count: integer(row.count) });
     return {
@@ -406,7 +615,7 @@
       event_code: state.selectedEvent.event_code,
       photographer_name: state.photographer.name,
       shooting: {
-        shooting_date: state.selectedEvent.event_date,
+        shooting_date: eventDateValue(state.selectedEvent.event_date),
         role: form.elements.role.value.trim(),
         actual_location: {
           name: form.elements.actual_location_name.value.trim(),
@@ -430,12 +639,10 @@
       },
       equipment: {
         camera_bodies: selectedBodies,
-        personal_camera: csv(form.elements.personal_camera.value),
+        personal_camera: personalCameras,
         lenses: {
-          "50_300": integer(form.elements.lens_50_300.value),
-          "70_180": integer(form.elements.lens_70_180.value),
-          "24_70": integer(form.elements.lens_24_70.value),
-          personal: csv(form.elements.personal_lenses.value),
+          ...lensCounts,
+          personal: personalLenses,
         },
         issued_bag: form.elements.issued_bag.value,
         memory_card: { sd: integer(form.elements.sd_count.value), micro_sd: 0 },
@@ -472,6 +679,10 @@
     if (payload.upload.status === "pending" && payload.upload.progress_number === null) return "업로드 진행 중인 경우 진행 번호를 입력해 주세요.";
     const lenses = payload.equipment.lenses;
     if (!(lenses["50_300"] || lenses["70_180"] || lenses["24_70"] || lenses.personal.length)) return "사용한 렌즈를 1개 이상 입력해 주세요.";
+    const cameraRows = rows("camera_bodies");
+    const lensRows = rows("lenses");
+    if (duplicateValues(cameraRows.filter((row) => CAMERA_CODES.includes(row.code)).map((row) => row.code)).length) return "같은 카메라 바디를 중복 선택할 수 없습니다.";
+    if (duplicateValues(lensRows.filter((row) => LENS_CODES.some(([code]) => code === row.code)).map((row) => row.code)).length) return "같은 렌즈를 중복 선택할 수 없습니다. 수량을 조정해 주세요.";
     if (payload.equipment.issue.status !== "none" && !payload.equipment.issue.detail) return "장비 이상이 있는 경우 상세 내용을 입력해 주세요.";
     for (const [key, label] of equipmentRows) {
       if (duplicateValues(payload.equipment[key].map((row) => row.code)).length) return `${label}의 같은 코드를 중복 입력할 수 없습니다.`;
@@ -505,6 +716,7 @@
       const submittedEvent = state.selectedEvent;
       const index = state.events.findIndex((item) => item.event_code === submittedEvent.event_code);
       if (index >= 0) state.events[index] = { ...state.events[index], submitted: true };
+      removeDraft();
       renderSuccess(submittedEvent, data);
     } catch (error) {
       if (error.status === 401 || ["ACCESS_TOKEN_INVALID", "EVENT_NOT_ASSIGNED"].includes(error.code)) {
