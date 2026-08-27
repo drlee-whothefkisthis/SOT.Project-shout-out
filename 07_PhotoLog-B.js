@@ -85,6 +85,12 @@
     return fallback;
   }
 
+  function formatEventDate(value) {
+    const matched = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ""));
+    if (!matched) return "날짜 미정";
+    return `${Number(matched[1])}년 ${Number(matched[2])}월 ${Number(matched[3])}일`;
+  }
+
   function clearSession() {
     state.token = "";
     state.photographer = null;
@@ -183,11 +189,13 @@
           <article class="pl-event">
             <div>
               <div class="pl-event__name">${escapeHtml(item.event_name || item.event_code)}</div>
-              <div class="pl-event__meta">${escapeHtml(item.event_date || "날짜 미정")} · ${escapeHtml(item.event_code)}</div>
+              <div class="pl-event__meta">${escapeHtml(formatEventDate(item.event_date))}</div>
             </div>
             ${item.submitted
               ? '<span class="pl-status">제출 완료</span>'
-              : `<button class="pl-button pl-button--small" type="button" data-pl-open-event="${escapeHtml(item.event_code)}">일지 작성</button>`}
+              : item.published
+                ? `<button class="pl-button pl-button--small" type="button" data-pl-open-event="${escapeHtml(item.event_code)}">일지 작성</button>`
+                : '<button class="pl-button pl-button--small" type="button" disabled title="대회 공개 후 작성할 수 있습니다.">일지 작성</button>'}
           </article>`).join("")
       : '<div class="pl-event"><div><div class="pl-event__name">배정된 확정 대회가 없습니다.</div><div class="pl-event__meta">관리자에게 배정 상태를 확인해 주세요.</div></div></div>';
 
@@ -201,7 +209,7 @@
               <h1 class="pl-heading">${escapeHtml(state.photographer?.name)}님의 대회</h1>
               <p class="pl-copy">작성할 대회를 선택해 주세요.</p>
             </div>
-            <button class="pl-button pl-button--ghost pl-button--small" type="button" data-pl-logout>다른 이름으로 확인</button>
+            <button class="pl-button pl-button--ghost pl-button--small" type="button" data-pl-logout>로그아웃</button>
           </div>
           <p class="pl-alert" aria-live="assertive">${escapeHtml(loadError)}</p>
           <div class="pl-event-list">${eventRows}</div>
@@ -212,7 +220,7 @@
     root.querySelectorAll("[data-pl-open-event]").forEach((button) => {
       button.addEventListener("click", () => {
         const selected = state.events.find((item) => item.event_code === button.dataset.plOpenEvent);
-        if (selected && !selected.submitted) renderReport(selected);
+        if (selected && !selected.submitted && selected.published) renderReport(selected);
       });
     });
   }
