@@ -5,7 +5,7 @@
   const API_DASHBOARD_DATA_TEST = "/version-test/api/1.1/obj/SOT:Dashboard";
   const DASHBOARD_PAGE_LIMIT = 500;
   const SOT_BUBBLE_APP_BASE = "https://plp-62309.bubbleapps.io";
-  const SOT_ADMIN_DASHBOARD_PROXY_PATH = "/api/1.1/wf/sot-admin-dashboard";
+  const SOT_ADMIN_DASHBOARD_PROXY_PATH = "/api/1.1/wf/admin-api";
 
   const dashboardSections = [
     { id:"overview", group:"Core", label:"1. 전체 현황", desc:"전체 KPI, 퍼널, 검색/노출을 한 화면 안에서 탭으로 확인합니다." },
@@ -160,6 +160,8 @@
   async function fetchDashboardProxy(mode, options) {
     const opts = options || {};
     const config = getDashboardApiConfig(opts);
+    const accessToken = sessionStorage.getItem("shout_access_token");
+    if (!accessToken) throw new Error("관리자 로그인이 필요합니다.");
     // Browser-facing aliases are translated to the Cloud Run mode contract.
     const cloudRunMode = mode === "summary"
       ? "dashboard_summary"
@@ -167,16 +169,18 @@
         ? "dashboard_detail"
         : mode;
     const payload = {
+      action: "dashboard",
+      access_token: accessToken,
       mode: cloudRunMode,
       data_source: config.data_source
     };
-    const usersId = localStorage.getItem("shout_users_id") || sessionStorage.getItem("shout_users_id") || "";
-    if (usersId) payload.users_id = usersId;
 
-    ["period", "start_date", "end_date", "agg_type"].forEach(key => {
+    ["period", "start_date", "end_date"].forEach(key => {
       if (opts[key] !== undefined && opts[key] !== null && opts[key] !== "") payload[key] = opts[key];
     });
-    ["tab", "snapshot_type", "period_key", "target_date", "manual_refresh"].forEach(key => {
+    // admin-api's agg_key parameter is mapped to DashboardSummary's agg_type.
+    if (opts.agg_type) payload.agg_key = opts.agg_type;
+    ["tab", "snapshot_type", "period_key", "target_date"].forEach(key => {
       if (opts[key] !== undefined && opts[key] !== null && opts[key] !== "") payload[key] = opts[key];
     });
     if (opts.event_code !== undefined && opts.event_code !== null && opts.event_code !== "") {
@@ -190,21 +194,27 @@
     });
     const text = await res.text();
     if (!res.ok) {
-      console.error("[SOT Dashboard] proxy failed", { status: res.status, body: text.slice(0, 500), payload });
+      console.error("[SOT Dashboard] proxy failed", { status: res.status, mode: cloudRunMode });
       throw new Error("SOT Dashboard proxy failed: " + res.status);
     }
 
     try {
       const parsed = text ? JSON.parse(text) : {};
+      if (parsed?.response?.is_admin === false || parsed?.is_admin === false) {
+        throw new Error("관리자 권한이 없습니다.");
+      }
       const dashboardResponse = parseDashboardProxyPayload(parsed);
       const response = dashboardResponse && (dashboardResponse.response || dashboardResponse);
+      if (!response || typeof response.ok !== "boolean") {
+        throw new Error("관리자 API에서 대시보드 데이터를 반환하지 않았습니다.");
+      }
       if (response && response.ok === false) {
         if (response.error === "snapshot_not_found") return response;
         throw new Error(response.error || "SOT Dashboard proxy returned ok=false");
       }
       return dashboardResponse;
     } catch (e) {
-      console.error("[SOT Dashboard] proxy JSON parse failed", { status: res.status, body: text.slice(0, 500), payload });
+      console.error("[SOT Dashboard] proxy response failed", { status: res.status, mode: cloudRunMode });
       throw e;
     }
   }
@@ -854,6 +864,7 @@
   let sotDashLastError = "";
   let sotCurrentTestData = SOT_HEAD.emptyDashboardData();
   let sotCurrentTestLoading = false;
+  let sotCurrentTestRequestId = 0;
   let sotCurrentTestLoaded = false;
   let sotCurrentTestLastError = "";
   let sotCurrentTestMissingSnapshot = null;
@@ -1735,10 +1746,14 @@
 
   async function loadCurrentTestDashboard(options) {
     const opts = options || {};
-    if (sotCurrentTestLoading) return;
     if (!["report", "event-analysis"].includes(currentDashView)) return;
+    const requestId = ++sotCurrentTestRequestId;
+    const requestView = currentDashView;
 
     sotCurrentTestLoading = true;
+    sotCurrentTestLoaded = false;
+    sotCurrentTestData = SOT_HEAD.emptyDashboardData();
+    clearCurrentDashEventDetailCache();
     sotCurrentTestLastError = "";
     sotCurrentTestMissingSnapshot = null;
     showSotLoader(SOT_LOADER_DEFAULT_MESSAGE);
@@ -1746,6 +1761,7 @@
 
     try {
       await ensureCurrentDashInitialSnapshotDate();
+      if (requestId !== sotCurrentTestRequestId || requestView !== currentDashView) return;
       if (currentDashView === "report" && !currentDashReportSelectedDateKey) currentDashReportSelectedDateKey = yesterdayKSTDateKey();
       if (currentDashView === "event-analysis" && !currentDashSelectedDateKey) currentDashSelectedDateKey = yesterdayKSTDateKey();
       syncCurrentDashPeriodKeys();
@@ -1758,6 +1774,7 @@
         tab: currentDashView,
         manualRefresh: opts.manualRefresh === true
       });
+      if (requestId !== sotCurrentTestRequestId || requestView !== currentDashView) return;
       if (payload && payload.ok === false && payload.error === "snapshot_not_found") {
         console.warn("[SOT Snapshot] not found", {
           agg_key: payload?.agg_key,
@@ -1796,6 +1813,10 @@
         ensureCurrentDashEventDetail(currentDashSelectedEvent);
       }
     } catch (error) {
+      if (requestId !== sotCurrentTestRequestId || requestView !== currentDashView) return;
+      sotCurrentTestLoaded = false;
+      sotCurrentTestData = SOT_HEAD.emptyDashboardData();
+      clearCurrentDashEventDetailCache();
       sotCurrentTestLastError = error && error.message ? error.message : "snapshot API 연결 실패";
       console.error("[SOT Snapshot] failed", {
         message: error?.message,
@@ -1804,6 +1825,7 @@
         period_key: currentDashPeriodKeyForView(currentDashView)
       });
     } finally {
+      if (requestId !== sotCurrentTestRequestId) return;
       sotCurrentTestLoading = false;
       hideSotLoader();
       renderCurrentTestDashboard();
@@ -1888,6 +1910,7 @@
     }
 
     if (sotCurrentTestLoading) {
+      target.innerHTML = '<div class="ctdash-callout">데이터를 불러오는 중입니다.</div>';
       return;
     }
     if (sotCurrentTestMissingSnapshot || sotCurrentTestLastError) {
@@ -6376,8 +6399,7 @@
           if (legacyAnalysisLoadState === "idle") loadLegacyAnalysisV2();
     }
     if (["report", "event-analysis"].includes(activeAdminView)) {
-          renderCurrentTestDashboard();
-          if (!sotCurrentTestLoading) loadCurrentTestDashboard();
+          loadCurrentTestDashboard();
     }
     if (activeAdminView === "diary") {
           renderCurrentTestDashboard();
