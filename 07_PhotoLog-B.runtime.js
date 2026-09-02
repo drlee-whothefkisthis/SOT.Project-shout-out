@@ -306,6 +306,7 @@
 
   function renderEventDetail(event) {
     const mapUrl = safeExternalUrl(event.map_url);
+    const courseMapUrl = safeExternalUrl(event.course_map_url);
     const canWrite = !event.submitted && reportOpen(event);
     root.innerHTML = `
       <div class="pl-shell">
@@ -321,8 +322,14 @@
           </div>
           <div class="pl-detail-actions">
             ${mapUrl
-              ? `<a class="pl-button pl-button--ghost" href="${escapeHtml(mapUrl)}" target="_blank" rel="noopener noreferrer">촬영 스팟 지도</a>`
-              : '<span class="pl-help">등록된 대회 지도가 없습니다.</span>'}
+              ? `<a class="pl-button pl-button--ghost" href="${escapeHtml(mapUrl)}" target="_blank" rel="noopener noreferrer">촬영 스팟</a>`
+              : ""}
+            ${courseMapUrl
+              ? `<a class="pl-button pl-button--ghost" href="${escapeHtml(courseMapUrl)}" target="_blank" rel="noopener noreferrer">코스 지도</a>`
+              : ""}
+            ${!mapUrl && !courseMapUrl
+              ? '<span class="pl-help">등록된 대회 지도가 없습니다.</span>'
+              : ""}
             ${event.submitted
               ? '<span class="pl-status">제출 완료</span>'
               : canWrite
