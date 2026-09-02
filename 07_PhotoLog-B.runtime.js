@@ -102,6 +102,25 @@
     return matched ? matched[1] : "";
   }
 
+  function safeExternalUrl(value) {
+    try {
+      const url = new URL(String(value || ""));
+      return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+    } catch (_error) {
+      return "";
+    }
+  }
+
+  function reportOpen(item) {
+    return item.report_open === true || item.published === true;
+  }
+
+  function reportStatusText(item) {
+    if (item.submitted) return "제출 완료";
+    if (reportOpen(item)) return "작성 가능";
+    return "대회 당일 00:00부터 작성 가능";
+  }
+
   function draftKey() {
     const photographer = String(state.photographer?.name || "").trim();
     const eventCode = String(state.selectedEvent?.event_code || "").trim();
@@ -217,16 +236,12 @@
   function renderEvents(loadError = "") {
     const eventRows = state.events.length
       ? state.events.map((item) => `
-          <article class="pl-event">
+          <article class="pl-event pl-event--clickable" role="button" tabindex="0" data-pl-view-event="${escapeHtml(item.event_code)}">
             <div>
               <div class="pl-event__name">${escapeHtml(item.event_name || item.event_code)}</div>
               <div class="pl-event__meta">${escapeHtml(formatEventDate(item.event_date))}</div>
             </div>
-            ${item.submitted
-              ? '<span class="pl-status">제출 완료</span>'
-              : item.published
-                ? `<button class="pl-button pl-button--small" type="button" data-pl-open-event="${escapeHtml(item.event_code)}">일지 작성</button>`
-                : '<button class="pl-button pl-button--small" type="button" disabled title="대회 공개 후 작성할 수 있습니다.">일지 작성</button>'}
+            <span class="pl-event__chevron" aria-hidden="true">›</span>
           </article>`).join("")
       : '<div class="pl-event"><div><div class="pl-event__name">배정된 확정 대회가 없습니다.</div><div class="pl-event__meta">관리자에게 배정 상태를 확인해 주세요.</div></div></div>';
 
@@ -248,12 +263,66 @@
       </div>`;
 
     root.querySelector("[data-pl-logout]").addEventListener("click", () => renderLogin());
-    root.querySelectorAll("[data-pl-open-event]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const selected = state.events.find((item) => item.event_code === button.dataset.plOpenEvent);
-        if (selected && !selected.submitted && selected.published) renderReport(selected);
+    root.querySelectorAll("[data-pl-view-event]").forEach((card) => {
+      const open = () => loadEventDetail(card.dataset.plViewEvent);
+      card.addEventListener("click", open);
+      card.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          open();
+        }
       });
     });
+  }
+
+  async function loadEventDetail(eventCode) {
+    loading("대회 정보를 확인하고 있습니다…");
+    try {
+      const data = await api(`/api/v1/photographer-access/events/${encodeURIComponent(eventCode)}`);
+      const event = data?.event;
+      if (!event) throw new Error("대회 정보를 찾을 수 없습니다.");
+      state.selectedEvent = event;
+      renderEventDetail(event);
+    } catch (error) {
+      if (error.status === 401 || error.code === "ACCESS_TOKEN_INVALID") {
+        renderLogin("인증 시간이 만료되었습니다. 다시 확인해 주세요.");
+        return;
+      }
+      renderEvents(genericError(error, "대회 정보를 불러오지 못했습니다. 다시 시도해 주세요."));
+    }
+  }
+
+  function renderEventDetail(event) {
+    const mapUrl = safeExternalUrl(event.map_url);
+    const canWrite = !event.submitted && reportOpen(event);
+    root.innerHTML = `
+      <div class="pl-shell">
+        <div class="pl-brand">SHOUT-OUT</div>
+        <section class="pl-card">
+          <button class="pl-link" type="button" data-pl-back>← 대회 목록</button>
+          <p class="pl-kicker" style="margin-top:24px">Event Detail</p>
+          <h1 class="pl-heading">${escapeHtml(event.event_name || event.event_code)}</h1>
+          <div class="pl-context">
+            <div class="pl-context__item"><div class="pl-context__label">작성자</div><div class="pl-context__value">${escapeHtml(state.photographer.name)}</div></div>
+            <div class="pl-context__item"><div class="pl-context__label">대회일</div><div class="pl-context__value">${escapeHtml(formatEventDate(event.event_date))}</div></div>
+            <div class="pl-context__item"><div class="pl-context__label">상태</div><div class="pl-context__value">${escapeHtml(reportStatusText(event))}</div></div>
+          </div>
+          <div class="pl-detail-actions">
+            ${mapUrl
+              ? `<a class="pl-button pl-button--ghost" href="${escapeHtml(mapUrl)}" target="_blank" rel="noopener noreferrer">대회 지도 보기</a>`
+              : '<span class="pl-help">등록된 대회 지도가 없습니다.</span>'}
+            ${event.submitted
+              ? '<span class="pl-status">제출 완료</span>'
+              : canWrite
+                ? '<button class="pl-button" type="button" data-pl-start-report>일지 작성</button>'
+                : '<button class="pl-button" type="button" disabled title="대회 당일 00:00부터 작성할 수 있습니다.">일지 작성</button>'}
+          </div>
+        </section>
+      </div>`;
+    root.querySelector("[data-pl-back]").addEventListener("click", renderEvents);
+    const start = root.querySelector("[data-pl-start-report]");
+    if (start) start.addEventListener("click", () => renderReport(event));
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   const timeField = (name, label) => `
