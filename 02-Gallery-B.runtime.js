@@ -110,6 +110,7 @@ window.ShoutGallery.getGalleryGridCoveredBottom = function (gridEl) {
   let orderKeys = [];
   let modalKeys = [];
   let currentModalKey = null;
+  let resetModalZoomState = () => {};
   let currentSearchBib = null; 
   let currentSearchName = null;
   let localSelectedKeys = new Set();
@@ -930,7 +931,7 @@ function createCardEl(photo, sizeClass) {
 
       el.style.userSelect = "none";
       el.style.webkitUserDrag = "none";
-      el.style.touchAction = "pan-x";
+      el.style.touchAction = "none";
       el.style.overscrollBehavior = "contain";
     });
 
@@ -941,6 +942,8 @@ function createCardEl(photo, sizeClass) {
       wrap.style.background = "#000";
       wrap.style.boxSizing = "border-box";
       wrap.style.padding = "14px 0px 10px 0px";
+      wrap.style.touchAction = "none";
+      wrap.style.overscrollBehavior = "contain";
 
       track.style.display = "flex";
       track.style.width = "300%";
@@ -979,7 +982,8 @@ function createCardEl(photo, sizeClass) {
     (function attachModalSwipeIOSStyle() {
       const wrap  = document.getElementById("shoutModalImageWrap");
       const track = document.getElementById("shoutModalTrack");
-      if (!wrap || !track) return;
+      const currentPanel = document.getElementById("shoutModalCurrent");
+      if (!wrap || !track || !currentPanel) return;
 
       let startX = 0;
       let startY = 0;
@@ -988,11 +992,28 @@ function createCardEl(photo, sizeClass) {
       let dragging = false;
       let animating = false;
       let axisLocked = null;
+      let pinching = false;
+      let panning = false;
+      let zoomScale = 1;
+      let zoomX = 0;
+      let zoomY = 0;
+      let pinchStartDistance = 0;
+      let pinchStartScale = 1;
+      let pinchStartX = 0;
+      let pinchStartY = 0;
+      let pinchStartPanX = 0;
+      let pinchStartPanY = 0;
+      let panTouchStartX = 0;
+      let panTouchStartY = 0;
+      let panStartX = 0;
+      let panStartY = 0;
 
       const THRESHOLD_RATIO = 0.18;
       const TAP_SLOP = 8;
       const MAX_Y = 90;
       const ANIM_MS = 220;
+      const MIN_SCALE = 1;
+      const MAX_SCALE = 4;
 
       function getViewportW() {
         const cs = getComputedStyle(wrap);
@@ -1006,12 +1027,86 @@ function createCardEl(photo, sizeClass) {
         track.style.transform = `translate3d(${px}px, 0, 0)`;
       }
 
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+      function getTouchDistance(touches) {
+        const x = touches[1].clientX - touches[0].clientX;
+        const y = touches[1].clientY - touches[0].clientY;
+        return Math.hypot(x, y);
+      }
+      function getTouchCenter(touches) {
+        const rect = wrap.getBoundingClientRect();
+        return {
+          x: ((touches[0].clientX + touches[1].clientX) / 2) - rect.left - (rect.width / 2),
+          y: ((touches[0].clientY + touches[1].clientY) / 2) - rect.top - (rect.height / 2)
+        };
+      }
+      function clampZoomPan() {
+        const maxX = Math.max(0, (wrap.clientWidth * (zoomScale - 1)) / 2);
+        const maxY = Math.max(0, (wrap.clientHeight * (zoomScale - 1)) / 2);
+        zoomX = clamp(zoomX, -maxX, maxX);
+        zoomY = clamp(zoomY, -maxY, maxY);
+      }
+      function applyZoom(withAnim) {
+        clampZoomPan();
+        currentPanel.style.transition = withAnim ? "transform 180ms ease-out" : "none";
+        currentPanel.style.transformOrigin = "center center";
+        currentPanel.style.transform = `translate3d(${zoomX}px, ${zoomY}px, 0) scale(${zoomScale})`;
+        currentPanel.style.zIndex = zoomScale > 1 ? "2" : "";
+        currentPanel.style.willChange = zoomScale > 1 ? "transform" : "";
+      }
+      resetModalZoomState = (withAnim = false) => {
+        zoomScale = 1;
+        zoomX = 0;
+        zoomY = 0;
+        pinching = false;
+        panning = false;
+        dragging = false;
+        axisLocked = null;
+        applyZoom(withAnim);
+      };
+      function beginPinch(touches) {
+        if (!touches || touches.length < 2) return;
+        pinching = true;
+        panning = false;
+        dragging = false;
+        axisLocked = null;
+        pinchStartDistance = Math.max(1, getTouchDistance(touches));
+        pinchStartScale = zoomScale;
+        const center = getTouchCenter(touches);
+        pinchStartX = center.x;
+        pinchStartY = center.y;
+        pinchStartPanX = zoomX;
+        pinchStartPanY = zoomY;
+        snapTrackToCenterIdle();
+        suppressNextClick(550);
+      }
+
       wrap.addEventListener("touchstart", (ev) => {
         if (!isModalOpen()) return;
         if (animating) return;
 
+        if (ev.touches && ev.touches.length >= 2) {
+          ev.preventDefault();
+          beginPinch(ev.touches);
+          return;
+        }
+
         const t = ev.touches && ev.touches[0];
         if (!t) return;
+
+        if (zoomScale > 1) {
+          ev.preventDefault();
+          panning = true;
+          dragging = false;
+          panTouchStartX = t.clientX;
+          panTouchStartY = t.clientY;
+          panStartX = zoomX;
+          panStartY = zoomY;
+          suppressNextClick(450);
+          return;
+        }
 
         if (currentModalKey) preloadPanelsForKey(currentModalKey);
         snapTrackToCenterIdle(); 
@@ -1025,14 +1120,49 @@ function createCardEl(photo, sizeClass) {
 
         const w = getViewportW();
         setTrackPx(-w, false);
-      }, { passive: true });
+      }, { passive: false });
 
       wrap.addEventListener("touchmove", (ev) => {
-        if (!dragging) return;
         if (!isModalOpen()) return;
+
+        if (ev.touches && ev.touches.length >= 2) {
+          ev.preventDefault();
+          if (!pinching) beginPinch(ev.touches);
+          const distance = Math.max(1, getTouchDistance(ev.touches));
+          const center = getTouchCenter(ev.touches);
+          const nextScale = clamp(pinchStartScale * (distance / pinchStartDistance), MIN_SCALE, MAX_SCALE);
+          const ratio = nextScale / Math.max(MIN_SCALE, pinchStartScale);
+          zoomScale = nextScale;
+          zoomX = center.x - ((pinchStartX - pinchStartPanX) * ratio);
+          zoomY = center.y - ((pinchStartY - pinchStartPanY) * ratio);
+          applyZoom(false);
+          return;
+        }
 
         const t = ev.touches && ev.touches[0];
         if (!t) return;
+
+        if (pinching) {
+          ev.preventDefault();
+          return;
+        }
+
+        if (panning || zoomScale > 1) {
+          ev.preventDefault();
+          if (!panning) {
+            panning = true;
+            panTouchStartX = t.clientX;
+            panTouchStartY = t.clientY;
+            panStartX = zoomX;
+            panStartY = zoomY;
+          }
+          zoomX = panStartX + (t.clientX - panTouchStartX);
+          zoomY = panStartY + (t.clientY - panTouchStartY);
+          applyZoom(false);
+          return;
+        }
+
+        if (!dragging) return;
 
         dx = t.clientX - startX;
         dy = t.clientY - startY;
@@ -1055,7 +1185,33 @@ function createCardEl(photo, sizeClass) {
         setTrackPx(-w + dx, false);
       }, { passive: false });
 
-      wrap.addEventListener("touchend", () => {
+      wrap.addEventListener("touchend", (ev) => {
+        if (pinching) {
+          suppressNextClick(550);
+          if (ev.touches && ev.touches.length === 1 && zoomScale > 1) {
+            pinching = false;
+            panning = true;
+            const t = ev.touches[0];
+            panTouchStartX = t.clientX;
+            panTouchStartY = t.clientY;
+            panStartX = zoomX;
+            panStartY = zoomY;
+            return;
+          }
+          pinching = false;
+          panning = false;
+          if (zoomScale <= 1.02) resetModalZoomState(true);
+          else applyZoom(true);
+          return;
+        }
+
+        if (panning || zoomScale > 1) {
+          panning = false;
+          suppressNextClick(450);
+          applyZoom(true);
+          return;
+        }
+
         if (!dragging) return;
         dragging = false;
         if (!isModalOpen()) return;
@@ -1104,6 +1260,20 @@ function createCardEl(photo, sizeClass) {
         }
       }, { passive: true });
 
+      wrap.addEventListener("touchcancel", () => {
+        dragging = false;
+        pinching = false;
+        panning = false;
+        axisLocked = null;
+        snapTrackToCenterIdle();
+      }, { passive: true });
+
+      ["gesturestart", "gesturechange", "gestureend"].forEach((eventName) => {
+        wrap.addEventListener(eventName, (ev) => {
+          if (isModalOpen()) ev.preventDefault();
+        }, { passive: false });
+      });
+
     })();
 
     document.addEventListener("keydown", onModalKeyDown, true);
@@ -1115,6 +1285,7 @@ function createCardEl(photo, sizeClass) {
 
     if (isLockedByKey(key)) return;
 
+    resetModalZoomState(false);
     currentModalKey = key;
 
     const overlay = document.getElementById("shoutModalOverlay");
@@ -1135,6 +1306,7 @@ function createCardEl(photo, sizeClass) {
   }
 
   function closeModal() {
+    resetModalZoomState(false);
     const overlay = document.getElementById("shoutModalOverlay");
     if (overlay) {
       overlay.classList.remove("is-open", "has-selected-tray");
