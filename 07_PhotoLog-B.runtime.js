@@ -97,6 +97,18 @@
     return `${Number(matched[1])}년 ${Number(matched[2])}월 ${Number(matched[3])}일`;
   }
 
+  function formatGatheringTime(value) {
+    const eventTime = new Date(String(value || ""));
+    if (Number.isNaN(eventTime.getTime()) || !String(value || "").includes("T")) return "시간 미정";
+    const gatheringTime = new Date(eventTime.getTime() - 60 * 60 * 1000);
+    return new Intl.DateTimeFormat("ko-KR", {
+      timeZone: "Asia/Seoul",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(gatheringTime);
+  }
+
   function eventDateValue(value) {
     const matched = /^(\d{4}-\d{2}-\d{2})/.exec(String(value || ""));
     return matched ? matched[1] : "";
@@ -305,23 +317,28 @@
           <div class="pl-context">
             <div class="pl-context__item"><div class="pl-context__label">작성자</div><div class="pl-context__value">${escapeHtml(state.photographer.name)}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">대회일</div><div class="pl-context__value">${escapeHtml(formatEventDate(event.event_date))}</div></div>
-            <div class="pl-context__item"><div class="pl-context__label">상태</div><div class="pl-context__value">${escapeHtml(reportStatusText(event))}</div></div>
+            <div class="pl-context__item"><div class="pl-context__label">집결 시각</div><div class="pl-context__value">${escapeHtml(formatGatheringTime(event.event_date))}</div></div>
           </div>
           <div class="pl-detail-actions">
             ${mapUrl
-              ? `<a class="pl-button pl-button--ghost" href="${escapeHtml(mapUrl)}" target="_blank" rel="noopener noreferrer">대회 지도 보기</a>`
+              ? `<a class="pl-button pl-button--ghost" href="${escapeHtml(mapUrl)}" target="_blank" rel="noopener noreferrer">촬영 스팟 지도</a>`
               : '<span class="pl-help">등록된 대회 지도가 없습니다.</span>'}
             ${event.submitted
               ? '<span class="pl-status">제출 완료</span>'
               : canWrite
                 ? '<button class="pl-button" type="button" data-pl-start-report>일지 작성</button>'
-                : '<button class="pl-button" type="button" disabled title="대회 당일 00:00부터 작성할 수 있습니다.">일지 작성</button>'}
+                : '<button class="pl-button" type="button" data-pl-locked-report>일지 작성</button>'}
           </div>
+          <p class="pl-alert" data-pl-detail-message aria-live="polite"></p>
         </section>
       </div>`;
     root.querySelector("[data-pl-back]").addEventListener("click", renderEvents);
     const start = root.querySelector("[data-pl-start-report]");
     if (start) start.addEventListener("click", () => renderReport(event));
+    const locked = root.querySelector("[data-pl-locked-report]");
+    if (locked) locked.addEventListener("click", () => {
+      root.querySelector("[data-pl-detail-message]").textContent = "대회 당일 작성이 가능합니다";
+    });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
