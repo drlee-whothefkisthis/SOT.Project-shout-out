@@ -190,6 +190,7 @@
   }
 
   function renderLogin(message = "") {
+    const loginMessage = typeof message === "string" ? message : "";
     clearSession();
     root.innerHTML = `
       <div class="pl-shell">
@@ -197,19 +198,19 @@
         <section class="pl-card">
           <p class="pl-kicker">Photographer Log</p>
           <h1 class="pl-heading">포토그래퍼 일지</h1>
-          <p class="pl-copy">이름과 등록된 전화번호 뒤 4자리를 입력해 주세요.</p>
+          <p class="pl-copy">이름과 비밀번호를 입력해 주세요.</p>
           <form class="pl-stack" data-pl-login novalidate>
             <label class="pl-field">
               <span class="pl-label">이름</span>
               <input class="pl-input" name="name" autocomplete="name" maxlength="50" required>
             </label>
             <label class="pl-field">
-              <span class="pl-label">전화번호 뒤 4자리</span>
+              <span class="pl-label">비밀번호</span>
               <input class="pl-input" name="phone_last4" type="text" inputmode="numeric" autocomplete="one-time-code" minlength="4" maxlength="4" pattern="[0-9]{4}" required>
             </label>
             <button class="pl-button pl-button--wide" type="submit">배정 대회 확인</button>
           </form>
-          <p class="pl-alert" data-pl-login-message aria-live="assertive">${escapeHtml(message)}</p>
+          <p class="pl-alert" data-pl-login-message aria-live="assertive">${escapeHtml(loginMessage)}</p>
         </section>
       </div>`;
 
