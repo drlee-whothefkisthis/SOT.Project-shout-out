@@ -67,6 +67,8 @@ const events = [
     assert.equal(await page.locator(".passion-bg").count(), 0, "legacy Webflow DOM should be replaced");
     assert.equal(await page.locator(".sot-recent-feature").count(), 1);
     assert.equal(await page.locator(".sot-recent-hot-card").count(), 3);
+    assert.equal(await page.locator(".recent-event[href]").count(), 0);
+    assert.equal(await page.locator("button.recent-event").count(), 9);
     assert.equal(await page.locator(".sot-recent-panel").count(), 1);
     assert.equal(
       await page.locator(".sot-recent-panel").locator(".sot-recent-group, .sot-recent-past").count(),
@@ -103,6 +105,10 @@ const events = [
     ]);
 
     await page.locator('[data-event-code="260620-cj"]').click();
+    assert.equal(await page.locator("#app-event-id-input").inputValue(), "2026 제25회 충주마라톤");
+    assert.equal(await page.locator("#app-event-id-hidden").inputValue(), "260620-cj");
+    assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), "app-bib-input");
+    await page.waitForTimeout(500);
     assert.equal(await page.locator("#app-event-id-input").inputValue(), "2026 제25회 충주마라톤");
     assert.equal(await page.locator("#app-event-id-hidden").inputValue(), "260620-cj");
     assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), "app-bib-input");

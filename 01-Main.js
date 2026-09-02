@@ -377,12 +377,12 @@ onReady(function () {
   }
 
   function createEventLink(race, className) {
-    const link = document.createElement("a");
-    link.href = "#main-search";
-    link.className = `app-bib-input-move w-inline-block recent-event ${className}`;
-    link.dataset.eventCode = race.id;
-    link.setAttribute("aria-label", `${race.name} 선택`);
-    return link;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `recent-event ${className}`;
+    button.dataset.eventCode = race.id;
+    button.setAttribute("aria-label", `${race.name} 선택`);
+    return button;
   }
 
   function createFeatureCard(race) {

@@ -343,10 +343,13 @@
   height:auto !important;
   min-width:0;
   padding:0;
+  appearance:none;
   overflow:hidden;
   border:1px solid var(--sot-recent-line);
   box-shadow:0 7px 18px rgba(32,51,70,.025);
   color:var(--sot-recent-ink);
+  font:inherit;
+  text-align:left;
   text-decoration:none;
   cursor:pointer;
 }
