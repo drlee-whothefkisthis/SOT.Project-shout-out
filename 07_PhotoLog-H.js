@@ -115,6 +115,7 @@
   .pl-status { display: inline-flex; align-items: center; padding: 7px 10px; border-radius: 999px; background: #ecfdf3; color: var(--pl-green); font-size: 13px; font-weight: 800; }
 
   .pl-context { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 24px 0 0; }
+  .pl-context--event-detail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pl-context__item { padding: 13px 15px; border-radius: 12px; background: var(--pl-soft); }
   .pl-context__label { color: var(--pl-muted); font-size: 12px; }
   .pl-context__value { margin-top: 3px; font-weight: 800; overflow-wrap: anywhere; }
