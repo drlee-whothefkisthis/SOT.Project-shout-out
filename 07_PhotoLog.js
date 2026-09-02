@@ -109,10 +109,14 @@
   }
 
   function formatEventListName(value) {
-    const name = String(value || "").replace(/^2026(?:년)?\s*/, "").trim();
-    const edition = /^(제\d+회)\s+(.+)$/.exec(name);
+    return String(value || "").replace(/^2026(?:년)?\s*/, "").trim();
+  }
+
+  function formatEventDetailName(value) {
+    const name = String(value || "").trim();
+    const edition = /^(\d{4}(?:년)?\s+제\d+회)\s+(.+)$/.exec(name);
     return edition
-      ? `<span class="pl-event__name-line">${escapeHtml(edition[1])}</span><span class="pl-event__name-line">${escapeHtml(edition[2])}</span>`
+      ? `<span class="pl-heading__line">${escapeHtml(edition[1])}</span><span class="pl-heading__line">${escapeHtml(edition[2])}</span>`
       : escapeHtml(name);
   }
 
@@ -279,7 +283,7 @@
               <div class="pl-event-group__list">
                 ${items.map((item) => `
                   <article class="pl-event pl-event--clickable" role="button" tabindex="0" data-pl-view-event="${escapeHtml(item.event_code)}">
-                    <div class="pl-event__name">${formatEventListName(item.event_name || item.event_code)}</div>
+                    <div class="pl-event__name">${escapeHtml(formatEventListName(item.event_name || item.event_code))}</div>
                     <div class="pl-event__meta">${escapeHtml(formatEventListDate(item.event_date))}</div>
                   </article>`).join("")}
               </div>
@@ -346,7 +350,7 @@
         <section class="pl-card">
           <button class="pl-link" type="button" data-pl-back>← 대회 목록</button>
           <p class="pl-kicker" style="margin-top:24px">Event Detail</p>
-          <h1 class="pl-heading">${escapeHtml(event.event_name || event.event_code)}</h1>
+          <h1 class="pl-heading pl-heading--event">${formatEventDetailName(event.event_name || event.event_code)}</h1>
           <div class="pl-context pl-context--event-detail">
             <div class="pl-context__item"><div class="pl-context__label">포토그래퍼</div><div class="pl-context__value">${escapeHtml(state.photographer.name)}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">장소</div><div class="pl-context__value">${escapeHtml(event.location || "장소 미정")}</div></div>
