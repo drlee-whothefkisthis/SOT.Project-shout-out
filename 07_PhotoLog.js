@@ -242,6 +242,7 @@
       state.token = data.access_token;
       state.photographer = data.photographer;
       sessionStorage.setItem(CONFIG.tokenKey, state.token);
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
       await loadEvents();
     } catch (error) {
       message.textContent = error.code === "IDENTITY_NOT_VERIFIED"
@@ -270,6 +271,7 @@
   }
 
   function renderEvents(loadError = "") {
+    const errorMessage = typeof loadError === "string" ? loadError : "";
     const eventRows = state.events.length
       ? (() => {
           const groups = new Map();
@@ -303,10 +305,9 @@
             <div>
               <p class="pl-kicker">Assigned Events</p>
               <h1 class="pl-heading">${escapeHtml(state.photographer?.name)}님의 대회</h1>
-              <p class="pl-copy">작성할 대회를 선택해 주세요.</p>
             </div>
           </div>
-          <p class="pl-alert" aria-live="assertive">${escapeHtml(loadError)}</p>
+          ${errorMessage ? `<p class="pl-alert" aria-live="assertive">${escapeHtml(errorMessage)}</p>` : ""}
           <div class="pl-event-list">${eventRows}</div>
         </section>
       </div>`;
@@ -322,6 +323,7 @@
         }
       });
     });
+    window.scrollTo({ top: 0, behavior: "auto" });
   }
 
   async function loadEventDetail(eventCode) {
@@ -377,7 +379,7 @@
           <p class="pl-alert" data-pl-detail-message aria-live="polite"></p>
         </section>
       </div>`;
-    root.querySelector("[data-pl-back]").addEventListener("click", renderEvents);
+    root.querySelector("[data-pl-back]").addEventListener("click", () => renderEvents());
     const start = root.querySelector("[data-pl-start-report]");
     if (start) start.addEventListener("click", () => renderReport(event));
     const locked = root.querySelector("[data-pl-locked-report]");
