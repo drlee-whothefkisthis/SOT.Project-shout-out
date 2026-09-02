@@ -16,6 +16,7 @@
 
   :is(.gallery-container){
     padding-inline: var(--section-pad-x);
+    margin-inline: auto;
   }
 
   @media (max-width: 840px) {
