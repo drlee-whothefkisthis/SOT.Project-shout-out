@@ -239,7 +239,6 @@
     const last4 = form.elements.phone_last4;
     last4.addEventListener("input", () => { last4.value = last4.value.replace(/\D/g, "").slice(0, 4); });
     form.addEventListener("submit", submitLogin);
-    form.elements.name.focus();
   }
 
   async function submitLogin(event) {
@@ -249,6 +248,7 @@
     const message = root.querySelector("[data-pl-login-message]");
     if (!form.reportValidity()) return;
 
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     button.disabled = true;
     button.textContent = "확인 중…";
     message.textContent = "";
@@ -263,7 +263,6 @@
       state.token = data.access_token;
       state.photographer = data.photographer;
       sessionStorage.setItem(CONFIG.tokenKey, state.token);
-      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
       await loadEvents();
     } catch (error) {
       message.textContent = error.code === "IDENTITY_NOT_VERIFIED"
