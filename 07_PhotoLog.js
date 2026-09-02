@@ -109,7 +109,11 @@
   }
 
   function formatEventListName(value) {
-    return String(value || "").replace(/^2026(?:년)?\s*/, "").trim();
+    const name = String(value || "").replace(/^2026(?:년)?\s*/, "").trim();
+    const edition = /^(제\d+회)\s+(.+)$/.exec(name);
+    return edition
+      ? `<span class="pl-event__name-line">${escapeHtml(edition[1])}</span><span class="pl-event__name-line">${escapeHtml(edition[2])}</span>`
+      : escapeHtml(name);
   }
 
   function formatGatheringTime(value) {
@@ -275,7 +279,7 @@
               <div class="pl-event-group__list">
                 ${items.map((item) => `
                   <article class="pl-event pl-event--clickable" role="button" tabindex="0" data-pl-view-event="${escapeHtml(item.event_code)}">
-                    <div class="pl-event__name">${escapeHtml(formatEventListName(item.event_name || item.event_code))}</div>
+                    <div class="pl-event__name">${formatEventListName(item.event_name || item.event_code)}</div>
                     <div class="pl-event__meta">${escapeHtml(formatEventListDate(item.event_date))}</div>
                   </article>`).join("")}
               </div>
