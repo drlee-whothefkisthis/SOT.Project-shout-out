@@ -186,7 +186,7 @@
   function readDraft() {
     try {
       const draft = JSON.parse(localStorage.getItem(draftKey()) || "null");
-      if (!draft || draft.version !== 1 || Date.now() - Number(draft.saved_at || 0) > 604800000) return null;
+      if (!draft || draft.version !== 1 || Date.now() - Number(draft.saved_at || 0) > 86400000) return null;
       return draft;
     } catch (_error) {
       return null;
