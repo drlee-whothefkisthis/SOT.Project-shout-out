@@ -389,8 +389,6 @@
 }
 
 .gallery-card.is-in-cart{
-  outline:2px solid rgba(47,128,237,.7);
-  outline-offset:-2px;
   pointer-events:none;
   cursor: default;
   box-shadow: none !important;
@@ -414,7 +412,10 @@
 }
 
 .gallery-card.is-in-cart::after{
-  opacity: 0 !important;
+  opacity:1 !important;
+  background:transparent !important;
+  box-shadow:inset 0 0 0 2px rgba(47,128,237,.82) !important;
+  z-index:4 !important;
 }
 
 .gallery-card.is-in-cart.is-selected{
