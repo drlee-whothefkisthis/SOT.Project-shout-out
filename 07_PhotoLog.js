@@ -223,11 +223,11 @@
           <form class="pl-stack" data-pl-login novalidate>
             <label class="pl-field">
               <span class="pl-label">이름</span>
-              <input class="pl-input" name="name" autocomplete="name" maxlength="50" required>
+              <input class="pl-input" name="name" autocomplete="name" maxlength="50" placeholder="예: 홍길동" required>
             </label>
             <label class="pl-field">
               <span class="pl-label">비밀번호</span>
-              <input class="pl-input" name="phone_last4" type="text" inputmode="numeric" autocomplete="one-time-code" minlength="4" maxlength="4" pattern="[0-9]{4}" required>
+              <input class="pl-input" name="phone_last4" type="text" inputmode="numeric" autocomplete="one-time-code" minlength="4" maxlength="4" pattern="[0-9]{4}" placeholder="연락처 뒤 4자리" required>
             </label>
             <button class="pl-button pl-button--wide" type="submit">배정 대회 확인</button>
           </form>
