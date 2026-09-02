@@ -375,6 +375,21 @@
   function getBibFocusFromPhoto(photo, bibStr) {
     if (!photo || !bibStr) return null;
 
+    const rawFocusX = photo.focus_x;
+    const rawFocusY = photo.focus_y;
+    const directX = Number(rawFocusX);
+    const directY = Number(rawFocusY);
+    if (
+      rawFocusX != null && String(rawFocusX).trim() !== "" &&
+      rawFocusY != null && String(rawFocusY).trim() !== "" &&
+      Number.isFinite(directX) && Number.isFinite(directY)
+    ) {
+      return {
+        x: Math.max(0, Math.min(100, directX)),
+        y: Math.max(0, Math.min(100, directY))
+      };
+    }
+
     const map = getParsedBboxMap(photo);
     if (!map) return null;
 
@@ -1605,6 +1620,8 @@ function createCardEl(photo, sizeClass) {
     const price = Array.isArray(response.price) ? response.price : [];
     const ocrBib = Array.isArray(response.ocr_bib) ? response.ocr_bib : [];
     const ocrName = Array.isArray(response.ocr_name) ? response.ocr_name : [];
+    const focusX = Array.isArray(response.focus_x) ? response.focus_x : [];
+    const focusY = Array.isArray(response.focus_y) ? response.focus_y : [];
 
     if (!photoId.length && !previewUrl.length) return [];
 
@@ -1615,7 +1632,9 @@ function createCardEl(photo, sizeClass) {
       eventCode.length,
       price.length,
       ocrBib.length,
-      ocrName.length
+      ocrName.length,
+      focusX.length,
+      focusY.length
     );
 
     const out = [];
@@ -1638,6 +1657,8 @@ function createCardEl(photo, sizeClass) {
         parsed_bbox_map: parsedBboxMap,
         ocr_bib: ocrBib[i] || "",
         ocr_name: ocrName[i] || "",
+        focus_x: focusX[i],
+        focus_y: focusY[i],
         event_code: eventCode[i] || "",
         price: toPositivePrice(price[i])
       });
@@ -1800,6 +1821,12 @@ function createCardEl(photo, sizeClass) {
       console.warn("[Gallery] hydrateLocalSelectedFromGlobal localStorage parse failed:", e);
     }
 
+    let selectionChanged = false;
+    for (const key of lockedCartKeys) {
+      if (localSelectedKeys.delete(key)) selectionChanged = true;
+    }
+    if (selectionChanged) saveLocalSelectedToSession();
+
     recomputeModalKeys();
   }
   
@@ -1827,7 +1854,6 @@ function createCardEl(photo, sizeClass) {
 
   async function initGallery() {
     hydrateLocalSelectedFromGlobal(); 
-    loadLocalSelectedFromSession(); 
     ensureModalUI();
 
     const mainEl = document.getElementById("galleryGrid");
@@ -1871,6 +1897,7 @@ function createCardEl(photo, sizeClass) {
       const k = getPhotoKey(p);
       if (k) { photosByKey.set(k, p); orderKeys.push(k); }
     });
+    loadLocalSelectedFromSession();
     recomputeModalKeys();
 
     if (photos.length === 0) {
