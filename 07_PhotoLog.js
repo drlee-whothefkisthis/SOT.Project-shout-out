@@ -100,7 +100,28 @@
   function formatEventListDate(value) {
     const matched = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ""));
     if (!matched) return "날짜 미정";
-    return `${Number(matched[2])}월 ${Number(matched[3])}일`;
+    const weekday = ["일", "월", "화", "수", "목", "금", "토"][
+      new Date(Date.UTC(Number(matched[1]), Number(matched[2]) - 1, Number(matched[3]))).getUTCDay()
+    ];
+    return `${Number(matched[2])}월 ${Number(matched[3])}일 (${weekday})`;
+  }
+
+  function kstTodaySerial() {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+    const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+    return Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day));
+  }
+
+  function showEventInList(value) {
+    const matched = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ""));
+    if (!matched) return true;
+    const eventSerial = Date.UTC(Number(matched[1]), Number(matched[2]) - 1, Number(matched[3]));
+    return eventSerial >= kstTodaySerial() - 3 * 24 * 60 * 60 * 1000;
   }
 
   function eventMonthLabel(value) {
@@ -272,10 +293,11 @@
 
   function renderEvents(loadError = "") {
     const errorMessage = typeof loadError === "string" ? loadError : "";
-    const eventRows = state.events.length
+    const visibleEvents = state.events.filter((item) => showEventInList(item.event_date));
+    const eventRows = visibleEvents.length
       ? (() => {
           const groups = new Map();
-          state.events.forEach((item) => {
+          visibleEvents.forEach((item) => {
             const month = eventMonthLabel(item.event_date);
             if (!groups.has(month)) groups.set(month, []);
             groups.get(month).push(item);
