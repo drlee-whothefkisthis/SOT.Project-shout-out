@@ -388,11 +388,9 @@
   outline-offset:-2px;
 }
 
-.gallery-card.is-in-cart .gallery-media{
-  box-shadow:inset 0 0 0 2px #2f80ed;
-}
-
 .gallery-card.is-in-cart{
+  outline:2px solid rgba(47,128,237,.7);
+  outline-offset:-2px;
   pointer-events:none;
   cursor: default;
   box-shadow: none !important;
