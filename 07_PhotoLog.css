@@ -111,8 +111,9 @@
     border: 1px solid var(--pl-line);
     border-radius: 14px;
   }
-  .pl-event__name { font-size: 18px; font-weight: 850; word-break: keep-all; }
-  .pl-event__name-line { display: block; }
+  .pl-event__name { font-size: 18px; font-weight: 850; }
+  .pl-heading--event { word-break: keep-all; }
+  .pl-heading__line { display: block; }
   .pl-event__meta { margin-top: 4px; color: var(--pl-muted); font-size: 14px; }
   .pl-event--clickable { cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s; }
   .pl-event--clickable:hover,
