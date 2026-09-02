@@ -186,7 +186,11 @@
   function readDraft() {
     try {
       const draft = JSON.parse(localStorage.getItem(draftKey()) || "null");
-      if (!draft || draft.version !== 1 || Date.now() - Number(draft.saved_at || 0) > 86400000) return null;
+      if (!draft || draft.version !== 1) return null;
+      if (Date.now() - Number(draft.saved_at || 0) > 86400000) {
+        localStorage.removeItem(draftKey());
+        return null;
+      }
       return draft;
     } catch (_error) {
       return null;
