@@ -315,8 +315,9 @@
           <button class="pl-link" type="button" data-pl-back>← 대회 목록</button>
           <p class="pl-kicker" style="margin-top:24px">Event Detail</p>
           <h1 class="pl-heading">${escapeHtml(event.event_name || event.event_code)}</h1>
-          <div class="pl-context">
-            <div class="pl-context__item"><div class="pl-context__label">작성자</div><div class="pl-context__value">${escapeHtml(state.photographer.name)}</div></div>
+          <div class="pl-context pl-context--event-detail">
+            <div class="pl-context__item"><div class="pl-context__label">포토그래퍼</div><div class="pl-context__value">${escapeHtml(state.photographer.name)}</div></div>
+            <div class="pl-context__item"><div class="pl-context__label">장소</div><div class="pl-context__value">${escapeHtml(event.location || "장소 미정")}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">대회일</div><div class="pl-context__value">${escapeHtml(formatEventDate(event.event_date))}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">집결 시각</div><div class="pl-context__value">${escapeHtml(formatGatheringTime(event.event_date))}</div></div>
           </div>
