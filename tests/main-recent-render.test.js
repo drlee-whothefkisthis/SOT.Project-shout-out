@@ -79,6 +79,10 @@ const events = [
     assert.equal(await page.locator(".sot-recent-subtitle").count(), 0);
     assert.equal(await page.locator(".sot-recent-hot-card__chevron").count(), 0);
     assert.equal(
+      await page.locator(".sot-recent-feature").evaluate(card => getComputedStyle(card).boxShadow),
+      "rgba(32, 51, 70, 0.024) 0px 7px 18px 0px"
+    );
+    assert.equal(
       await page.locator('[data-event-code="260607-yd"] .sot-recent-past-card__title').innerHTML(),
       "iM뱅크<br>코리아오픈 마라톤"
     );
