@@ -176,11 +176,18 @@ onReady(function () {
   }
 
   function focusBib() {
-    setTimeout(() => {
+    const applyFocus = () => {
       try { eventInput.blur(); } catch (_) {}
       bibInput.focus();
       if (typeof bibInput.select === "function") bibInput.select();
-    }, 80);
+    };
+
+    // Keep focus inside the card click's native user gesture so mobile browsers
+    // can open the keyboard without requiring a second tap.
+    applyFocus();
+    requestAnimationFrame(() => {
+      if (document.activeElement !== bibInput) applyFocus();
+    });
   }
 
   if (suggestionsBox) suggestionsBox.style.display = "none";

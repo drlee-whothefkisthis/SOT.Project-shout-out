@@ -103,7 +103,6 @@ const events = [
     ]);
 
     await page.locator('[data-event-code="260620-cj"]').click();
-    await page.waitForTimeout(100);
     assert.equal(await page.locator("#app-event-id-input").inputValue(), "2026 제25회 충주마라톤");
     assert.equal(await page.locator("#app-event-id-hidden").inputValue(), "260620-cj");
     assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), "app-bib-input");
