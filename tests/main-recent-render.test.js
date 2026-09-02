@@ -67,6 +67,12 @@ const events = [
     assert.equal(await page.locator(".passion-bg").count(), 0, "legacy Webflow DOM should be replaced");
     assert.equal(await page.locator(".sot-recent-feature").count(), 1);
     assert.equal(await page.locator(".sot-recent-hot-card").count(), 3);
+    assert.equal(await page.locator(".sot-recent-panel").count(), 1);
+    assert.equal(
+      await page.locator(".sot-recent-panel").locator(".sot-recent-group, .sot-recent-past").count(),
+      2,
+      "hot and past sections should share one outer card"
+    );
     const pastCodes = await page.locator(".sot-recent-past-card").evaluateAll(cards => cards.map(card => card.dataset.eventCode));
     assert.equal(pastCodes.length, 5, `unexpected past cards: ${pastCodes.join(", ")}`);
     assert.equal(await page.locator("#sot-recent-events-root img").count(), 0);

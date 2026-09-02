@@ -465,6 +465,9 @@ onReady(function () {
     heading.appendChild(createText("h2", "sot-recent-title", "대회 선택"));
     root.appendChild(heading);
 
+    const panel = document.createElement("div");
+    panel.className = "sot-recent-panel";
+
     const hotSection = document.createElement("section");
     hotSection.className = "sot-recent-group";
     hotSection.setAttribute("aria-labelledby", "sot-recent-hot-title");
@@ -482,7 +485,7 @@ onReady(function () {
       hotEvents.slice(1).forEach(race => hotList.appendChild(createHotCard(race)));
       hotSection.appendChild(hotList);
     }
-    root.appendChild(hotSection);
+    panel.appendChild(hotSection);
 
     if (pastEvents.length) {
       const pastSection = document.createElement("section");
@@ -528,8 +531,10 @@ onReady(function () {
         more.dataset.recentAction = "more";
         pastSection.appendChild(more);
       }
-      root.appendChild(pastSection);
+      panel.appendChild(pastSection);
     }
+
+    root.appendChild(panel);
 
     const message = document.createElement("p");
     message.className = "sot-recent-message";
