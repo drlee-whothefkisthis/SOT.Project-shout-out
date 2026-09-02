@@ -412,9 +412,13 @@
 }
 
 .gallery-card.is-in-cart::after{
+  inset:0 !important;
+  box-sizing:border-box !important;
   opacity:1 !important;
   background:transparent !important;
-  box-shadow:inset 0 0 0 2px rgba(47,128,237,.82) !important;
+  border:2px solid rgba(47,128,237,.95) !important;
+  border-radius:inherit !important;
+  box-shadow:inset 0 0 0 1px rgba(47,128,237,.35) !important;
   z-index:4 !important;
 }
 
