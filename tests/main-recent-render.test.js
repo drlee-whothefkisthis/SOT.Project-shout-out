@@ -40,15 +40,15 @@ const events = [
   const pageErrors = [];
   page.on("pageerror", error => pageErrors.push(error));
   try {
+    await page.route("**/*", route => {
+      if (route.request().resourceType() === "image") return route.abort();
+      return route.continue();
+    });
     await page.route("**/obj/event?limit=200", route => route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({ response: { results: events } })
     }));
-    await page.route("**/*", route => {
-      if (route.request().resourceType() === "image") return route.abort();
-      return route.continue();
-    });
 
     await page.setContent(`<!doctype html><html><head><style>${style}</style></head><body>
       <section id="main-search">
@@ -67,7 +67,27 @@ const events = [
     assert.equal(await page.locator(".passion-bg").count(), 0, "legacy Webflow DOM should be replaced");
     assert.equal(await page.locator(".sot-recent-feature").count(), 1);
     assert.equal(await page.locator(".sot-recent-hot-card").count(), 3);
-    assert.equal(await page.locator(".sot-recent-past-card").count(), 5);
+    const pastCodes = await page.locator(".sot-recent-past-card").evaluateAll(cards => cards.map(card => card.dataset.eventCode));
+    assert.equal(pastCodes.length, 5, `unexpected past cards: ${pastCodes.join(", ")}`);
+    assert.equal(await page.locator("#sot-recent-events-root img").count(), 0);
+    assert.equal(await page.locator(".sot-recent-subtitle").count(), 0);
+    assert.equal(await page.locator(".sot-recent-hot-card__chevron").count(), 0);
+    assert.equal(
+      await page.locator('[data-event-code="260607-yd"] .sot-recent-past-card__title').innerHTML(),
+      "iM뱅크<br>코리아오픈 마라톤"
+    );
+    assert.equal(
+      await page.locator('[data-event-code="260517-ic"] .sot-recent-past-card__title').innerHTML(),
+      "인천광역시<br>육상연맹회장배 마라톤"
+    );
+    assert.equal(
+      await page.locator('[data-event-code="260502-bs"] .sot-recent-past-card__title').innerHTML(),
+      "제21회<br>보성 녹차 마라톤"
+    );
+    assert.equal(
+      await page.locator('[data-event-code="260419-kk"] .sot-recent-past-card__title').innerHTML(),
+      "제24회<br>경기마라톤대회"
+    );
     assert.deepEqual(await page.locator(".sot-recent-month option").allTextContents(), [
       "전체 월", "2026년 6월", "2026년 5월", "2026년 4월"
     ]);

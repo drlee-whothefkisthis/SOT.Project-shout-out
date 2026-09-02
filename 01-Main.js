@@ -241,51 +241,6 @@ onReady(function () {
   const RECENT_HOT_COUNT = 4;
   const RECENT_PAST_PAGE_SIZE = 6;
 
-  // Existing Webflow CDN assets are kept as a zero-migration fallback.
-  // New events should set home_image_url (or card_image_url/image_url) in Bubble.
-  const LEGACY_HOME_ASSETS = Object.freeze({
-    "260628-sd": {
-      priority: 100,
-      src: "https://cdn.prod.website-files.com/691e5df3002228c301997066/6a3a1c3d3c924c12dd5d5b9a_songdo_lee_bongju_marathon_webflow_under_100kb.webp",
-      srcset: "https://cdn.prod.website-files.com/691e5df3002228c301997066/6a3a1c3d3c924c12dd5d5b9a_songdo_lee_bongju_marathon_webflow_under_100kb-p-500.webp 500w, https://cdn.prod.website-files.com/691e5df3002228c301997066/6a3a1c3d3c924c12dd5d5b9a_songdo_lee_bongju_marathon_webflow_under_100kb-p-800.webp 800w, https://cdn.prod.website-files.com/691e5df3002228c301997066/6a3a1c3d3c924c12dd5d5b9a_songdo_lee_bongju_marathon_webflow_under_100kb.webp 900w"
-    },
-    "260620-cj": {
-      priority: 90,
-      src: "https://cdn.prod.website-files.com/691e5df3002228c301997066/6a35ad2b1cc38736b192d621_260620-cj.png"
-    },
-    "260614-dj": {
-      priority: 80,
-      src: "https://cdn.prod.website-files.com/691e5df3002228c301997066/6a2dcd4eb8ecd18fab597f13_260614-dj.png"
-    },
-    "260531-gs": {
-      priority: 70,
-      src: "https://cdn.prod.website-files.com/691e5df3002228c301997066/6a1b50fbdd92b1af68cd4297_260531-gs.webp",
-      srcset: "https://cdn.prod.website-files.com/691e5df3002228c301997066/6a1b50fbdd92b1af68cd4297_260531-gs-p-500.webp 500w, https://cdn.prod.website-files.com/691e5df3002228c301997066/6a1b50fbdd92b1af68cd4297_260531-gs.webp 700w"
-    },
-    "260614-ic": {
-      priority: 50,
-      src: "https://cdn.prod.website-files.com/691e5df3002228c301997066/6a2dcd49de5c19bff72ca8d5_260614-ic.png"
-    },
-    "260607-yd": {
-      priority: 40,
-      src: "https://cdn.prod.website-files.com/691e5df3002228c301997066/6a28fe49de181744161b9bff_260607-yd.png"
-    },
-    "260517-ic": {
-      priority: 30,
-      src: "https://cdn.prod.website-files.com/691e5df3002228c301997066/6a08027d1ebdd44a620c33b0_260517-ic.webp",
-      srcset: "https://cdn.prod.website-files.com/691e5df3002228c301997066/6a08027d1ebdd44a620c33b0_260517-ic-p-500.webp 500w, https://cdn.prod.website-files.com/691e5df3002228c301997066/6a08027d1ebdd44a620c33b0_260517-ic-p-800.webp 800w, https://cdn.prod.website-files.com/691e5df3002228c301997066/6a08027d1ebdd44a620c33b0_260517-ic-p-1080.webp 1080w, https://cdn.prod.website-files.com/691e5df3002228c301997066/6a08027d1ebdd44a620c33b0_260517-ic.webp 1254w"
-    },
-    "260502-bs": {
-      priority: 20,
-      src: "https://cdn.prod.website-files.com/691e5df3002228c301997066/69f4cc256dc57e5560750430_260502-bs.jpg",
-      srcset: "https://cdn.prod.website-files.com/691e5df3002228c301997066/69f4cc256dc57e5560750430_260502-bs-p-500.jpg 500w, https://cdn.prod.website-files.com/691e5df3002228c301997066/69f4cc256dc57e5560750430_260502-bs.jpg 900w"
-    },
-    "260419-kk": {
-      priority: 10,
-      src: "https://cdn.prod.website-files.com/691e5df3002228c301997066/69de08e3f0bedc9175f1be47_260419-kk-b.png"
-    }
-  });
-
   let selectedPastMonth = "all";
   let visiblePastCount = RECENT_PAST_PAGE_SIZE;
 
@@ -294,18 +249,8 @@ onReady(function () {
     return Number.isFinite(number) ? number : null;
   }
 
-  function eventAsset(race) {
-    const legacy = LEGACY_HOME_ASSETS[race.id] || {};
-    return {
-      src: race.home_image_url || legacy.src || "",
-      srcset: race.home_image_srcset || legacy.srcset || ""
-    };
-  }
-
   function isHomeEvent(race) {
-    if (!race || race.home_visible === false) return false;
-    const hasImage = !!eventAsset(race).src;
-    return race.home_visible === true || hasImage;
+    return !!race && race.home_visible !== false;
   }
 
   function hotRank(race) {
@@ -314,8 +259,7 @@ onReady(function () {
   }
 
   function hotScore(race) {
-    const legacy = LEGACY_HOME_ASSETS[race.id] || {};
-    const candidates = [race.home_score, race.home_priority, legacy.priority];
+    const candidates = [race.home_score, race.home_priority];
     for (const value of candidates) {
       const number = finiteNumber(value);
       if (number !== null) return number;
@@ -384,18 +328,45 @@ onReady(function () {
     return element;
   }
 
-  function createEventImage(race, className, eager) {
-    const asset = eventAsset(race);
-    if (!asset.src) return null;
-    const image = document.createElement("img");
-    image.className = className;
-    image.src = asset.src;
-    if (asset.srcset) image.srcset = asset.srcset;
-    image.sizes = "(max-width: 479px) 100vw, 430px";
-    image.loading = eager ? "eager" : "lazy";
-    image.decoding = "async";
-    image.alt = `${race.name} 대회 이미지`;
-    return image;
+  function displayRaceName(race) {
+    return String((race && race.name) || "").replace(/^\s*20\d{2}\s+/, "").trim();
+  }
+
+  function eventTag(race) {
+    const name = displayRaceName(race);
+    const ordinal = name.match(/^제\s*(\d+)\s*회/);
+    if (ordinal) return ordinal[1].slice(-2);
+    const suffix = String((race && race.id) || "").split("-").pop();
+    return suffix ? suffix.slice(0, 2).toUpperCase() : "RUN";
+  }
+
+  function splitPastTitle(race) {
+    const words = displayRaceName(race).split(/\s+/).filter(Boolean);
+    if (words.length < 2) return [words.join(" ")];
+
+    let bestIndex = 1;
+    let bestGap = Infinity;
+    for (let index = 1; index < words.length; index += 1) {
+      const first = words.slice(0, index).join(" ");
+      const second = words.slice(index).join(" ");
+      if (first.length > second.length) continue;
+      const gap = second.length - first.length;
+      if (gap < bestGap) {
+        bestGap = gap;
+        bestIndex = index;
+      }
+    }
+    return [words.slice(0, bestIndex).join(" "), words.slice(bestIndex).join(" ")];
+  }
+
+  function createPastTitle(race) {
+    const title = document.createElement("strong");
+    title.className = "sot-recent-past-card__title";
+    splitPastTitle(race).forEach((line, index) => {
+      if (index) title.appendChild(document.createElement("br"));
+      title.appendChild(document.createTextNode(line));
+    });
+    return title;
   }
 
   function createEventLink(race, className) {
@@ -409,12 +380,10 @@ onReady(function () {
 
   function createFeatureCard(race) {
     const card = createEventLink(race, "sot-recent-feature");
-    const image = createEventImage(race, "sot-recent-feature__image", true);
-    if (image) card.appendChild(image);
     const overlay = document.createElement("span");
     overlay.className = "sot-recent-feature__overlay";
     overlay.appendChild(createText("span", "sot-recent-card__date", formatEventDate(race)));
-    overlay.appendChild(createText("strong", "sot-recent-feature__title", race.name));
+    overlay.appendChild(createText("strong", "sot-recent-feature__title", displayRaceName(race)));
     card.appendChild(overlay);
     return card;
   }
@@ -423,27 +392,23 @@ onReady(function () {
     const card = createEventLink(race, "sot-recent-hot-card");
     const thumb = document.createElement("span");
     thumb.className = "sot-recent-hot-card__thumb";
-    const image = createEventImage(race, "sot-recent-hot-card__image", false);
-    if (image) thumb.appendChild(image);
+    thumb.textContent = eventTag(race);
     const copy = document.createElement("span");
     copy.className = "sot-recent-hot-card__copy";
-    copy.appendChild(createText("strong", "sot-recent-hot-card__title", race.name));
+    copy.appendChild(createText("strong", "sot-recent-hot-card__title", displayRaceName(race)));
     copy.appendChild(createText("span", "sot-recent-card__date", formatEventDate(race)));
     card.appendChild(thumb);
     card.appendChild(copy);
-    card.appendChild(createText("span", "sot-recent-hot-card__chevron", "›"));
     return card;
   }
 
   function createPastCard(race) {
     const card = createEventLink(race, "sot-recent-past-card");
     card.dataset.month = eventMonthKey(race);
-    const image = createEventImage(race, "sot-recent-past-card__image", false);
-    if (image) card.appendChild(image);
     const overlay = document.createElement("span");
     overlay.className = "sot-recent-past-card__overlay";
     overlay.appendChild(createText("span", "sot-recent-card__date", formatEventDate(race)));
-    overlay.appendChild(createText("strong", "sot-recent-past-card__title", race.name));
+    overlay.appendChild(createPastTitle(race));
     card.appendChild(overlay);
     return card;
   }
@@ -498,7 +463,6 @@ onReady(function () {
     const heading = document.createElement("header");
     heading.className = "sot-recent-heading";
     heading.appendChild(createText("h2", "sot-recent-title", "대회 선택"));
-    heading.appendChild(createText("p", "sot-recent-subtitle", "핫한 대회는 위에, 지난 대회는 아래에 정리했습니다."));
     root.appendChild(heading);
 
     const hotSection = document.createElement("section");
@@ -643,8 +607,6 @@ onReady(function () {
             name_search_enabled: item.name_search_enabled === true,
             bib_min_digits: Number(item.bib_min_digits) === 3 ? 3 : 4,
             home_visible: item.home_visible === true ? true : (item.home_visible === false ? false : null),
-            home_image_url: item.home_image_url || item.card_image_url || item.image_url || "",
-            home_image_srcset: item.home_image_srcset || item.card_image_srcset || "",
             home_rank: item.home_rank ?? item.hot_rank ?? null,
             home_score: item.home_score ?? item.hot_score ?? item.popularity_score ?? null,
             home_priority: item.home_priority ?? null
