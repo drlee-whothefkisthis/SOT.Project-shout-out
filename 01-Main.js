@@ -1,4 +1,4 @@
-<script>
+try {
 (function () {
   var NOTICE_BANNER_ENABLED = false;
 
@@ -72,8 +72,10 @@
     init();
   }
 })();
-</script>
-<script>
+} catch (error) {
+  console.error("[main] notice banner initialization failed", error);
+}
+
 (function () {
 function onReady(fn) {
   if (document.readyState === "loading") {
@@ -940,4 +942,3 @@ onReady(function () {
   })();
 
 })();
-</script>

@@ -4,10 +4,10 @@ const path = require("node:path");
 const { chromium } = require("playwright");
 
 const root = path.resolve(__dirname, "..");
-const bodySource = fs.readFileSync(path.join(root, "01-Main-B.js"), "utf8");
-const headSource = fs.readFileSync(path.join(root, "01-Main-H.js"), "utf8");
-const scripts = [...bodySource.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
-const style = (headSource.match(/<style>([\s\S]*?)<\/style>/) || [])[1] || "";
+const bodySource = fs.readFileSync(path.join(root, "01-Main.js"), "utf8");
+const headSource = fs.readFileSync(path.join(root, "01-Main.css"), "utf8");
+const scripts = [bodySource];
+const style = headSource;
 
 const events = [
   ["260628-sd", "2026 송도 이봉주 마라톤", "2026-06-27T15:00:00.000Z", "2026-06-27T15:00:00.000Z"],
@@ -36,6 +36,9 @@ const events = [
     ...(executablePath ? { executablePath } : {})
   });
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  page.setDefaultTimeout(5000);
+  const pageErrors = [];
+  page.on("pageerror", error => pageErrors.push(error));
   try {
     await page.route("**/obj/event?limit=200", route => route.fulfill({
       status: 200,
@@ -57,7 +60,10 @@ const events = [
     </body></html>`);
     for (const script of scripts) await page.addScriptTag({ content: script });
 
-    await page.waitForSelector(".sot-recent-past-card");
+    await page.waitForSelector(".sot-recent-past-card").catch(error => {
+      if (pageErrors.length) throw pageErrors[0];
+      throw error;
+    });
     assert.equal(await page.locator(".passion-bg").count(), 0, "legacy Webflow DOM should be replaced");
     assert.equal(await page.locator(".sot-recent-feature").count(), 1);
     assert.equal(await page.locator(".sot-recent-hot-card").count(), 3);
