@@ -99,7 +99,7 @@
   .pl-busy { display: grid; min-height: 280px; place-items: center; color: var(--pl-muted); }
 
   .pl-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
-  .pl-event-list { display: grid; gap: 30px; margin-top: 28px; }
+  .pl-event-list { display: grid; gap: 24px; margin-top: 18px; }
   .pl-event-group { min-width: 0; }
   .pl-event-group__title { margin: 0 0 10px; color: var(--pl-ink); font-size: 17px; letter-spacing: -.02em; }
   .pl-event-group__list { display: grid; gap: 10px; }
@@ -171,7 +171,10 @@
     .pl-context--event-detail .pl-context__value { font-size: 14px; }
     .pl-span-2 { grid-column: auto; }
     .pl-toolbar { display: block; }
-    .pl-event-list { gap: 26px; margin-top: 22px; }
+    .pl-input,
+    .pl-select,
+    .pl-textarea { font-size: 16px; }
+    .pl-event-list { gap: 22px; margin-top: 16px; }
     .pl-event { width: 100%; padding: 15px 14px; }
     .pl-event__name { font-size: 16px; line-height: 1.4; }
     .pl-event__meta { font-size: 13px; }
