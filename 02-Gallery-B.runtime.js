@@ -115,6 +115,8 @@ window.ShoutGallery.getGalleryGridCoveredBottom = function (gridEl) {
   let currentSearchName = null;
   let localSelectedKeys = new Set();
   let lastSelectedTrayCount = 0;
+  let lastLocalSelectedTrayCount = 0;
+  let hasRenderedSelectedTray = false;
   let packageTraySparkleTimer = null;
   let lockedCartKeys = new Set();
   let mainRenderCount = 0;
@@ -1404,6 +1406,48 @@ function createCardEl(photo, sizeClass) {
     }
   }
 
+  function getCurrentPackageMatchedKeys(includeLocal = true) {
+    const eventCode = String(currentEventMeta.event_code || "").trim();
+    const searchType = currentSearchBib ? "bib" : (currentSearchName ? "name" : "");
+    const searchValue = String(currentSearchBib || currentSearchName || "").trim();
+    const matchedKeys = new Set();
+
+    if (eventCode && searchType && searchValue) {
+      try {
+        if (window.ShoutCart && typeof window.ShoutCart.getItems === "function") {
+          const cartItems = window.ShoutCart.getItems() || [];
+          cartItems.forEach((it) => {
+            const itemEventCode = String((it && it.event_code) || "").trim();
+            const explicitType = String((it && (it.identifier_type || it.search_type)) || "").trim();
+            const itemType = explicitType || (it && it.bib ? "bib" : (it && it.ocr_name ? "name" : ""));
+            const itemValue = String((it && (
+              it.identifier_value ||
+              it.search_value ||
+              it.bib ||
+              it.ocr_name ||
+              it.searched_query
+            )) || "").trim();
+
+            if (itemEventCode !== eventCode || itemType !== searchType || itemValue !== searchValue) return;
+
+            const key = getPhotoKey(it);
+            if (key) matchedKeys.add(key);
+          });
+        }
+      } catch (e) {
+        console.warn("[Gallery] package cart read failed:", e);
+      }
+    }
+
+    if (includeLocal) {
+      Array.from(localSelectedKeys).forEach((key) => {
+        if (!isLockedByKey(key)) matchedKeys.add(key);
+      });
+    }
+
+    return matchedKeys;
+  }
+
   function syncModalSelectedTraySpace() {
     const overlay = document.getElementById("shoutModalOverlay");
     const tray = document.getElementById("shoutSelectedTray");
@@ -1411,7 +1455,7 @@ function createCardEl(photo, sizeClass) {
 
     const shouldReserve =
       Boolean(currentModalKey) &&
-      localSelectedKeys.size > 0 &&
+      getCurrentPackageMatchedKeys().size > 0 &&
       tray.classList.contains("is-open");
 
     if (!shouldReserve) {
@@ -1455,8 +1499,10 @@ function createCardEl(photo, sizeClass) {
     const selected = Array.from(localSelectedKeys)
       .map((k) => photosByKey.get(k))
       .filter(Boolean);
+    const packageMatchedKeys = getCurrentPackageMatchedKeys();
+    const count = packageMatchedKeys.size;
 
-    if (selected.length === 0) {
+    if (count === 0) {
       tray.classList.remove("is-open");
       list.innerHTML = "";
       info.textContent = "0장 0원";
@@ -1468,13 +1514,14 @@ function createCardEl(photo, sizeClass) {
       benefitSub.textContent = `${PACKAGE_THRESHOLD}장 이상이면 전부 ${PACKAGE_PRICE.toLocaleString()}원이 적용됩니다`;
       packageCard.classList.remove("is-sparkling");
       lastSelectedTrayCount = 0;
+      lastLocalSelectedTrayCount = 0;
+      hasRenderedSelectedTray = true;
       syncModalSelectedTraySpace();
       return;
     }
 
     tray.classList.add("is-open");
 
-    const count = selected.length;
     const regularPrice = count * UNIT_PRICE;
     const hasPackage = count >= PACKAGE_THRESHOLD;
     const totalPrice =
@@ -1495,8 +1542,14 @@ function createCardEl(photo, sizeClass) {
       benefitSub.textContent = `${PACKAGE_THRESHOLD}장 이상이면 장당 가격 대신 한 번에 ${PACKAGE_PRICE.toLocaleString()}원`;
     }
 
-    const justReachedPackage = count === PACKAGE_THRESHOLD && lastSelectedTrayCount !== PACKAGE_THRESHOLD;
+    const justReachedPackage =
+      hasRenderedSelectedTray &&
+      lastSelectedTrayCount < PACKAGE_THRESHOLD &&
+      count >= PACKAGE_THRESHOLD &&
+      selected.length > lastLocalSelectedTrayCount;
     lastSelectedTrayCount = count;
+    lastLocalSelectedTrayCount = selected.length;
+    hasRenderedSelectedTray = true;
     if (justReachedPackage) triggerPackageTraySparkle(packageCard);
 
     list.innerHTML = "";
@@ -1519,7 +1572,6 @@ function createCardEl(photo, sizeClass) {
     if (!fillEl || !countWrapEl || !countTextEl || !lottieEl) return;
 
     const eventCode = String(currentEventMeta.event_code || "").trim();
-    const searchType = currentSearchBib ? "bib" : (currentSearchName ? "name" : "");
     const searchValue = String(currentSearchBib || currentSearchName || "").trim();
 
     if (!eventCode || !searchValue) {
@@ -1530,37 +1582,7 @@ function createCardEl(photo, sizeClass) {
       return;
     }
 
-    const matchedKeys = new Set();
-
-    try {
-      if (window.ShoutCart && typeof window.ShoutCart.getItems === "function") {
-        const cartItems = window.ShoutCart.getItems() || [];
-        cartItems.forEach((it) => {
-          const itemEventCode = String((it && it.event_code) || "").trim();
-          const itemType = String((it && (it.identifier_type || it.search_type)) || (it && it.bib ? "bib" : "")).trim();
-          const itemValue = String((it && (it.identifier_value || it.search_value || it.bib || it.ocr_name)) || "").trim();
-          if (itemEventCode !== eventCode || itemType !== searchType || itemValue !== searchValue) return;
-
-          const key = getPhotoKey(it);
-          if (key) matchedKeys.add(key);
-        });
-      }
-    } catch (e) {
-      console.warn("[Gallery] updatePackageUI cart read failed:", e);
-    }
-
-    try {
-      Array.from(localSelectedKeys).forEach((key) => {
-        const photo = photosByKey.get(key);
-        if (!photo) return;
-        if (isLockedByKey(key)) return;
-
-        matchedKeys.add(key);
-      });
-    } catch (e) {
-      console.warn("[Gallery] updatePackageUI local selected read failed:", e);
-    }
-
+    const matchedKeys = getCurrentPackageMatchedKeys();
     const matchedCount = matchedKeys.size;
     const cappedCount = Math.min(matchedCount, 5);
 
@@ -1876,9 +1898,13 @@ function createCardEl(photo, sizeClass) {
       window.ShoutCart &&
       typeof window.ShoutCart.getItems === "function";
 
-    if (ready) return;
+    if (ready) {
+      syncSelectedTrayUI();
+      return;
+    }
     if (retryCount >= 20) {
       console.warn("[Gallery] ShoutCart not ready after retry limit");
+      syncSelectedTrayUI();
       return;
     }
 
@@ -1977,7 +2003,7 @@ function createCardEl(photo, sizeClass) {
 
     window.addEventListener("shout_cart_changed", () => {
       hydrateLocalSelectedFromGlobal();
-      updatePackageUI();
+      syncSelectedTrayUI();
     });
 
     if (window.ResizeObserver) {
