@@ -286,6 +286,21 @@
     color: #f7f8ff; background: #202022; border: 1px solid rgba(120,153,255,0.32);
     box-shadow: 0 -8px 30px rgba(0,0,0,0.22);
   }
+  /* Desktop: align the tray card with the viewer while the modal is open.
+     Square lower corners keep the image-stage selection ring fully visible. */
+  @media (min-width: 768px) {
+    #shoutModalContainer,
+    #shoutModalOverlay.is-open ~ #shoutSelectedTray #shoutPackageCard {
+      box-sizing: border-box;
+      width: min(980px, calc(100vw - 36px));
+      max-width: none;
+    }
+    #shoutModalContainer {
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+  }
+
   #shoutPackageCard::before,
   #shoutPackageCard::after {
     position: absolute; z-index: 2; color: #b9c9ff; opacity: 0; pointer-events: none; content: "✦";
