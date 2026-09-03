@@ -29,6 +29,12 @@ const events = [
   bib_min_digits: 4
 }));
 
+// Ranking and publication time must not override event-date ordering.
+events.find(event => event.event_code === "260531-gs").home_rank = 1;
+events.find(event => event.event_code === "260531-gs").home_score = 9999;
+events.find(event => event.event_code === "260531-gs").publish_at = "2026-07-01T00:00:00.000Z";
+events.reverse();
+
 (async () => {
   const executablePath = process.env.CHROME_EXECUTABLE_PATH;
   const browser = await chromium.launch({
@@ -65,23 +71,35 @@ const events = [
       throw error;
     });
     assert.equal(await page.locator(".passion-bg").count(), 0, "legacy Webflow DOM should be replaced");
-    assert.equal(await page.locator(".sot-recent-feature").count(), 1);
+    assert.equal(await page.locator(".sot-recent-feature, .sot-recent-feature__overlay").count(), 0);
+    assert.equal(await page.locator(".sot-recent-title, .sot-recent-heading, #sot-recent-hot-title").count(), 0);
     assert.equal(await page.locator(".sot-recent-hot-card").count(), 3);
+    assert.deepEqual(
+      await page.locator(".sot-recent-hot-card").evaluateAll(cards => cards.map(card => card.dataset.eventCode)),
+      ["260628-sd", "260620-cj", "260614-dj"]
+    );
+    assert.equal(await page.locator(".sot-recent-hot-badge").count(), 1);
+    assert.equal(await page.locator(".sot-recent-group").getAttribute("aria-label"), "최신 대회");
     assert.equal(await page.locator(".recent-event[href]").count(), 0);
     assert.equal(await page.locator("button.recent-event").count(), 9);
     assert.equal(await page.locator(".sot-recent-panel").count(), 1);
+    assert.equal(
+      await page.locator(".sot-recent-panel").evaluate(panel => getComputedStyle(panel).backgroundColor),
+      "rgb(245, 245, 245)"
+    );
     assert.equal(
       await page.locator(".sot-recent-panel").locator(".sot-recent-group, .sot-recent-past").count(),
       2,
       "hot and past sections should share one outer card"
     );
     const pastCodes = await page.locator(".sot-recent-past-card").evaluateAll(cards => cards.map(card => card.dataset.eventCode));
-    assert.equal(pastCodes.length, 5, `unexpected past cards: ${pastCodes.join(", ")}`);
+    assert.equal(pastCodes.length, 6, `unexpected past cards: ${pastCodes.join(", ")}`);
+    assert.equal(pastCodes[0], "260614-ic");
     assert.equal(await page.locator("#sot-recent-events-root img").count(), 0);
     assert.equal(await page.locator(".sot-recent-subtitle").count(), 0);
     assert.equal(await page.locator(".sot-recent-hot-card__chevron").count(), 0);
     assert.equal(
-      await page.locator(".sot-recent-feature").evaluate(card => getComputedStyle(card).boxShadow),
+      await page.locator(".sot-recent-hot-card").first().evaluate(card => getComputedStyle(card).boxShadow),
       "rgba(32, 51, 70, 0.024) 0px 7px 18px 0px"
     );
     assert.equal(
@@ -117,6 +135,21 @@ const events = [
     assert.equal(await page.locator(".sot-recent-past-card").count(), 1);
     assert.equal(await page.locator('.sot-recent-past-card[data-event-code="260419-kk"]').count(), 1);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    const hotBoxes = await page.locator(".sot-recent-hot-card").evaluateAll(cards => cards.map(card => {
+      const rect = card.getBoundingClientRect();
+      return { top: rect.top, width: rect.width, height: rect.height };
+    }));
+    assert.equal(new Set(hotBoxes.map(box => box.top)).size, 1, "desktop cards should share one row");
+    assert.ok(Math.max(...hotBoxes.map(box => box.width)) - Math.min(...hotBoxes.map(box => box.width)) < 1);
+    assert.equal(new Set(hotBoxes.map(box => box.height)).size, 1);
+    await page.locator('[data-event-code="260628-sd"]').click();
+    await page.waitForTimeout(500);
+    assert.equal(await page.locator("#app-event-id-input").inputValue(), "2026 송도 이봉주 마라톤");
+    assert.equal(await page.locator("#app-event-id-hidden").inputValue(), "260628-sd");
+    assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), "app-bib-input");
+    assert.deepEqual(pageErrors, []);
 
     console.log("main recent events render test: ok");
   } finally {

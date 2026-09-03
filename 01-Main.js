@@ -245,43 +245,20 @@ onReady(function () {
    * Everything inside the wrapper is rendered from Bubble data.
    * ============================================================ */
   const RECENT_ROOT_ID = "sot-recent-events-root";
-  const RECENT_HOT_COUNT = 4;
+  const RECENT_HOT_COUNT = 3;
   const RECENT_PAST_PAGE_SIZE = 6;
 
   let selectedPastMonth = "all";
   let visiblePastCount = RECENT_PAST_PAGE_SIZE;
 
-  function finiteNumber(value) {
-    const number = Number(value);
-    return Number.isFinite(number) ? number : null;
-  }
-
   function isHomeEvent(race) {
     return !!race && race.home_visible !== false;
   }
 
-  function hotRank(race) {
-    const rank = finiteNumber(race.home_rank);
-    return rank !== null && rank > 0 ? rank : Infinity;
-  }
-
-  function hotScore(race) {
-    const candidates = [race.home_score, race.home_priority];
-    for (const value of candidates) {
-      const number = finiteNumber(value);
-      if (number !== null) return number;
-    }
-    return race.publish_at ? race.publish_at.getTime() : 0;
-  }
-
-  function compareHotEvents(a, b) {
-    const aRank = hotRank(a);
-    const bRank = hotRank(b);
-    if (aRank !== bRank) return aRank - bRank;
-    const scoreDiff = hotScore(b) - hotScore(a);
-    if (scoreDiff !== 0) return scoreDiff;
-    const dateDiff = eventTimestamp(b) - eventTimestamp(a);
-    if (dateDiff !== 0) return dateDiff;
+  function compareRecentEvents(a, b) {
+    const aDate = eventTimestamp(a);
+    const bDate = eventTimestamp(b);
+    if (aDate !== bDate) return bDate - aDate;
     return (a.name || "").localeCompare(b.name || "", "ko");
   }
 
@@ -385,16 +362,6 @@ onReady(function () {
     return button;
   }
 
-  function createFeatureCard(race) {
-    const card = createEventLink(race, "sot-recent-feature");
-    const overlay = document.createElement("span");
-    overlay.className = "sot-recent-feature__overlay";
-    overlay.appendChild(createText("span", "sot-recent-card__date", formatEventDate(race)));
-    overlay.appendChild(createText("strong", "sot-recent-feature__title", displayRaceName(race)));
-    card.appendChild(overlay);
-    return card;
-  }
-
   function createHotCard(race) {
     const card = createEventLink(race, "sot-recent-hot-card");
     const thumb = document.createElement("span");
@@ -446,7 +413,7 @@ onReady(function () {
     const root = ensureRecentRoot();
     if (!root) return;
 
-    const homeEvents = races.filter(isHomeEvent).sort(compareHotEvents);
+    const homeEvents = races.filter(isHomeEvent).sort(compareRecentEvents);
     if (!homeEvents.length) {
       renderRecentStatus("선택할 수 있는 대회를 준비 중입니다.", "empty");
       return;
@@ -467,31 +434,20 @@ onReady(function () {
 
     root.replaceChildren();
 
-    const heading = document.createElement("header");
-    heading.className = "sot-recent-heading";
-    heading.appendChild(createText("h2", "sot-recent-title", "대회 선택"));
-    root.appendChild(heading);
-
     const panel = document.createElement("div");
     panel.className = "sot-recent-panel";
 
     const hotSection = document.createElement("section");
     hotSection.className = "sot-recent-group";
-    hotSection.setAttribute("aria-labelledby", "sot-recent-hot-title");
+    hotSection.setAttribute("aria-label", "최신 대회");
     const hotHead = document.createElement("div");
     hotHead.className = "sot-recent-group-head";
-    const hotTitle = createText("h3", "sot-recent-group-title", "지금 많이 찾는 대회");
-    hotTitle.id = "sot-recent-hot-title";
-    hotHead.appendChild(hotTitle);
     hotHead.appendChild(createText("span", "sot-recent-hot-badge", "HOT"));
     hotSection.appendChild(hotHead);
-    hotSection.appendChild(createFeatureCard(hotEvents[0]));
-    if (hotEvents.length > 1) {
-      const hotList = document.createElement("div");
-      hotList.className = "sot-recent-hot-list";
-      hotEvents.slice(1).forEach(race => hotList.appendChild(createHotCard(race)));
-      hotSection.appendChild(hotList);
-    }
+    const hotList = document.createElement("div");
+    hotList.className = "sot-recent-hot-list";
+    hotEvents.forEach(race => hotList.appendChild(createHotCard(race)));
+    hotSection.appendChild(hotList);
     panel.appendChild(hotSection);
 
     if (pastEvents.length) {
