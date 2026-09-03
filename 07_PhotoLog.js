@@ -222,7 +222,7 @@
         <div class="pl-brand">SHOUT-OUT</div>
         <section class="pl-card">
           <p class="pl-kicker">Photographer Log</p>
-          <h1 class="pl-heading">포토그래퍼 일지</h1>
+          <h1 class="pl-heading">포토그래퍼</h1>
           <p class="pl-copy">이름과 비밀번호를 입력해 주세요.</p>
           <form class="pl-stack" data-pl-login novalidate>
             <label class="pl-field">
