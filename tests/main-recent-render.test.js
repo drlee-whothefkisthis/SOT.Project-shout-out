@@ -161,6 +161,29 @@ events.reverse();
     assert.equal(await page.locator("#app-event-id-input").inputValue(), "2026 송도 이봉주 마라톤");
     assert.equal(await page.locator("#app-event-id-hidden").inputValue(), "260628-sd");
     assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), "app-bib-input");
+    // Put the cards well below the search inputs and disable the browser's
+    // implicit focus scrolling: card clicks must explicitly reveal both inputs.
+    await page.addStyleTag({ content: "#main-search{margin-top:500px;margin-bottom:1400px} body{padding-bottom:1200px}" });
+    await page.evaluate(() => {
+      const bib = document.getElementById("app-bib-input");
+      const nativeFocus = bib.focus.bind(bib);
+      bib.focus = () => nativeFocus({ preventScroll: true });
+    });
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      for (const code of ["260620-cj", "260419-kk"]) {
+        await page.locator(`button.recent-event[data-event-code="${code}"]`).click();
+        await page.waitForFunction(() => {
+          const input = document.getElementById("app-event-id-input").getBoundingClientRect();
+          const bib = document.getElementById("app-bib-input").getBoundingClientRect();
+          return input.top >= 0 && input.bottom <= innerHeight && bib.top >= 0 && bib.bottom <= innerHeight;
+        });
+        assert.equal(await page.locator("#app-event-id-hidden").inputValue(), code);
+        assert.equal(await page.evaluate(() => document.activeElement.id), "app-bib-input");
+        await page.keyboard.type("1234");
+        assert.equal(await page.locator("#app-bib-input").inputValue(), "1234");
+      }
+    }
     assert.deepEqual(pageErrors, []);
 
     console.log("main recent events render test: ok");

@@ -190,6 +190,32 @@ onReady(function () {
     });
   }
 
+  let stopSearchScrollAdjustment = null;
+
+  function scrollSearchInputsIntoView() {
+    if (stopSearchScrollAdjustment) stopSearchScrollAdjustment();
+    const viewport = window.visualViewport;
+    const alignInputs = () => {
+      if (document.activeElement !== bibInput) return;
+      const top = Math.min(eventInput.getBoundingClientRect().top, bibInput.getBoundingClientRect().top);
+      const offset = (viewport ? viewport.offsetTop : 0) + 80;
+      window.scrollTo({ top: Math.max(0, window.scrollY + top - offset), behavior: "instant" });
+    };
+
+    // Focus remains in the original click gesture. Scrolling never focuses
+    // the section, and adjusts once the mobile keyboard changes the viewport.
+    const frame = requestAnimationFrame(alignInputs);
+    if (viewport) viewport.addEventListener("resize", alignInputs);
+    const cleanup = () => {
+      cancelAnimationFrame(frame);
+      if (viewport) viewport.removeEventListener("resize", alignInputs);
+      clearTimeout(timeout);
+      stopSearchScrollAdjustment = null;
+    };
+    const timeout = setTimeout(cleanup, 1000);
+    stopSearchScrollAdjustment = cleanup;
+  }
+
   eventInput.removeAttribute("list");
   let eventMatches = [];
 
@@ -605,7 +631,7 @@ onReady(function () {
       const card = event.target.closest(".recent-event[data-event-code]");
       if (!card || !root.contains(card)) return;
       event.preventDefault();
-      selectRaceByCode(card.dataset.eventCode);
+      if (selectRaceByCode(card.dataset.eventCode)) scrollSearchInputsIntoView();
     });
 
     root.addEventListener("change", (event) => {
