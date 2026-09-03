@@ -6,6 +6,7 @@
 
   const BUBBLE_SEARCH_API = "https://plp-62309.bubbleapps.io/api/1.1/wf/find-photos";
   const SEARCH_PAGE_LIMIT = 50;
+  const SEARCH_REQUEST_TIMEOUT_MS = 15000;
   const INITIAL_VISIBLE_PHOTOS = 12;
   const PHOTO_REVEAL_BATCH_SIZE = 12;
   const UNIT_PRICE = 6000;
@@ -121,9 +122,15 @@
   }
 
   function toHttps(url) {
-    if (!url) return "";
-    if (url.startsWith("//")) return "https:" + url;
-    return url;
+    const value = String(url || "").trim();
+    if (!value) return "";
+
+    try {
+      const parsed = new URL(value.startsWith("//") ? `https:${value}` : value, window.location.href);
+      return (parsed.protocol === "https:" || parsed.protocol === "http:") ? parsed.href : "";
+    } catch (e) {
+      return "";
+    }
   }
   function getQueryParam(name) {
     return new URLSearchParams(window.location.search).get(name);
@@ -1483,7 +1490,13 @@ function createCardEl(photo, sizeClass) {
     selected.forEach((item) => {
       const wrap = document.createElement("div");
       wrap.className = "shoutMiniThumb";
-      wrap.innerHTML = `<img src="${toHttps(item.preview_url)}">`;
+      const imageUrl = toHttps(item.preview_url);
+      if (!imageUrl) return;
+
+      const img = document.createElement("img");
+      img.src = imageUrl;
+      img.alt = "선택한 사진";
+      wrap.appendChild(img);
       list.appendChild(wrap);
     });
 
@@ -1676,6 +1689,55 @@ function createCardEl(photo, sizeClass) {
     return Number.isFinite(n) && n >= 0 ? n : fallbackCount;
   }
 
+  function createSearchRequestError(code, message, cause) {
+    const error = new Error(message);
+    error.code = code;
+    error.cause = cause;
+    return error;
+  }
+
+  function getSearchErrorCopy(error) {
+    const code = error && error.code;
+    if (code === "timeout") {
+      return { title: "사진을 불러오는 데 시간이 걸리고 있어요", detail: "네트워크 상태를 확인한 뒤 다시 시도해 주세요." };
+    }
+    if (code === "network") {
+      return { title: "인터넷 연결을 확인해 주세요", detail: "연결이 복구되면 사진을 다시 불러올 수 있어요." };
+    }
+    if (code === "rate_limit") {
+      return { title: "요청이 잠시 많아요", detail: "잠시 후 다시 시도해 주세요." };
+    }
+    if (code === "bad_request") {
+      return { title: "검색 정보를 확인해 주세요", detail: "대회 코드나 검색어를 다시 확인해 주세요." };
+    }
+    return { title: "사진을 불러오지 못했어요", detail: "잠시 후 다시 시도해 주세요." };
+  }
+
+  function renderGallerySearchError(introEl, mainEl, error) {
+    if (introEl) introEl.replaceChildren();
+    if (!mainEl) return;
+
+    const copy = getSearchErrorCopy(error);
+    const message = document.createElement("div");
+    message.className = "gallery-search-error";
+    message.style.cssText = "color:white;text-align:center;padding:50px 20px;display:grid;gap:12px;justify-items:center;";
+
+    const title = document.createElement("strong");
+    title.textContent = copy.title;
+    const detail = document.createElement("span");
+    detail.textContent = copy.detail;
+    detail.style.color = "rgba(255,255,255,.7)";
+
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.textContent = "다시 시도";
+    retry.style.cssText = "border:1px solid rgba(255,255,255,.45);border-radius:999px;background:transparent;color:#fff;padding:9px 14px;font:inherit;cursor:pointer;";
+    retry.addEventListener("click", () => window.location.reload());
+
+    message.append(title, detail, retry);
+    mainEl.replaceChildren(message);
+  }
+
   async function fetchPhotoPage(eventCode, query, index, limit) {
     const tracking = window.ShoutTracking && typeof window.ShoutTracking.getTrackingContext === "function"
       ? window.ShoutTracking.getTrackingContext()
@@ -1702,13 +1764,36 @@ function createCardEl(photo, sizeClass) {
       }
     }
 
-    const res = await fetch(BUBBLE_SEARCH_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), SEARCH_REQUEST_TIMEOUT_MS);
+    let res;
+    try {
+      res = await fetch(BUBBLE_SEARCH_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+    } catch (e) {
+      const code = e && e.name === "AbortError" ? "timeout" : "network";
+      throw createSearchRequestError(code, "Gallery search request failed", e);
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
 
-    const data = await res.json();
+    if (!res.ok) {
+      const code = res.status === 429
+        ? "rate_limit"
+        : (res.status >= 400 && res.status < 500 ? "bad_request" : "server");
+      throw createSearchRequestError(code, `Gallery search responded with HTTP ${res.status}`);
+    }
+
+    let data;
+    try {
+      data = await res.json();
+    } catch (e) {
+      throw createSearchRequestError("server", "Gallery search returned invalid JSON", e);
+    }
     const list = extractPhotoListFromResponse(data);
     const totalCount = extractTotalCountFromResponse(data, list.length);
 
@@ -1742,7 +1827,7 @@ function createCardEl(photo, sizeClass) {
       ];
     } catch (e) {
       console.error("API Error:", e);
-      return [];
+      throw e;
     }
   }
 
@@ -1882,7 +1967,13 @@ function createCardEl(photo, sizeClass) {
 
       currentSearchBib = isNumericSearch(searchValue) ? searchValue : null;
       currentSearchName = searchValue && !currentSearchBib ? searchValue : null;
-      list = await fetchPhotos(eventCode, searchValue);
+      try {
+        list = await fetchPhotos(eventCode, searchValue);
+      } catch (e) {
+        console.error("[Gallery] photo search failed:", e);
+        renderGallerySearchError(introEl, mainEl, e);
+        return;
+      }
       list = dedupePhotoList(list);
       list = searchValue
         ? sortPhotosByOcrSearchMatch(list, searchValue, currentSearchBib ? "bib" : "name")
@@ -1902,7 +1993,10 @@ function createCardEl(photo, sizeClass) {
 
     if (photos.length === 0) {
       if (introEl) introEl.innerHTML = "";
-      mainEl.innerHTML = "<div style='color:white; text-align:center; padding:50px;'>사진이 없습니다.</div>";
+      const empty = document.createElement("div");
+      empty.textContent = "사진이 없습니다.";
+      empty.style.cssText = "color:white;text-align:center;padding:50px;";
+      mainEl.replaceChildren(empty);
       updatePackageUI();
       return;
     }
