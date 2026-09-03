@@ -122,15 +122,9 @@
   }
 
   function toHttps(url) {
-    const value = String(url || "").trim();
-    if (!value) return "";
-
-    try {
-      const parsed = new URL(value.startsWith("//") ? `https:${value}` : value, window.location.href);
-      return (parsed.protocol === "https:" || parsed.protocol === "http:") ? parsed.href : "";
-    } catch (e) {
-      return "";
-    }
+    if (!url) return "";
+    if (url.startsWith("//")) return "https:" + url;
+    return url;
   }
   function getQueryParam(name) {
     return new URLSearchParams(window.location.search).get(name);
@@ -1490,13 +1484,7 @@ function createCardEl(photo, sizeClass) {
     selected.forEach((item) => {
       const wrap = document.createElement("div");
       wrap.className = "shoutMiniThumb";
-      const imageUrl = toHttps(item.preview_url);
-      if (!imageUrl) return;
-
-      const img = document.createElement("img");
-      img.src = imageUrl;
-      img.alt = "선택한 사진";
-      wrap.appendChild(img);
+      wrap.innerHTML = `<img src="${toHttps(item.preview_url)}">`;
       list.appendChild(wrap);
     });
 
@@ -1993,10 +1981,7 @@ function createCardEl(photo, sizeClass) {
 
     if (photos.length === 0) {
       if (introEl) introEl.innerHTML = "";
-      const empty = document.createElement("div");
-      empty.textContent = "사진이 없습니다.";
-      empty.style.cssText = "color:white;text-align:center;padding:50px;";
-      mainEl.replaceChildren(empty);
+      mainEl.innerHTML = "<div style='color:white; text-align:center; padding:50px;'>사진이 없습니다.</div>";
       updatePackageUI();
       return;
     }
