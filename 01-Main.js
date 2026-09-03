@@ -324,33 +324,8 @@ onReady(function () {
     return suffix ? suffix.slice(0, 2).toUpperCase() : "RUN";
   }
 
-  function splitPastTitle(race) {
-    const words = displayRaceName(race).split(/\s+/).filter(Boolean);
-    if (words.length < 2) return [words.join(" ")];
-
-    let bestIndex = 1;
-    let bestGap = Infinity;
-    for (let index = 1; index < words.length; index += 1) {
-      const first = words.slice(0, index).join(" ");
-      const second = words.slice(index).join(" ");
-      if (first.length > second.length) continue;
-      const gap = second.length - first.length;
-      if (gap < bestGap) {
-        bestGap = gap;
-        bestIndex = index;
-      }
-    }
-    return [words.slice(0, bestIndex).join(" "), words.slice(bestIndex).join(" ")];
-  }
-
-  function createPastTitle(race) {
-    const title = document.createElement("strong");
-    title.className = "sot-recent-past-card__title";
-    splitPastTitle(race).forEach((line, index) => {
-      if (index) title.appendChild(document.createElement("br"));
-      title.appendChild(document.createTextNode(line));
-    });
-    return title;
+  function pastCourseInfo(race) {
+    return String((race && race.course_info) || "").trim() || "Full, Half, 10K, 5K";
   }
 
   function createEventLink(race, className) {
@@ -379,11 +354,22 @@ onReady(function () {
   function createPastCard(race) {
     const card = createEventLink(race, "sot-recent-past-card");
     card.dataset.month = eventMonthKey(race);
-    const overlay = document.createElement("span");
-    overlay.className = "sot-recent-past-card__overlay";
-    overlay.appendChild(createText("span", "sot-recent-card__date", formatEventDate(race)));
-    overlay.appendChild(createPastTitle(race));
-    card.appendChild(overlay);
+    const parts = kstDateParts(race.event_date);
+    const dateTile = document.createElement("span");
+    dateTile.className = "sot-recent-past-card__date-tile";
+    dateTile.appendChild(createText("strong", "sot-recent-past-card__day", parts ? String(Number(parts.day)) : "--"));
+    dateTile.appendChild(createText("span", "sot-recent-past-card__month", parts ? `${Number(parts.month)}월` : ""));
+    const copy = document.createElement("span");
+    copy.className = "sot-recent-past-card__copy";
+    copy.appendChild(createText("strong", "sot-recent-past-card__title", displayRaceName(race)));
+    copy.appendChild(createText("span", "sot-recent-past-card__course", pastCourseInfo(race)));
+    const arrow = document.createElement("div");
+    arrow.className = "arrow";
+    arrow.setAttribute("aria-hidden", "true");
+    arrow.textContent = "→";
+    card.appendChild(dateTile);
+    card.appendChild(copy);
+    card.appendChild(arrow);
     return card;
   }
 
@@ -565,6 +551,7 @@ onReady(function () {
             is_public,
             publish_at,
             event_date,
+            course_info: item.event_course_info ?? item.course_info ?? "",
             name_search_enabled: item.name_search_enabled === true,
             bib_min_digits: Number(item.bib_min_digits) === 3 ? 3 : 4,
             home_visible: item.home_visible === true ? true : (item.home_visible === false ? false : null),
