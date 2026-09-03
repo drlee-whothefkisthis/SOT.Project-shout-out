@@ -466,8 +466,9 @@ onReady(function () {
     return button;
   }
 
-  function createHotCard(race) {
+  function createHotCard(race, index) {
     const card = createEventLink(race, "sot-recent-hot-card");
+    card.appendChild(createText("span", "sot-recent-hot-card__eyebrow", index === 0 ? "LATEST EVENT" : `EVENT ${String(index + 1).padStart(2, "0")}`));
     const parts = kstDateParts(race.event_date);
     const thumb = document.createElement("span");
     thumb.className = "sot-recent-hot-card__thumb";
@@ -476,6 +477,7 @@ onReady(function () {
     const copy = document.createElement("span");
     copy.className = "sot-recent-hot-card__copy";
     copy.appendChild(createText("strong", "sot-recent-hot-card__title", displayRaceName(race)));
+    copy.appendChild(createText("span", "sot-recent-hot-card__mobile-date", formatEventDate(race)));
     copy.appendChild(createText("span", "sot-recent-hot-card__course", eventCourseInfo(race)));
     const arrow = document.createElement("div");
     arrow.className = "arrow";
@@ -484,6 +486,7 @@ onReady(function () {
     card.appendChild(thumb);
     card.appendChild(copy);
     card.appendChild(arrow);
+    card.appendChild(createText("span", "sot-recent-hot-card__cta", "사진 찾기 →"));
     return card;
   }
 
@@ -560,7 +563,7 @@ onReady(function () {
     hotSection.appendChild(hotHead);
     const hotList = document.createElement("div");
     hotList.className = "sot-recent-hot-list";
-    hotEvents.forEach(race => hotList.appendChild(createHotCard(race)));
+    hotEvents.forEach((race, index) => hotList.appendChild(createHotCard(race, index)));
     hotSection.appendChild(hotList);
     panel.appendChild(hotSection);
 

@@ -376,6 +376,12 @@
   gap:10px;
 }
 
+.sot-recent-hot-card__eyebrow,
+.sot-recent-hot-card__mobile-date,
+.sot-recent-hot-card__cta{
+  display:none;
+}
+
 .sot-recent-hot-card{
   display:grid !important;
   grid-template-columns:58px minmax(0,1fr) 24px;
@@ -569,23 +575,88 @@
   }
 
   .sot-recent-hot-list{
-    grid-template-columns:1fr;
-    gap:8px;
+    display:flex;
+    gap:12px;
+    max-width:100%;
+    overflow-x:auto;
+    padding:4px 4px 10px;
+    scroll-snap-type:x mandatory;
+    scroll-padding-inline:4px;
+    overscroll-behavior-x:contain;
+    scrollbar-width:thin;
+    scrollbar-color:#c9d2da transparent;
   }
 
-  .sot-recent-hot-card{
-    min-height:70px;
-    grid-template-columns:50px minmax(0,1fr) 20px;
-    padding:9px !important;
+  .sot-recent-events .sot-recent-hot-card{
+    display:flex !important;
+    flex:0 0 86%;
+    flex-direction:column;
+    align-items:stretch;
+    gap:20px;
+    min-height:258px;
+    padding:24px !important;
+    border-radius:25px;
+    scroll-snap-align:start;
+    transform:none;
   }
 
-  .sot-recent-hot-card__thumb{
-    width:50px;
-    height:50px;
+  .sot-recent-hot-card__thumb,
+  .sot-recent-hot-card .arrow{
+    display:none;
   }
 
-  .sot-recent-hot-card__day{font-size:22px;}
-  .sot-recent-hot-card__month{font-size:11px;}
+  .sot-recent-hot-card__eyebrow{
+    display:block;
+    color:#79838b;
+    font-size:11px;
+    font-weight:900;
+    letter-spacing:.12em;
+  }
+
+  .sot-recent-hot-card__title{
+    display:block;
+    margin-bottom:14px;
+    font-size:26px;
+    line-height:1.18;
+    letter-spacing:-.06em;
+    overflow:visible;
+    overflow-wrap:anywhere;
+  }
+
+  .sot-recent-hot-card__mobile-date{
+    display:block;
+    margin-bottom:6px;
+    color:#727e89;
+    font-size:14px;
+    font-weight:800;
+    line-height:1.4;
+  }
+
+  .sot-recent-hot-card__course{
+    font-size:12px;
+    color:#84909c;
+    white-space:normal;
+  }
+
+  .sot-recent-hot-card__cta{
+    display:block;
+    margin-top:auto;
+    align-self:flex-end;
+    font-size:13px;
+    font-weight:900;
+  }
+
+  .sot-recent-events .sot-recent-hot-card:first-child{
+    background:#17232d;
+    border-color:#17232d;
+    color:#fff;
+  }
+
+  .sot-recent-hot-card:first-child .sot-recent-hot-card__eyebrow,
+  .sot-recent-hot-card:first-child .sot-recent-hot-card__mobile-date,
+  .sot-recent-hot-card:first-child .sot-recent-hot-card__course{
+    color:#b7c0c8;
+  }
 
   .sot-recent-past-grid{
     grid-template-columns:repeat(2,minmax(0,1fr));

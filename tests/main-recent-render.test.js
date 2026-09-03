@@ -145,8 +145,21 @@ events.reverse();
       const rect = card.getBoundingClientRect();
       return { top: rect.top, width: rect.width };
     }));
-    assert.equal(new Set(mobileHotBoxes.map(box => box.top)).size, 4, "mobile cards should use one column");
+    assert.equal(new Set(mobileHotBoxes.map(box => box.top)).size, 1, "mobile cards should share a horizontal scrolling row");
     assert.ok(mobileHotBoxes.every(box => Math.abs(box.width - mobileHotBoxes[0].width) < 1));
+
+    await page.locator(".sot-recent-month").selectOption("all");
+    const carousel = page.locator(".sot-recent-hot-list");
+    assert.ok(await carousel.evaluate(el => el.scrollWidth > el.clientWidth));
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    if (process.env.SOT_MOBILE_PREVIEW) {
+      await page.locator(".sot-recent-events").screenshot({ path: process.env.SOT_MOBILE_PREVIEW });
+    }
+    await carousel.evaluate(el => el.scrollTo({ left: el.scrollWidth, behavior: "instant" }));
+    await page.waitForFunction(() => document.querySelector(".sot-recent-hot-list").scrollLeft > 0);
+    await page.locator('.sot-recent-hot-card[data-event-code="260614-ic"]').click();
+    assert.equal(await page.locator("#app-event-id-hidden").inputValue(), "260614-ic");
+    assert.equal(await page.evaluate(() => document.activeElement.id), "app-bib-input");
 
     await page.setViewportSize({ width: 1440, height: 1000 });
     const hotBoxes = await page.locator(".sot-recent-hot-card").evaluateAll(cards => cards.map(card => {
