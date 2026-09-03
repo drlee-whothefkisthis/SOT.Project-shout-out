@@ -190,30 +190,104 @@ onReady(function () {
     });
   }
 
-  if (suggestionsBox) suggestionsBox.style.display = "none";
+  eventInput.removeAttribute("list");
+  let eventMatches = [];
 
-  const DATALIST_ID = "app-event-datalist";
-  let eventDatalist = document.getElementById(DATALIST_ID);
-  if (!eventDatalist) {
-    eventDatalist = document.createElement("datalist");
-    eventDatalist.id = DATALIST_ID;
-    document.body.appendChild(eventDatalist);
+  function normalizeEventSearchText(value) {
+    return String(value || "")
+      .normalize("NFKC")
+      .toLocaleLowerCase("ko-KR")
+      .replace(/[\s\-_/().,·]/g, "");
   }
 
-  eventInput.setAttribute("list", DATALIST_ID);
+  function editDistanceAtMostOne(a, b) {
+    if (Math.abs(a.length - b.length) > 1) return false;
+    let indexA = 0;
+    let indexB = 0;
+    let edits = 0;
+    while (indexA < a.length && indexB < b.length) {
+      if (a[indexA] === b[indexB]) { indexA += 1; indexB += 1; continue; }
+      edits += 1;
+      if (edits > 1) return false;
+      if (a.length > b.length) indexA += 1;
+      else if (b.length > a.length) indexB += 1;
+      else { indexA += 1; indexB += 1; }
+    }
+    return true;
+  }
 
-  function rebuildEventDatalist() {
-    eventDatalist.innerHTML = "";
-    races.forEach(race => {
-      const opt = document.createElement("option");
-      opt.value = race.name;
-      eventDatalist.appendChild(opt);
-    });
+  function fuzzyIncludesEventText(name, query) {
+    if (name.includes(query)) return true;
+    if (query.length < 3) return false;
+    for (let start = 0; start < name.length; start += 1) {
+      for (let length = query.length - 1; length <= query.length + 1; length += 1) {
+        if (length < 1) continue;
+        const candidate = name.slice(start, start + length);
+        if (candidate.length === length && editDistanceAtMostOne(candidate, query)) return true;
+      }
+    }
+    return false;
+  }
+
+  function matchingRaces(query) {
+    const rawTokens = String(query || "").trim().split(/\s+/).filter(Boolean);
+    const tokens = rawTokens.map(normalizeEventSearchText).filter(Boolean);
+    if (!tokens.length) return [];
+    return races
+      .filter(race => {
+        const name = normalizeEventSearchText(race.name);
+        return tokens.every(token => fuzzyIncludesEventText(name, token));
+      })
+      .sort((a, b) => {
+        const aName = normalizeEventSearchText(a.name);
+        const bName = normalizeEventSearchText(b.name);
+        const queryText = normalizeEventSearchText(query);
+        const aRank = aName.startsWith(queryText) ? 0 : (aName.includes(queryText) ? 1 : 2);
+        const bRank = bName.startsWith(queryText) ? 0 : (bName.includes(queryText) ? 1 : 2);
+        if (aRank !== bRank) return aRank - bRank;
+        return (a.name || "").localeCompare(b.name || "", "ko");
+      })
+      .slice(0, 8);
+  }
+
+  function hideEventSuggestions() {
+    eventMatches = [];
+    if (!suggestionsBox) return;
+    suggestionsBox.replaceChildren();
+    suggestionsBox.style.display = "none";
+  }
+
+  function renderEventSuggestions() {
+    if (!suggestionsBox) return;
+    const query = (eventInput.value || "").trim();
+    if (!query) { hideEventSuggestions(); return; }
+    eventMatches = matchingRaces(query);
+    suggestionsBox.replaceChildren();
+    if (!eventMatches.length) {
+      const empty = createText("p", "suggestion-info", "일치하는 대회가 없습니다.");
+      suggestionsBox.appendChild(empty);
+    } else {
+      eventMatches.forEach(race => {
+        const item = createText("button", "suggestion-item", race.name);
+        item.type = "button";
+        item.dataset.eventCode = race.id;
+        item.setAttribute("role", "option");
+        item.addEventListener("mousedown", event => event.preventDefault());
+        item.addEventListener("click", () => {
+          selectRaceByCode(race.id);
+          hideEventSuggestions();
+        });
+        suggestionsBox.appendChild(item);
+      });
+    }
+    suggestionsBox.setAttribute("role", "listbox");
+    suggestionsBox.style.display = "block";
   }
 
   eventInput.addEventListener("input", () => {
     hiddenEventId.value = "";
     setBibActionUi();
+    renderEventSuggestions();
   });
 
   eventInput.addEventListener("change", () => {
@@ -222,6 +296,10 @@ onReady(function () {
     hiddenEventId.value = matched ? matched.id : "";
     setBibActionUi();
     if (matched) focusBib();
+  });
+
+  eventInput.addEventListener("blur", () => {
+    window.setTimeout(hideEventSuggestions, 120);
   });
 
   function selectRaceByCode(eventCode) {
@@ -316,6 +394,10 @@ onReady(function () {
     return String((race && race.name) || "").replace(/^\s*20\d{2}\s+/, "").trim();
   }
 
+  function eventCourseInfo(race) {
+    return String((race && race.course_info) || "").trim() || "Full, Half, 10K, 5K";
+  }
+
   function eventTag(race) {
     const name = displayRaceName(race);
     const ordinal = name.match(/^제\s*(\d+)\s*회/);
@@ -368,7 +450,7 @@ onReady(function () {
     const copy = document.createElement("span");
     copy.className = "sot-recent-hot-card__copy";
     copy.appendChild(createText("strong", "sot-recent-hot-card__title", displayRaceName(race)));
-    copy.appendChild(createText("span", "sot-recent-card__date", formatEventDate(race)));
+    copy.appendChild(createText("span", "sot-recent-hot-card__course", eventCourseInfo(race)));
     const arrow = document.createElement("div");
     arrow.className = "arrow";
     arrow.setAttribute("aria-hidden", "true");
@@ -568,6 +650,7 @@ onReady(function () {
             is_public,
             publish_at,
             event_date,
+            course_info: item.event_course_info ?? item.course_info ?? "",
             name_search_enabled: item.name_search_enabled === true,
             bib_min_digits: Number(item.bib_min_digits) === 3 ? 3 : 4,
             home_visible: item.home_visible === true ? true : (item.home_visible === false ? false : null),
@@ -599,14 +682,14 @@ onReady(function () {
       racesAll = mappedAll;
       races = mappedAllowed;
 
-      rebuildEventDatalist();
+      hideEventSuggestions();
       renderRecentEvents();
 
     } catch (err) {
       console.error("[System] loadRacesFromBubble error.", err);
       racesAll = [];
       races = [];
-      rebuildEventDatalist();
+      hideEventSuggestions();
       renderRecentStatus("대회 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.", "error");
     }
   }
@@ -767,9 +850,17 @@ onReady(function () {
   }
 
   eventInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      hideEventSuggestions();
+      return;
+    }
     if (e.key === "Enter") {
       e.preventDefault();
-      focusBib();
+      const exact = races.find(race => race.name === (eventInput.value || "").trim());
+      const selected = exact || eventMatches[0];
+      if (selected) selectRaceByCode(selected.id);
+      else focusBib();
+      hideEventSuggestions();
     }
   });
 

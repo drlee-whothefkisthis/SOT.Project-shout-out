@@ -33,7 +33,13 @@
 }
 
 .suggestion-item {
+  display: block;
+  width: 100%;
   padding: 14px 16px;
+  border: 0;
+  background: #fff;
+  font: inherit;
+  text-align: left;
   font-size: 15px;
   color: #333;
   cursor: pointer;
@@ -47,6 +53,11 @@
 
 .suggestion-item:last-child {
   border-bottom: none;
+}
+
+.suggestion-item:focus-visible {
+  outline: 2px solid #0b5c97;
+  outline-offset: -2px;
 }
 
 .suggestion-info {
@@ -425,6 +436,18 @@
 .sot-recent-hot-card .sot-recent-card__date{
   color:var(--sot-recent-muted);
   font-size:11px;
+}
+
+.sot-recent-hot-card__course{
+  display:block;
+  overflow:hidden;
+  color:#a8afb7;
+  font-size:11px;
+  line-height:1.3;
+  font-weight:700;
+  letter-spacing:-.015em;
+  white-space:nowrap;
+  text-overflow:ellipsis;
 }
 
 .sot-recent-hot-card .arrow{

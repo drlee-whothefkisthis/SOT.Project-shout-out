@@ -33,6 +33,7 @@ const events = [
 events.find(event => event.event_code === "260531-gs").home_rank = 1;
 events.find(event => event.event_code === "260531-gs").home_score = 9999;
 events.find(event => event.event_code === "260531-gs").publish_at = "2026-07-01T00:00:00.000Z";
+events.find(event => event.event_code === "260620-cj").event_course_info = "Full, Half, 10K";
 events.reverse();
 
 (async () => {
@@ -111,10 +112,19 @@ events.reverse();
     assert.equal(await page.locator(".sot-recent-hot-card .arrow").count(), 4);
     assert.equal(await page.locator('[data-event-code="260620-cj"] .sot-recent-hot-card__day').textContent(), "20");
     assert.equal(await page.locator('[data-event-code="260620-cj"] .sot-recent-hot-card__month').textContent(), "6월");
+    assert.equal(await page.locator('[data-event-code="260620-cj"] .sot-recent-hot-card__course').textContent(), "Full, Half, 10K");
+    assert.equal(await page.locator('[data-event-code="260628-sd"] .sot-recent-hot-card__course').textContent(), "Full, Half, 10K, 5K");
     assert.equal(await page.locator(".sot-recent-hot-card .arrow").first().textContent(), "›");
     assert.deepEqual(await page.locator(".sot-recent-month option").allTextContents(), [
       "전체 월", "2026년 6월", "2026년 5월", "2026년 4월"
     ]);
+
+    await page.locator("#app-event-id-input").fill("광역시 갖기배");
+    assert.equal(await page.locator(".suggestion-item").count(), 1);
+    assert.equal(await page.locator(".suggestion-item").first().textContent(), "2026 인천광역시장기배 건강달리기");
+    await page.locator(".suggestion-item").click();
+    assert.equal(await page.locator("#app-event-id-hidden").inputValue(), "260614-ic");
+    assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), "app-bib-input");
 
     await page.locator('[data-event-code="260620-cj"]').click();
     assert.equal(await page.locator("#app-event-id-input").inputValue(), "2026 제25회 충주마라톤");
