@@ -34,6 +34,7 @@ events.find(event => event.event_code === "260531-gs").home_rank = 1;
 events.find(event => event.event_code === "260531-gs").home_score = 9999;
 events.find(event => event.event_code === "260531-gs").publish_at = "2026-07-01T00:00:00.000Z";
 events.find(event => event.event_code === "260620-cj").event_course_info = "Full, Half, 10K";
+events.find(event => event.event_code === "260607-yd").event_course_info = "Half, 10K";
 events.reverse();
 
 (async () => {
@@ -105,10 +106,13 @@ events.reverse();
       await page.locator(".sot-recent-hot-card").first().evaluate(card => getComputedStyle(card).boxShadow),
       "rgba(32, 51, 70, 0.024) 0px 7px 18px 0px"
     );
-    assert.equal(await page.locator(".sot-recent-past-grid").evaluate(grid => getComputedStyle(grid).gridTemplateColumns.split(" ").length), 2);
-    assert.equal(await page.locator('[data-event-code="260607-yd"] .sot-recent-past-card__title').innerHTML(), "iM뱅크<br>코리아오픈 마라톤");
-    assert.equal(await page.locator('[data-event-code="260517-ic"] .sot-recent-past-card__title').innerHTML(), "인천광역시<br>육상연맹회장배 마라톤");
-    assert.equal(await page.locator(".sot-recent-past-card .arrow").count(), 0);
+    assert.equal(await page.locator(".sot-recent-past-grid").evaluate(grid => getComputedStyle(grid).gridTemplateColumns.split(" ").length), 1);
+    assert.equal(await page.locator('[data-event-code="260607-yd"] .sot-recent-past-card__title').textContent(), "iM뱅크 코리아오픈 마라톤");
+    assert.equal(await page.locator('[data-event-code="260607-yd"] .sot-recent-past-card__day').textContent(), "7");
+    assert.equal(await page.locator('[data-event-code="260607-yd"] .sot-recent-past-card__month').textContent(), "6월");
+    assert.equal(await page.locator('[data-event-code="260607-yd"] .sot-recent-past-card__course').textContent(), "Half, 10K");
+    assert.equal(await page.locator('[data-event-code="260517-ic"] .sot-recent-past-card__course').textContent(), "Full, Half, 10K, 5K");
+    assert.equal(await page.locator(".sot-recent-past-card .arrow").count(), 5);
     assert.equal(await page.locator(".sot-recent-hot-card .arrow").count(), 4);
     assert.equal(await page.locator('[data-event-code="260620-cj"] .sot-recent-hot-card__day').textContent(), "20");
     assert.equal(await page.locator('[data-event-code="260620-cj"] .sot-recent-hot-card__month').textContent(), "6월");
@@ -162,6 +166,7 @@ events.reverse();
     assert.equal(await page.evaluate(() => document.activeElement.id), "app-bib-input");
 
     await page.setViewportSize({ width: 1440, height: 1000 });
+    assert.equal(await page.locator(".sot-recent-past-grid").evaluate(grid => getComputedStyle(grid).gridTemplateColumns.split(" ").length), 2);
     const hotBoxes = await page.locator(".sot-recent-hot-card").evaluateAll(cards => cards.map(card => {
       const rect = card.getBoundingClientRect();
       return { top: rect.top, width: rect.width, height: rect.height };

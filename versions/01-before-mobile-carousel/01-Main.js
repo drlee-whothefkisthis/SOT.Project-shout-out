@@ -466,9 +466,8 @@ onReady(function () {
     return button;
   }
 
-  function createHotCard(race, index) {
+  function createHotCard(race) {
     const card = createEventLink(race, "sot-recent-hot-card");
-    card.appendChild(createText("span", "sot-recent-hot-card__eyebrow", index === 0 ? "LATEST EVENT" : `EVENT ${String(index + 1).padStart(2, "0")}`));
     const parts = kstDateParts(race.event_date);
     const thumb = document.createElement("span");
     thumb.className = "sot-recent-hot-card__thumb";
@@ -477,7 +476,6 @@ onReady(function () {
     const copy = document.createElement("span");
     copy.className = "sot-recent-hot-card__copy";
     copy.appendChild(createText("strong", "sot-recent-hot-card__title", displayRaceName(race)));
-    copy.appendChild(createText("span", "sot-recent-hot-card__mobile-date", formatEventDate(race)));
     copy.appendChild(createText("span", "sot-recent-hot-card__course", eventCourseInfo(race)));
     const arrow = document.createElement("div");
     arrow.className = "arrow";
@@ -486,27 +484,17 @@ onReady(function () {
     card.appendChild(thumb);
     card.appendChild(copy);
     card.appendChild(arrow);
-    card.appendChild(createText("span", "sot-recent-hot-card__cta", "사진 찾기 →"));
     return card;
   }
 
   function createPastCard(race) {
     const card = createEventLink(race, "sot-recent-past-card");
     card.dataset.month = eventMonthKey(race);
-    const parts = kstDateParts(race.event_date);
-    const thumb = document.createElement("span");
-    thumb.className = "sot-recent-past-card__thumb";
-    thumb.appendChild(createText("strong", "sot-recent-past-card__day", parts ? String(Number(parts.day)) : "--"));
-    thumb.appendChild(createText("span", "sot-recent-past-card__month", parts ? `${Number(parts.month)}월` : ""));
-    const copy = document.createElement("span");
-    copy.className = "sot-recent-past-card__copy";
-    copy.appendChild(createText("strong", "sot-recent-past-card__title", displayRaceName(race)));
-    copy.appendChild(createText("span", "sot-recent-past-card__course", eventCourseInfo(race)));
-    const arrow = createText("div", "arrow", "›");
-    arrow.setAttribute("aria-hidden", "true");
-    card.appendChild(thumb);
-    card.appendChild(copy);
-    card.appendChild(arrow);
+    const overlay = document.createElement("span");
+    overlay.className = "sot-recent-past-card__overlay";
+    overlay.appendChild(createText("span", "sot-recent-card__date", formatEventDate(race)));
+    overlay.appendChild(createPastTitle(race));
+    card.appendChild(overlay);
     return card;
   }
 
@@ -572,7 +560,7 @@ onReady(function () {
     hotSection.appendChild(hotHead);
     const hotList = document.createElement("div");
     hotList.className = "sot-recent-hot-list";
-    hotEvents.forEach((race, index) => hotList.appendChild(createHotCard(race, index)));
+    hotEvents.forEach(race => hotList.appendChild(createHotCard(race)));
     hotSection.appendChild(hotList);
     panel.appendChild(hotSection);
 
