@@ -245,7 +245,7 @@ onReady(function () {
    * Everything inside the wrapper is rendered from Bubble data.
    * ============================================================ */
   const RECENT_ROOT_ID = "sot-recent-events-root";
-  const RECENT_HOT_COUNT = 3;
+  const RECENT_HOT_COUNT = 4;
   const RECENT_PAST_PAGE_SIZE = 6;
 
   let selectedPastMonth = "all";
@@ -442,7 +442,7 @@ onReady(function () {
     hotSection.setAttribute("aria-labelledby", "sot-recent-hot-title");
     const hotHead = document.createElement("div");
     hotHead.className = "sot-recent-group-head";
-    const hotTitle = createText("h3", "sot-recent-group-title", "최근 대회");
+    const hotTitle = createText("h3", "sot-recent-group-title", "인기 대회");
     hotTitle.id = "sot-recent-hot-title";
     hotHead.appendChild(hotTitle);
     hotHead.appendChild(createText("span", "sot-recent-hot-badge", "HOT"));

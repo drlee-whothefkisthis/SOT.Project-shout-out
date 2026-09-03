@@ -73,11 +73,11 @@ events.reverse();
     assert.equal(await page.locator(".passion-bg").count(), 0, "legacy Webflow DOM should be replaced");
     assert.equal(await page.locator(".sot-recent-feature, .sot-recent-feature__overlay").count(), 0);
     assert.equal(await page.locator(".sot-recent-title, .sot-recent-heading").count(), 0);
-    assert.equal(await page.locator("#sot-recent-hot-title").textContent(), "최근 대회");
-    assert.equal(await page.locator(".sot-recent-hot-card").count(), 3);
+    assert.equal(await page.locator("#sot-recent-hot-title").textContent(), "인기 대회");
+    assert.equal(await page.locator(".sot-recent-hot-card").count(), 4);
     assert.deepEqual(
       await page.locator(".sot-recent-hot-card").evaluateAll(cards => cards.map(card => card.dataset.eventCode)),
-      ["260628-sd", "260620-cj", "260614-dj"]
+      ["260628-sd", "260620-cj", "260614-dj", "260614-ic"]
     );
     assert.equal(await page.locator(".sot-recent-hot-badge").count(), 1);
     assert.equal(await page.locator(".sot-recent-group").getAttribute("aria-labelledby"), "sot-recent-hot-title");
@@ -94,8 +94,8 @@ events.reverse();
       "hot and past sections should share one outer card"
     );
     const pastCodes = await page.locator(".sot-recent-past-card").evaluateAll(cards => cards.map(card => card.dataset.eventCode));
-    assert.equal(pastCodes.length, 6, `unexpected past cards: ${pastCodes.join(", ")}`);
-    assert.equal(pastCodes[0], "260614-ic");
+    assert.equal(pastCodes.length, 5, `unexpected past cards: ${pastCodes.join(", ")}`);
+    assert.equal(pastCodes[0], "260607-yd");
     assert.equal(await page.locator("#sot-recent-events-root img").count(), 0);
     assert.equal(await page.locator(".sot-recent-message").count(), 0);
     assert.equal(await page.locator(".sot-recent-subtitle").count(), 0);
@@ -139,12 +139,19 @@ events.reverse();
     assert.equal(await page.locator('.sot-recent-past-card[data-event-code="260419-kk"]').count(), 1);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
 
+    const mobileHotBoxes = await page.locator(".sot-recent-hot-card").evaluateAll(cards => cards.map(card => {
+      const rect = card.getBoundingClientRect();
+      return { top: rect.top, width: rect.width };
+    }));
+    assert.equal(new Set(mobileHotBoxes.map(box => box.top)).size, 4, "mobile cards should use one column");
+    assert.ok(mobileHotBoxes.every(box => Math.abs(box.width - mobileHotBoxes[0].width) < 1));
+
     await page.setViewportSize({ width: 1440, height: 1000 });
     const hotBoxes = await page.locator(".sot-recent-hot-card").evaluateAll(cards => cards.map(card => {
       const rect = card.getBoundingClientRect();
       return { top: rect.top, width: rect.width, height: rect.height };
     }));
-    assert.equal(new Set(hotBoxes.map(box => box.top)).size, 1, "desktop cards should share one row");
+    assert.equal(new Set(hotBoxes.map(box => box.top)).size, 2, "desktop cards should use two rows");
     assert.ok(Math.max(...hotBoxes.map(box => box.width)) - Math.min(...hotBoxes.map(box => box.width)) < 1);
     assert.equal(new Set(hotBoxes.map(box => box.height)).size, 1);
     await page.locator('[data-event-code="260628-sd"]').click();
