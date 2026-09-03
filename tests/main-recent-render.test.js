@@ -97,6 +97,7 @@ events.reverse();
     assert.equal(pastCodes.length, 6, `unexpected past cards: ${pastCodes.join(", ")}`);
     assert.equal(pastCodes[0], "260614-ic");
     assert.equal(await page.locator("#sot-recent-events-root img").count(), 0);
+    assert.equal(await page.locator(".sot-recent-message").count(), 0);
     assert.equal(await page.locator(".sot-recent-subtitle").count(), 0);
     assert.equal(await page.locator(".sot-recent-hot-card__chevron").count(), 0);
     assert.equal(
@@ -126,6 +127,7 @@ events.reverse();
     await page.locator('[data-event-code="260620-cj"]').click();
     assert.equal(await page.locator("#app-event-id-input").inputValue(), "2026 제25회 충주마라톤");
     assert.equal(await page.locator("#app-event-id-hidden").inputValue(), "260620-cj");
+    assert.equal(await page.locator(".sot-recent-message").count(), 0);
     assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), "app-bib-input");
     await page.waitForTimeout(500);
     assert.equal(await page.locator("#app-event-id-input").inputValue(), "2026 제25회 충주마라톤");

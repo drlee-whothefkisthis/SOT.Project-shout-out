@@ -502,10 +502,6 @@ onReady(function () {
 
     root.appendChild(panel);
 
-    const message = document.createElement("p");
-    message.className = "sot-recent-message";
-    message.setAttribute("aria-live", "polite");
-    root.appendChild(message);
   }
 
   function bindRecentEventsRoot() {
@@ -524,13 +520,7 @@ onReady(function () {
       const card = event.target.closest(".recent-event[data-event-code]");
       if (!card || !root.contains(card)) return;
       event.preventDefault();
-      const selected = selectRaceByCode(card.dataset.eventCode);
-      const message = root.querySelector(".sot-recent-message");
-      if (message) {
-        message.textContent = selected
-          ? `${eventInput.value}을(를) 선택했습니다. 배번호 또는 이름을 입력해주세요.`
-          : "현재 검색할 수 없는 대회입니다.";
-      }
+      selectRaceByCode(card.dataset.eventCode);
     });
 
     root.addEventListener("change", (event) => {

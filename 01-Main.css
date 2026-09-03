@@ -503,19 +503,6 @@
   border-color:#ebcaca;
 }
 
-.sot-recent-message{
-  min-height:18px;
-  margin:11px 3px 0;
-  color:var(--sot-recent-blue);
-  font-size:12px;
-  line-height:1.45;
-  font-weight:700;
-}
-
-.sot-recent-message:empty{
-  display:none;
-}
-
 @media screen and (max-width: 767px){
   .sot-recent-events{
     padding-block:32px 42px;
