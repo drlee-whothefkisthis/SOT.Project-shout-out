@@ -379,15 +379,30 @@
 .sot-recent-hot-card__thumb{
   display:grid;
   place-items:center;
+  align-content:center;
   width:58px;
   height:58px;
   overflow:hidden;
   border-radius:12px;
   background:#eef2f5;
   border:1px solid #e1e6eb;
-  font-size:16px;
+  color:var(--sot-recent-ink);
+}
+
+.sot-recent-hot-card__day{
+  font-size:25px;
+  line-height:.9;
+  font-weight:900;
+  letter-spacing:-.07em;
+}
+
+.sot-recent-hot-card__month{
+  margin-top:5px;
+  color:#93a0ad;
+  font-size:12px;
   line-height:1;
   font-weight:900;
+  letter-spacing:-.06em;
 }
 
 .sot-recent-hot-card__copy{
@@ -415,14 +430,13 @@
 .sot-recent-hot-card .arrow{
   justify-self:end;
   color:#9ca7b1;
-  font-size:23px;
+  font-size:20px;
   line-height:1;
   font-weight:700;
   transition:transform .18s ease,color .18s ease;
 }
 
 .sot-recent-hot-card:hover .arrow{
-  transform:translateX(3px);
   color:var(--sot-recent-blue);
 }
 
@@ -546,6 +560,9 @@
     width:50px;
     height:50px;
   }
+
+  .sot-recent-hot-card__day{font-size:22px;}
+  .sot-recent-hot-card__month{font-size:11px;}
 
   .sot-recent-past-grid{
     grid-template-columns:repeat(2,minmax(0,1fr));

@@ -109,7 +109,9 @@ events.reverse();
     assert.equal(await page.locator('[data-event-code="260517-ic"] .sot-recent-past-card__title').innerHTML(), "인천광역시<br>육상연맹회장배 마라톤");
     assert.equal(await page.locator(".sot-recent-past-card .arrow").count(), 0);
     assert.equal(await page.locator(".sot-recent-hot-card .arrow").count(), 4);
-    assert.equal(await page.locator(".sot-recent-hot-card .arrow").first().textContent(), "→");
+    assert.equal(await page.locator('[data-event-code="260620-cj"] .sot-recent-hot-card__day').textContent(), "20");
+    assert.equal(await page.locator('[data-event-code="260620-cj"] .sot-recent-hot-card__month').textContent(), "6월");
+    assert.equal(await page.locator(".sot-recent-hot-card .arrow").first().textContent(), "›");
     assert.deepEqual(await page.locator(".sot-recent-month option").allTextContents(), [
       "전체 월", "2026년 6월", "2026년 5월", "2026년 4월"
     ]);

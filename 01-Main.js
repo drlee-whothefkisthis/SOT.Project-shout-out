@@ -360,9 +360,11 @@ onReady(function () {
 
   function createHotCard(race) {
     const card = createEventLink(race, "sot-recent-hot-card");
+    const parts = kstDateParts(race.event_date);
     const thumb = document.createElement("span");
     thumb.className = "sot-recent-hot-card__thumb";
-    thumb.textContent = eventTag(race);
+    thumb.appendChild(createText("strong", "sot-recent-hot-card__day", parts ? String(Number(parts.day)) : "--"));
+    thumb.appendChild(createText("span", "sot-recent-hot-card__month", parts ? `${Number(parts.month)}월` : ""));
     const copy = document.createElement("span");
     copy.className = "sot-recent-hot-card__copy";
     copy.appendChild(createText("strong", "sot-recent-hot-card__title", displayRaceName(race)));
@@ -370,7 +372,7 @@ onReady(function () {
     const arrow = document.createElement("div");
     arrow.className = "arrow";
     arrow.setAttribute("aria-hidden", "true");
-    arrow.textContent = "→";
+    arrow.textContent = "›";
     card.appendChild(thumb);
     card.appendChild(copy);
     card.appendChild(arrow);
