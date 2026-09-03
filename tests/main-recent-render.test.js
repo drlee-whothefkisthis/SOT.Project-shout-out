@@ -33,7 +33,6 @@ const events = [
 events.find(event => event.event_code === "260531-gs").home_rank = 1;
 events.find(event => event.event_code === "260531-gs").home_score = 9999;
 events.find(event => event.event_code === "260531-gs").publish_at = "2026-07-01T00:00:00.000Z";
-events.find(event => event.event_code === "260607-yd").event_course_info = "Full, Half, 10K";
 events.reverse();
 
 (async () => {
@@ -105,14 +104,12 @@ events.reverse();
       await page.locator(".sot-recent-hot-card").first().evaluate(card => getComputedStyle(card).boxShadow),
       "rgba(32, 51, 70, 0.024) 0px 7px 18px 0px"
     );
-    assert.equal(await page.locator(".sot-recent-past-grid").evaluate(grid => getComputedStyle(grid).gridTemplateColumns.split(" ").length), 1);
-    assert.equal(await page.locator('[data-event-code="260607-yd"] .sot-recent-past-card__day').textContent(), "7");
-    assert.equal(await page.locator('[data-event-code="260607-yd"] .sot-recent-past-card__month').textContent(), "6월");
-    assert.equal(await page.locator('[data-event-code="260607-yd"] .sot-recent-past-card__title').textContent(), "iM뱅크 코리아오픈 마라톤");
-    assert.equal(await page.locator('[data-event-code="260607-yd"] .sot-recent-past-card__course').textContent(), "Full, Half, 10K");
-    assert.equal(await page.locator('[data-event-code="260517-ic"] .sot-recent-past-card__course').textContent(), "Full, Half, 10K, 5K");
-    assert.equal(await page.locator(".sot-recent-past-card .arrow").count(), 5);
-    assert.equal(await page.locator(".sot-recent-past-card .arrow").first().textContent(), "→");
+    assert.equal(await page.locator(".sot-recent-past-grid").evaluate(grid => getComputedStyle(grid).gridTemplateColumns.split(" ").length), 2);
+    assert.equal(await page.locator('[data-event-code="260607-yd"] .sot-recent-past-card__title').innerHTML(), "iM뱅크<br>코리아오픈 마라톤");
+    assert.equal(await page.locator('[data-event-code="260517-ic"] .sot-recent-past-card__title').innerHTML(), "인천광역시<br>육상연맹회장배 마라톤");
+    assert.equal(await page.locator(".sot-recent-past-card .arrow").count(), 0);
+    assert.equal(await page.locator(".sot-recent-hot-card .arrow").count(), 4);
+    assert.equal(await page.locator(".sot-recent-hot-card .arrow").first().textContent(), "→");
     assert.deepEqual(await page.locator(".sot-recent-month option").allTextContents(), [
       "전체 월", "2026년 6월", "2026년 5월", "2026년 4월"
     ]);

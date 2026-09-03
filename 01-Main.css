@@ -367,7 +367,7 @@
 
 .sot-recent-hot-card{
   display:grid !important;
-  grid-template-columns:58px minmax(0,1fr);
+  grid-template-columns:58px minmax(0,1fr) 24px;
   align-items:center;
   gap:11px;
   min-height:82px;
@@ -412,6 +412,20 @@
   font-size:11px;
 }
 
+.sot-recent-hot-card .arrow{
+  justify-self:end;
+  color:#9ca7b1;
+  font-size:23px;
+  line-height:1;
+  font-weight:700;
+  transition:transform .18s ease,color .18s ease;
+}
+
+.sot-recent-hot-card:hover .arrow{
+  transform:translateX(3px);
+  color:var(--sot-recent-blue);
+}
+
 .sot-recent-month{
   flex:0 0 auto;
   min-height:36px;
@@ -427,96 +441,42 @@
 
 .sot-recent-past-grid{
   display:grid;
-  grid-template-columns:1fr;
+  grid-template-columns:repeat(3,minmax(0,1fr));
   gap:10px;
 }
 
 .sot-recent-past-card{
-  display:grid !important;
-  grid-template-columns:104px minmax(0,1fr) 92px;
-  align-items:center;
-  gap:28px;
-  min-height:124px;
-  padding:14px 20px 14px 14px !important;
-  border-radius:30px;
+  display:block !important;
+  min-height:0;
+  border-radius:18px;
   background:#fff;
 }
 
-.sot-recent-past-card__date-tile{
+.sot-recent-past-card__overlay{
+  position:relative;
   display:flex;
   flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  align-self:stretch;
-  border:1px solid #dce3e9;
-  border-radius:24px;
-  background:#f5f7f9;
+  justify-content:flex-start;
+  gap:6px;
+  padding:14px;
   color:var(--sot-recent-ink);
-}
-
-.sot-recent-past-card__day{
-  font-size:44px;
-  line-height:.92;
-  font-weight:900;
-  letter-spacing:-.075em;
-}
-
-.sot-recent-past-card__month{
-  margin-top:8px;
-  color:#93a0ad;
-  font-size:18px;
-  line-height:1;
-  font-weight:900;
-  letter-spacing:-.06em;
-}
-
-.sot-recent-past-card__copy{
-  display:grid;
-  min-width:0;
-  gap:8px;
 }
 
 .sot-recent-past-card__title{
+  display:-webkit-box;
   overflow:hidden;
-  color:var(--sot-recent-ink);
-  font-size:clamp(20px,2.2vw,31px);
-  line-height:1.15;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  font-size:16px;
+  line-height:1.22;
   font-weight:900;
-  letter-spacing:-.065em;
-  white-space:nowrap;
-  text-overflow:ellipsis;
+  word-break:keep-all;
+  overflow-wrap:normal;
 }
 
-.sot-recent-past-card__course{
-  overflow:hidden;
-  color:#a8afb7;
-  font-size:clamp(15px,1.5vw,21px);
-  line-height:1.2;
-  font-weight:800;
-  letter-spacing:-.04em;
-  white-space:nowrap;
-  text-overflow:ellipsis;
-}
-
-.sot-recent-past-card .arrow{
-  display:grid;
-  place-items:center;
-  width:76px;
-  height:76px;
-  justify-self:end;
-  border-radius:50%;
-  background:#f0f3f5;
-  color:#5e6974;
-  font-size:33px;
-  line-height:1;
-  font-weight:700;
-  transition:transform .18s ease,background-color .18s ease,color .18s ease;
-}
-
-.sot-recent-past-card:hover .arrow{
-  transform:translateX(3px);
-  background:#e2edf4;
-  color:var(--sot-recent-blue);
+.sot-recent-past-card .sot-recent-card__date{
+  color:var(--sot-recent-muted);
+  font-size:11px;
 }
 
 .sot-recent-more{
@@ -578,7 +538,7 @@
 
   .sot-recent-hot-card{
     min-height:70px;
-    grid-template-columns:50px minmax(0,1fr);
+    grid-template-columns:50px minmax(0,1fr) 20px;
     padding:9px !important;
   }
 
@@ -588,41 +548,20 @@
   }
 
   .sot-recent-past-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
     gap:8px;
   }
 
   .sot-recent-past-card{
-    grid-template-columns:68px minmax(0,1fr) 42px;
-    gap:12px;
-    min-height:88px;
-    padding:10px !important;
-    border-radius:22px;
-  }
-
-  .sot-recent-past-card__date-tile{
-    border-radius:17px;
-  }
-
-  .sot-recent-past-card__day{
-    font-size:30px;
-  }
-
-  .sot-recent-past-card__month{
-    margin-top:5px;
-    font-size:13px;
+    min-height:0;
   }
 
   .sot-recent-past-card__title{
     font-size:17px;
   }
 
-  .sot-recent-past-card__copy{gap:5px;}
+}
 
-  .sot-recent-past-card__course{font-size:12px;}
-
-  .sot-recent-past-card .arrow{
-    width:42px;
-    height:42px;
-    font-size:21px;
-  }
+@media screen and (max-width: 359px){
+  .sot-recent-past-grid{grid-template-columns:1fr;}
 }
