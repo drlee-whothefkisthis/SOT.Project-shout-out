@@ -439,9 +439,12 @@ onReady(function () {
 
     const hotSection = document.createElement("section");
     hotSection.className = "sot-recent-group";
-    hotSection.setAttribute("aria-label", "최신 대회");
+    hotSection.setAttribute("aria-labelledby", "sot-recent-hot-title");
     const hotHead = document.createElement("div");
     hotHead.className = "sot-recent-group-head";
+    const hotTitle = createText("h3", "sot-recent-group-title", "최근 대회");
+    hotTitle.id = "sot-recent-hot-title";
+    hotHead.appendChild(hotTitle);
     hotHead.appendChild(createText("span", "sot-recent-hot-badge", "HOT"));
     hotSection.appendChild(hotHead);
     const hotList = document.createElement("div");

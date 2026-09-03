@@ -72,14 +72,15 @@ events.reverse();
     });
     assert.equal(await page.locator(".passion-bg").count(), 0, "legacy Webflow DOM should be replaced");
     assert.equal(await page.locator(".sot-recent-feature, .sot-recent-feature__overlay").count(), 0);
-    assert.equal(await page.locator(".sot-recent-title, .sot-recent-heading, #sot-recent-hot-title").count(), 0);
+    assert.equal(await page.locator(".sot-recent-title, .sot-recent-heading").count(), 0);
+    assert.equal(await page.locator("#sot-recent-hot-title").textContent(), "최근 대회");
     assert.equal(await page.locator(".sot-recent-hot-card").count(), 3);
     assert.deepEqual(
       await page.locator(".sot-recent-hot-card").evaluateAll(cards => cards.map(card => card.dataset.eventCode)),
       ["260628-sd", "260620-cj", "260614-dj"]
     );
     assert.equal(await page.locator(".sot-recent-hot-badge").count(), 1);
-    assert.equal(await page.locator(".sot-recent-group").getAttribute("aria-label"), "최신 대회");
+    assert.equal(await page.locator(".sot-recent-group").getAttribute("aria-labelledby"), "sot-recent-hot-title");
     assert.equal(await page.locator(".recent-event[href]").count(), 0);
     assert.equal(await page.locator("button.recent-event").count(), 9);
     assert.equal(await page.locator(".sot-recent-panel").count(), 1);
