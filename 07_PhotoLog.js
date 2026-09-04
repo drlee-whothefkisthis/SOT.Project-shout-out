@@ -6,6 +6,7 @@
     tokenKey: "sot_photographer_access_v2",
     draftPrefix: "sot_photographer_report_draft_v1",
     requestTimeoutMs: 25000,
+    equipmentManualDownloadUrl: "https://storage.googleapis.com/project-shoutout-480002-public-assets/manuals/field-equipment-manual-v1.pdf",
   });
 
   const CAMERA_CODES = ["AM", "AP", "BM", "BP", "CM", "DM"];
@@ -333,6 +334,13 @@
             </div>
           </div>
           ${errorMessage ? `<p class="pl-alert" aria-live="assertive">${escapeHtml(errorMessage)}</p>` : ""}
+          <a class="pl-manual-download" href="${escapeHtml(CONFIG.equipmentManualDownloadUrl)}" download>
+            <span class="pl-manual-download__copy">
+              <strong>촬영 현장 장비 매뉴얼</strong>
+              <small>PDF 파일 다운로드</small>
+            </span>
+            <span class="pl-manual-download__action">다운로드</span>
+          </a>
           <div class="pl-event-list">${eventRows}</div>
         </section>
       </div>`;
