@@ -179,7 +179,7 @@ events.reverse();
         while (performance.now() < end) {
           const top = document.querySelector(".sot-recent-past").getBoundingClientRect().top + scrollY;
           if (Math.abs(top - expectedTop) > 0.5) return false;
-          if ([...document.querySelectorAll(".sot-recent-hot-card")].some(card => Math.abs(card.getBoundingClientRect().height - 240) > 0.5)) return false;
+          if ([...document.querySelectorAll(".sot-recent-hot-card")].some(card => Math.abs(card.getBoundingClientRect().height - 200) > 0.5)) return false;
           await new Promise(requestAnimationFrame);
         }
         return true;

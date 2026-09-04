@@ -565,8 +565,8 @@
   flex-direction:column;
   align-items:stretch;
   gap:8px;
-  height:215px !important;
-  min-height:215px;
+  height:200px !important;
+  min-height:200px;
   padding:18px !important;
   border-radius:21px;
   scroll-snap-align:start;
@@ -706,9 +706,9 @@
 
 @media screen and (min-width:768px){
   .sot-recent-events .sot-recent-hot-card{
-    height:240px !important;
-    min-height:240px;
-    padding:18px !important;
+    height:200px !important;
+    min-height:200px;
+    padding:14px !important;
     transition:flex-grow .3s ease,box-shadow .3s ease,border-color .3s ease;
   }
 
