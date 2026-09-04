@@ -314,13 +314,22 @@
   margin-bottom:14px;
 }
 
-.sot-recent-group-title{
+.sot-recent-hot-heading{
   margin:0;
   color:var(--sot-recent-ink);
   font-size:21px;
   line-height:1.2;
   font-weight:900;
   letter-spacing:-.055em;
+}
+
+.sot-recent-past-heading{
+  margin:0;
+  color:#536170;
+  font-size:18px;
+  line-height:1.3;
+  font-weight:600;
+  letter-spacing:-.035em;
 }
 
 .sot-recent-hot-badge{
@@ -408,16 +417,22 @@
   color:var(--sot-recent-ink);
 }
 
-.sot-recent-hot-card__day,
-.sot-recent-past-card__day{
+.sot-recent-hot-card__day{
   font-size:25px;
   line-height:.9;
   font-weight:900;
   letter-spacing:-.07em;
 }
 
-.sot-recent-hot-card__month,
-.sot-recent-past-card__month{
+.sot-recent-past-card__day{
+  font-size:23px;
+  line-height:1;
+  font-weight:600;
+  letter-spacing:-.04em;
+  color:#536170;
+}
+
+.sot-recent-hot-card__month{
   margin-top:5px;
   color:#93a0ad;
   font-size:12px;
@@ -426,22 +441,32 @@
   letter-spacing:-.06em;
 }
 
+.sot-recent-past-card__month{
+  margin-top:5px;
+  color:#93a0ad;
+  font-size:12px;
+  line-height:1;
+  font-weight:500;
+  letter-spacing:-.02em;
+}
+
 .sot-recent-hot-card__copy,
 .sot-recent-past-card__copy{
   display:block;
   min-width:0;
 }
 
-.sot-recent-hot-card__title,
 .sot-recent-past-card__title{
   display:-webkit-box;
   overflow:hidden;
   -webkit-box-orient:vertical;
   -webkit-line-clamp:2;
   margin-bottom:5px;
-  font-size:16px;
-  line-height:1.22;
-  font-weight:900;
+  font-size:15px;
+  line-height:1.4;
+  font-weight:600;
+  color:#536170;
+  letter-spacing:-.025em;
   word-break:keep-all;
 }
 
@@ -450,14 +475,13 @@
   font-size:11px;
 }
 
-.sot-recent-hot-card__course,
 .sot-recent-past-card__course{
   display:block;
   overflow:hidden;
-  color:#a8afb7;
+  color:#7d8996;
   font-size:11px;
   line-height:1.3;
-  font-weight:700;
+  font-weight:400;
   letter-spacing:-.015em;
   white-space:nowrap;
   text-overflow:ellipsis;
@@ -565,6 +589,8 @@
   display:block;
   margin-bottom:14px;
   font-size:26px;
+  font-weight:900;
+  word-break:keep-all;
   line-height:1.18;
   letter-spacing:-.06em;
   overflow:visible;
@@ -581,7 +607,11 @@
 }
 
 .sot-recent-hot-card__course{
+  display:block;
   font-size:12px;
+  line-height:1.3;
+  font-weight:700;
+  letter-spacing:-.015em;
   color:#84909c;
   white-space:normal;
 }
@@ -616,8 +646,12 @@
     border-radius:23px;
   }
 
-  .sot-recent-group-title{
+  .sot-recent-hot-heading{
     font-size:19px;
+  }
+
+  .sot-recent-past-heading{
+    font-size:17px;
   }
 
   .sot-recent-hot-list{
@@ -653,7 +687,7 @@
     height:50px;
   }
 
-  .sot-recent-past-card__day{font-size:22px;}
+  .sot-recent-past-card__day{font-size:21px;}
   .sot-recent-past-card__month{font-size:11px;}
 
 }

@@ -565,7 +565,7 @@ onReady(function () {
     hotSection.setAttribute("aria-labelledby", "sot-recent-hot-title");
     const hotHead = document.createElement("div");
     hotHead.className = "sot-recent-group-head";
-    const hotTitle = createText("h3", "sot-recent-group-title", "인기 대회");
+    const hotTitle = createText("h3", "sot-recent-hot-heading", "인기 대회");
     hotTitle.id = "sot-recent-hot-title";
     hotHead.appendChild(hotTitle);
     hotHead.appendChild(createText("span", "sot-recent-hot-badge", "HOT"));
@@ -582,7 +582,7 @@ onReady(function () {
       pastSection.setAttribute("aria-labelledby", "sot-recent-past-title");
       const pastHead = document.createElement("div");
       pastHead.className = "sot-recent-group-head";
-      const pastTitle = createText("h3", "sot-recent-group-title", "지난 대회");
+      const pastTitle = createText("h3", "sot-recent-past-heading", "지난 대회");
       pastTitle.id = "sot-recent-past-title";
       pastHead.appendChild(pastTitle);
 
