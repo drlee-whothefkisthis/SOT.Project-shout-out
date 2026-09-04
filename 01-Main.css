@@ -564,10 +564,10 @@
   flex:1 1 0;
   flex-direction:column;
   align-items:stretch;
-  gap:20px;
-  min-height:258px;
-  padding:24px !important;
-  border-radius:25px;
+  gap:16px;
+  min-height:215px;
+  padding:20px !important;
+  border-radius:21px;
   scroll-snap-align:start;
   transform:none;
 }
@@ -587,7 +587,7 @@
 
 .sot-recent-hot-card__title{
   display:block;
-  margin-bottom:14px;
+  margin-bottom:10px;
   font-size:26px;
   font-weight:900;
   word-break:keep-all;
@@ -599,7 +599,7 @@
 
 .sot-recent-hot-card__mobile-date{
   display:block;
-  margin-bottom:6px;
+  margin-bottom:4px;
   color:#727e89;
   font-size:14px;
   font-weight:800;
@@ -694,13 +694,23 @@
 
 @media screen and (min-width:768px){
   .sot-recent-events .sot-recent-hot-card{
-    min-height:290px;
-    padding:22px !important;
+    min-height:240px;
+    padding:18px !important;
     transition:flex-grow .3s ease,box-shadow .3s ease,border-color .3s ease;
+  }
+
+  .sot-recent-events .sot-recent-hot-card:first-child{
+    flex-grow:1.65;
+    box-shadow:0 12px 26px rgba(23,35,45,.12);
   }
 }
 
 @media screen and (min-width:768px) and (hover:hover) and (pointer:fine){
+  .sot-recent-events .sot-recent-hot-list:has(.sot-recent-hot-card:not(:first-child):is(:hover,:focus-visible)) .sot-recent-hot-card:first-child{
+    flex-grow:1;
+    box-shadow:0 7px 18px rgba(32,51,70,.025);
+  }
+
   .sot-recent-events .sot-recent-hot-card:hover,
   .sot-recent-events .sot-recent-hot-card:focus-visible{
     flex-grow:1.65;

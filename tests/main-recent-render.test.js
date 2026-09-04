@@ -168,13 +168,17 @@ events.reverse();
 
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.mouse.move(0, 0);
+    await page.waitForFunction(() => {
+      const cards = document.querySelectorAll(".sot-recent-hot-card");
+      return cards[0].getBoundingClientRect().width > cards[1].getBoundingClientRect().width * 1.5;
+    });
     assert.equal(await page.locator(".sot-recent-past-grid").evaluate(grid => getComputedStyle(grid).gridTemplateColumns.split(" ").length), 2);
     const hotBoxes = await page.locator(".sot-recent-hot-card").evaluateAll(cards => cards.map(card => {
       const rect = card.getBoundingClientRect();
       return { top: rect.top, width: rect.width, height: rect.height };
     }));
     assert.equal(new Set(hotBoxes.map(box => box.top)).size, 1, "desktop cards should share one row");
-    assert.ok(Math.max(...hotBoxes.map(box => box.width)) - Math.min(...hotBoxes.map(box => box.width)) < 1);
+    assert.ok(hotBoxes[0].width > hotBoxes[1].width * 1.5, "latest event should be expanded by default");
     assert.equal(new Set(hotBoxes.map(box => box.height)).size, 1);
     await page.locator('.sot-recent-hot-card[data-event-code="260620-cj"]').hover();
     await page.waitForFunction(() => {
@@ -185,6 +189,11 @@ events.reverse();
     if (process.env.SOT_DESKTOP_PREVIEW) {
       await page.locator(".sot-recent-events").screenshot({ path: process.env.SOT_DESKTOP_PREVIEW });
     }
+    await page.mouse.move(0, 0);
+    await page.waitForFunction(() => {
+      const cards = document.querySelectorAll(".sot-recent-hot-card");
+      return cards[0].getBoundingClientRect().width > cards[1].getBoundingClientRect().width * 1.5;
+    });
     await page.locator('[data-event-code="260628-sd"]').click();
     await page.waitForTimeout(500);
     assert.equal(await page.locator("#app-event-id-input").inputValue(), "2026 송도 이봉주 마라톤");
