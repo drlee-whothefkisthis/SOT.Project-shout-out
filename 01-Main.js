@@ -353,6 +353,7 @@ onReady(function () {
   const RECENT_PAST_PAGE_SIZE = 6;
 
   let selectedPastMonth = "all";
+  let expandedHotEventCode = "";
   let visiblePastCount = RECENT_PAST_PAGE_SIZE;
 
   function isHomeEvent(race) {
@@ -576,7 +577,14 @@ onReady(function () {
     hotSection.appendChild(hotHead);
     const hotList = document.createElement("div");
     hotList.className = "sot-recent-hot-list";
-    hotEvents.forEach((race, index) => hotList.appendChild(createHotCard(race, index)));
+    if (!hotEvents.some(race => race.id === expandedHotEventCode)) {
+      expandedHotEventCode = hotEvents[0].id;
+    }
+    hotEvents.forEach((race, index) => {
+      const card = createHotCard(race, index);
+      card.classList.toggle("is-expanded", race.id === expandedHotEventCode);
+      hotList.appendChild(card);
+    });
     hotSection.appendChild(hotList);
     panel.appendChild(hotSection);
 
@@ -635,6 +643,20 @@ onReady(function () {
     const root = ensureRecentRoot();
     if (!root || root.dataset.bound === "true") return;
     root.dataset.bound = "true";
+
+    const keepExpandedCard = event => {
+      if (!window.matchMedia("(min-width:768px)").matches) return;
+      if (event.type === "pointerover" && (event.pointerType !== "mouse" || !window.matchMedia("(hover:hover)").matches)) return;
+      const card = event.target.closest(".sot-recent-hot-card");
+      if (!card || !root.contains(card)) return;
+      if (expandedHotEventCode === card.dataset.eventCode) return;
+      expandedHotEventCode = card.dataset.eventCode;
+      root.querySelectorAll(".sot-recent-hot-card").forEach(item => {
+        item.classList.toggle("is-expanded", item === card);
+      });
+    };
+    root.addEventListener("pointerover", keepExpandedCard);
+    root.addEventListener("focusin", keepExpandedCard);
 
     root.addEventListener("click", (event) => {
       const more = event.target.closest('[data-recent-action="more"]');

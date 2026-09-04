@@ -712,20 +712,7 @@
     transition:flex-grow .3s ease,box-shadow .3s ease,border-color .3s ease;
   }
 
-  .sot-recent-events .sot-recent-hot-card:first-child{
-    flex-grow:1.65;
-    box-shadow:0 12px 26px rgba(23,35,45,.12);
-  }
-}
-
-@media screen and (min-width:768px) and (hover:hover) and (pointer:fine){
-  .sot-recent-events .sot-recent-hot-list:has(.sot-recent-hot-card:not(:first-child):is(:hover,:focus-visible)) .sot-recent-hot-card:first-child{
-    flex-grow:1;
-    box-shadow:0 7px 18px rgba(32,51,70,.025);
-  }
-
-  .sot-recent-events .sot-recent-hot-card:hover,
-  .sot-recent-events .sot-recent-hot-card:focus-visible{
+  .sot-recent-events .sot-recent-hot-card.is-expanded{
     flex-grow:1.65;
     box-shadow:0 12px 26px rgba(23,35,45,.12);
   }

@@ -78,6 +78,7 @@ events.reverse();
     assert.equal(await page.locator(".sot-recent-title, .sot-recent-heading").count(), 0);
     assert.equal(await page.locator("#sot-recent-hot-title").textContent(), "인기 대회");
     assert.equal(await page.locator(".sot-recent-hot-card").count(), 4);
+    assert.equal(await page.locator(".sot-recent-hot-card.is-expanded").getAttribute("data-event-code"), "260628-sd");
     assert.deepEqual(
       await page.locator(".sot-recent-hot-card").evaluateAll(cards => cards.map(card => card.dataset.eventCode)),
       ["260628-sd", "260620-cj", "260614-dj", "260614-ic"]
@@ -187,6 +188,7 @@ events.reverse();
     }
 
     await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.locator(".sot-recent-hot-card").first().hover();
     await page.mouse.move(0, 0);
     await page.waitForFunction(() => {
       const cards = document.querySelectorAll(".sot-recent-hot-card");
@@ -212,8 +214,10 @@ events.reverse();
     await page.mouse.move(0, 0);
     await page.waitForFunction(() => {
       const cards = document.querySelectorAll(".sot-recent-hot-card");
-      return cards[0].getBoundingClientRect().width > cards[1].getBoundingClientRect().width * 1.5;
+      return cards[1].getBoundingClientRect().width > cards[0].getBoundingClientRect().width * 1.5;
     });
+    await page.locator(".sot-recent-month").selectOption("2026-04");
+    assert.equal(await page.locator(".sot-recent-hot-card.is-expanded").getAttribute("data-event-code"), "260620-cj");
     await page.locator('[data-event-code="260628-sd"]').click();
     await page.waitForTimeout(500);
     assert.equal(await page.locator("#app-event-id-input").inputValue(), "2026 송도 이봉주 마라톤");
