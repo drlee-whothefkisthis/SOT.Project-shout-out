@@ -421,6 +421,10 @@ onReady(function () {
   }
 
   function eventCourseInfo(race) {
+    const courses = Array.isArray(race && race.course)
+      ? race.course.map(value => String(value || "").trim()).filter(Boolean)
+      : [];
+    if (courses.length) return courses.join(", ");
     return String((race && race.course_info) || "").trim() || "Full, Half, 10K, 5K";
   }
 
@@ -679,6 +683,7 @@ onReady(function () {
           const is_public = (item.is_public === true);
           const publish_at = item.publish_at ? new Date(item.publish_at) : null;
           const event_date = item.event_date ? new Date(item.event_date) : null;
+          const course = Array.isArray(item.course) ? item.course : [];
 
           if (!event_code) return null;
 
@@ -688,6 +693,7 @@ onReady(function () {
             is_public,
             publish_at,
             event_date,
+            course,
             course_info: item.event_course_info ?? item.course_info ?? "",
             name_search_enabled: item.name_search_enabled === true,
             bib_min_digits: Number(item.bib_min_digits) === 3 ? 3 : 4,

@@ -34,6 +34,7 @@ events.find(event => event.event_code === "260531-gs").home_rank = 1;
 events.find(event => event.event_code === "260531-gs").home_score = 9999;
 events.find(event => event.event_code === "260531-gs").publish_at = "2026-07-01T00:00:00.000Z";
 events.find(event => event.event_code === "260620-cj").event_course_info = "Full, Half, 10K";
+events.find(event => event.event_code === "260620-cj").course = ["10K", "5K"];
 events.find(event => event.event_code === "260607-yd").event_course_info = "Half, 10K";
 events.reverse();
 
@@ -116,7 +117,7 @@ events.reverse();
     assert.equal(await page.locator(".sot-recent-hot-card .arrow").count(), 4);
     assert.equal(await page.locator('[data-event-code="260620-cj"] .sot-recent-hot-card__day').textContent(), "20");
     assert.equal(await page.locator('[data-event-code="260620-cj"] .sot-recent-hot-card__month').textContent(), "6월");
-    assert.equal(await page.locator('[data-event-code="260620-cj"] .sot-recent-hot-card__course').textContent(), "Full, Half, 10K");
+    assert.equal(await page.locator('[data-event-code="260620-cj"] .sot-recent-hot-card__course').textContent(), "10K, 5K");
     assert.equal(await page.locator('[data-event-code="260628-sd"] .sot-recent-hot-card__course').textContent(), "Full, Half, 10K, 5K");
     assert.equal(await page.locator(".sot-recent-hot-card .arrow").first().textContent(), "›");
     assert.deepEqual(await page.locator(".sot-recent-month option").allTextContents(), [
