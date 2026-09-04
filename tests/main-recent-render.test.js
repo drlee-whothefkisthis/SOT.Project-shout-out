@@ -166,6 +166,26 @@ events.reverse();
     assert.equal(await page.locator("#app-event-id-hidden").inputValue(), "260614-ic");
     assert.equal(await page.evaluate(() => document.activeElement.id), "app-bib-input");
 
+    // Long titles reflow as cards expand; neither card height nor the archive
+    // below may shift, including during the width transition.
+    await page.setViewportSize({ width: 980, height: 1000 });
+    await page.locator(".sot-recent-hot-list").scrollIntoViewIfNeeded();
+    const fixedArchiveTop = await page.locator(".sot-recent-past").evaluate(el => el.getBoundingClientRect().top + scrollY);
+    for (let index = 0; index < 4; index += 1) {
+      await page.locator(".sot-recent-hot-card").nth(index).hover();
+      const stable = await page.evaluate(async expectedTop => {
+        const end = performance.now() + 350;
+        while (performance.now() < end) {
+          const top = document.querySelector(".sot-recent-past").getBoundingClientRect().top + scrollY;
+          if (Math.abs(top - expectedTop) > 0.5) return false;
+          if ([...document.querySelectorAll(".sot-recent-hot-card")].some(card => Math.abs(card.getBoundingClientRect().height - 240) > 0.5)) return false;
+          await new Promise(requestAnimationFrame);
+        }
+        return true;
+      }, fixedArchiveTop);
+      assert.equal(stable, true, "hover must not shift the past-event section");
+    }
+
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.mouse.move(0, 0);
     await page.waitForFunction(() => {

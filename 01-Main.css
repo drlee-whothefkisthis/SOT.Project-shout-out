@@ -565,11 +565,24 @@
   flex-direction:column;
   align-items:stretch;
   gap:16px;
+  height:215px !important;
   min-height:215px;
   padding:20px !important;
   border-radius:21px;
   scroll-snap-align:start;
   transform:none;
+}
+
+.sot-recent-hot-card__copy{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  scrollbar-width:thin;
+}
+
+.sot-recent-hot-card__eyebrow,
+.sot-recent-hot-card__cta{
+  flex-shrink:0;
 }
 
 .sot-recent-hot-card__thumb,
@@ -694,6 +707,7 @@
 
 @media screen and (min-width:768px){
   .sot-recent-events .sot-recent-hot-card{
+    height:240px !important;
     min-height:240px;
     padding:18px !important;
     transition:flex-grow .3s ease,box-shadow .3s ease,border-color .3s ease;
