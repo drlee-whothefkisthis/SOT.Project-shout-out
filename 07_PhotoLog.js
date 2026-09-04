@@ -7,6 +7,7 @@
     draftPrefix: "sot_photographer_report_draft_v1",
     requestTimeoutMs: 25000,
     equipmentManualDownloadUrl: "https://storage.googleapis.com/project-shoutout-480002-public-assets/manuals/field-equipment-manual-v1.pdf",
+    uploadDirectoryLeaf: "hei",
   });
 
   const CAMERA_CODES = ["AM", "AP", "BM", "BP", "CM", "DM"];
@@ -128,6 +129,17 @@
   function eventMonthLabel(value) {
     const matched = /^\d{4}-(\d{2})-\d{2}/.exec(String(value || ""));
     return matched ? `${Number(matched[1])}월` : "일정 미정";
+  }
+
+  function uploadDirectory(event) {
+    const eventCode = String(event?.event_code || "").trim();
+    const codeDate = /^(\d{2})(\d{2})(\d{2})-/.exec(eventCode);
+    const dateMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(event?.event_date || ""));
+    const year = codeDate ? `20${codeDate[1]}` : dateMatch?.[1];
+    const month = codeDate ? Number(codeDate[2]) : Number(dateMatch?.[2]);
+    if (!year || !month || month < 1 || month > 12 || !eventCode) return "업로드 경로 미정";
+    const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+    return `/upload/marathon-${year}/${String(month).padStart(2, "0")}-${monthNames[month - 1]}/${eventCode}/${CONFIG.uploadDirectoryLeaf}/`;
   }
 
   function formatEventListName(value) {
@@ -379,6 +391,7 @@
   function renderEventDetail(event) {
     const mapUrl = safeExternalUrl(event.map_url);
     const courseMapUrl = safeExternalUrl(event.course_map_url);
+    const directory = uploadDirectory(event);
     const canWrite = !event.submitted && reportOpen(event);
     root.innerHTML = `
       <div class="pl-shell">
@@ -392,6 +405,7 @@
             <div class="pl-context__item"><div class="pl-context__label">장소</div><div class="pl-context__value">${escapeHtml(event.location || "장소 미정")}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">대회일</div><div class="pl-context__value">${escapeHtml(formatEventDate(event.event_date))}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">집결 시각</div><div class="pl-context__value">${escapeHtml(formatGatheringTime(event.event_date))}</div></div>
+            <div class="pl-context__item pl-context__item--wide"><div class="pl-context__label">업로드 디렉터리</div><div class="pl-context__value pl-context__value--path">${escapeHtml(directory)}</div></div>
           </div>
           <div class="pl-detail-actions">
             ${mapUrl
