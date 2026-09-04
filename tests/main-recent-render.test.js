@@ -59,7 +59,7 @@ events.reverse();
       body: JSON.stringify({ response: { results: events } })
     }));
 
-    await page.setContent(`<!doctype html><html><head><style>${style}</style></head><body>
+    await page.setContent(`<!doctype html><html><head><style>body{font-family:Arial,sans-serif}${style}</style></head><body>
       <section id="main-search">
         <div id="app-search-photos-form">
           <form><input id="app-event-id-input"><div id="app-event-suggestions"></div><input id="app-bib-input"><div id="app-bib-action-btn"><img><span id="app-bib-action-icon"></span></div></form>
@@ -241,6 +241,20 @@ events.reverse();
         await page.keyboard.type("1234");
         assert.equal(await page.locator("#app-bib-input").inputValue(), "1234");
       }
+    }
+    for (const width of [390, 768, 980, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(350);
+      const fits = await page.locator(".sot-recent-hot-card").evaluateAll(cards => cards.every(card => {
+        const copy = card.querySelector(".sot-recent-hot-card__copy");
+        const course = card.querySelector(".sot-recent-hot-card__course");
+        const cta = card.querySelector(".sot-recent-hot-card__cta");
+        return getComputedStyle(copy).overflowY === "visible"
+          && copy.scrollHeight <= copy.clientHeight + 1
+          && course.getBoundingClientRect().bottom <= cta.getBoundingClientRect().top + 1;
+      }));
+      assert.equal(fits, true, `all content must fit without vertical scrolling at ${width}px`);
     }
     assert.deepEqual(pageErrors, []);
 
