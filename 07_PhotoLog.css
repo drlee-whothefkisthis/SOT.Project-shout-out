@@ -38,6 +38,7 @@
   .pl-brand { margin: 0 0 28px; font-size: 15px; font-weight: 900; letter-spacing: .04em; }
   .pl-page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 24px; }
   .pl-page-header .pl-brand { margin: 0; }
+  .pl-page-actions { display: flex; align-items: center; gap: 14px; }
   .pl-logout { flex: 0 0 auto; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-decoration: none; }
   .pl-card { padding: clamp(22px, 5vw, 44px); border: 1px solid var(--pl-line); border-radius: var(--pl-radius); background: var(--pl-paper); box-shadow: var(--pl-shadow); }
   .pl-card + .pl-card { margin-top: 18px; }
