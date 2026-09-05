@@ -1380,7 +1380,6 @@
           <div><b id="sh_hero_status">상태: 대기 중</b></div>
           <div>마지막 업데이트: <span id="sh_hero_updated">레거시데이터에서 조회</span></div>
           <div>Data API: <span id="sh_hero_snapshot_key">SOT:Dashboard</span></div>
-          <button class="sh-btn-sm sh-admin-refresh" type="button" id="sot_current_test_refresh_btn">스냅샷 다시 불러오기</button>
         </div>
       </header>
 
@@ -1868,9 +1867,12 @@
         <article class="ctdash-card ctdash-section section">
           <div class="ctdash-section-head">
             <div><div class="ctdash-kicker">${kicker}</div><h3>${title}</h3><p>데이터 연결 전에도 동일한 리포트 구조를 먼저 표시합니다.</p></div>
-            <div class="ctdash-period-tabs">${eventMode
-              ? `<button class="ctdash-chip ${currentDashEventPeriod === "total" ? "is-active" : ""}" type="button" data-ctdash-event-period="total">전체</button><button class="ctdash-chip ${currentDashEventPeriod === "monthly" ? "is-active" : ""}" type="button" data-ctdash-event-period="monthly">월별</button><button class="ctdash-chip ${currentDashEventPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-event-period="weekly">주차별</button><button class="ctdash-chip ${currentDashEventPeriod === "daily" ? "is-active" : ""}" type="button" data-ctdash-event-period="daily">일별</button>`
-              : `<button class="ctdash-chip ${currentDashReportPeriod === "total" ? "is-active" : ""}" type="button" data-ctdash-report-period="total">전체</button><button class="ctdash-chip ${currentDashReportPeriod === "monthly" ? "is-active" : ""}" type="button" data-ctdash-report-period="monthly">월별</button><button class="ctdash-chip ${currentDashReportPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-report-period="weekly">주차별</button><button class="ctdash-chip ${currentDashReportPeriod === "daily" ? "is-active" : ""}" type="button" data-ctdash-report-period="daily">일별</button>`}</div>
+            <div class="ctdash-head-actions">
+              ${renderCurrentDayRefreshButton()}
+              <div class="ctdash-period-tabs">${eventMode
+                ? `<button class="ctdash-chip ${currentDashEventPeriod === "total" ? "is-active" : ""}" type="button" data-ctdash-event-period="total">전체</button><button class="ctdash-chip ${currentDashEventPeriod === "monthly" ? "is-active" : ""}" type="button" data-ctdash-event-period="monthly">월별</button><button class="ctdash-chip ${currentDashEventPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-event-period="weekly">주차별</button><button class="ctdash-chip ${currentDashEventPeriod === "daily" ? "is-active" : ""}" type="button" data-ctdash-event-period="daily">일별</button>`
+                : `<button class="ctdash-chip ${currentDashReportPeriod === "total" ? "is-active" : ""}" type="button" data-ctdash-report-period="total">전체</button><button class="ctdash-chip ${currentDashReportPeriod === "monthly" ? "is-active" : ""}" type="button" data-ctdash-report-period="monthly">월별</button><button class="ctdash-chip ${currentDashReportPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-report-period="weekly">주차별</button><button class="ctdash-chip ${currentDashReportPeriod === "daily" ? "is-active" : ""}" type="button" data-ctdash-report-period="daily">일별</button>`}</div>
+            </div>
           </div>
           <div class="ctdash-inline-fields">${eventMode ? currentDashEventScopeControls() : currentDashReportScopeControls()}</div>
           <div class="${eventMode ? "ctdash-summary-grid" : "ctdash-metrics-grid"}">${metrics.map(row => metricCard(row[0], row[1], row[2])).join("")}</div>
@@ -2144,23 +2146,41 @@
     `;
   }
 
-  async function refreshCurrentDashSelection() {
-    if (!currentDashSelectedEvent) return;
+  function renderCurrentDayRefreshButton() {
+    const disabled = !currentDashSelectedEvent || sotCurrentTestLoading || currentDashEventDetailLoading;
+    const label = sotCurrentTestLoading || currentDashEventDetailLoading ? "오늘 데이터 최신화 중..." : "오늘 데이터 최신화";
+    return `<button class="ctdash-refresh ctdash-manual-refresh" type="button" data-current-snapshot-refresh ${disabled ? "disabled" : ""} title="${!currentDashSelectedEvent ? "대회를 먼저 선택해주세요" : "버튼을 누른 시각까지의 오늘 데이터를 다시 집계합니다"}">${label}</button>`;
+  }
+
+  function syncCurrentDashSelectionToToday() {
+    const todayDateKey = todayKSTDateKey();
     if (currentDashView === "report") {
-      invalidateCurrentDashReportCache();
-      await loadCurrentTestDashboard({ manualRefresh: true });
+      if (currentDashReportPeriod === "daily") currentDashReportSelectedDateKey = todayDateKey;
+      if (currentDashReportPeriod === "weekly") currentDashReportSelectedWeekKey = sotWeekKeyFromDateKey(todayDateKey);
+      if (currentDashReportPeriod === "monthly") currentDashReportSelectedMonthKey = monthKeyFromDateKey(todayDateKey);
       return;
     }
     if (currentDashView === "event-analysis") {
-      delete currentDashEventDetailCache[`${currentDashSnapshotTypeForView("event-analysis")}::${currentDashPeriodKeyForView("event-analysis")}::${currentDashSelectedEvent}`];
-      await ensureCurrentDashEventDetail(currentDashSelectedEvent, { manualRefresh: true });
+      if (currentDashEventPeriod === "daily") currentDashSelectedDateKey = todayDateKey;
+      if (currentDashEventPeriod === "weekly") currentDashSelectedWeekKey = sotWeekKeyFromDateKey(todayDateKey);
+      if (currentDashEventPeriod === "monthly") currentDashSelectedMonthKey = monthKeyFromDateKey(todayDateKey);
     }
+  }
+
+  async function refreshCurrentDashSelection() {
+    if (!currentDashSelectedEvent) return;
+    if (!["report", "event-analysis"].includes(currentDashView)) return;
+    syncCurrentDashSelectionToToday();
+    invalidateCurrentDashReportCache();
+    clearCurrentDashEventDetailCache();
+    currentDashStatusSnapshot = null;
+    await loadCurrentTestDashboard({ manualRefresh: true });
   }
 
   function renderCurrentDashSelectionGate() {
     const title = currentDashView === "event-analysis" ? "대회별 분석" : "리포트";
     const eventOptions = currentDashEventOptions();
-    return `<section class="ctdash-screen"><article class="ctdash-card ctdash-section"><div class="ctdash-section-head"><div><div class="ctdash-kicker">${currentDashView === "event-analysis" ? "Event Analysis" : "Report"}</div><h3>${title}</h3><p>대회를 선택하면 해당 대회의 데이터를 불러옵니다.</p></div></div><div class="ctdash-inline-fields"><label><span>대회 선택</span><select class="ctdash-select" id="ctdash_event_select"><option value="">대회를 선택해주세요</option>${eventOptions.map(row => `<option value="${escapeHtml(row.event_code)}">${escapeHtml(currentDashEventLabel(row))}</option>`).join("")}</select></label></div></article></section>`;
+    return `<section class="ctdash-screen"><article class="ctdash-card ctdash-section"><div class="ctdash-section-head"><div><div class="ctdash-kicker">${currentDashView === "event-analysis" ? "Event Analysis" : "Report"}</div><h3>${title}</h3><p>대회를 선택하면 해당 대회의 데이터를 불러옵니다.</p></div>${renderCurrentDayRefreshButton()}</div><div class="ctdash-inline-fields"><label><span>대회 선택</span><select class="ctdash-select" id="ctdash_event_select"><option value="">대회를 선택해주세요</option>${eventOptions.map(row => `<option value="${escapeHtml(row.event_code)}">${escapeHtml(currentDashEventLabel(row))}</option>`).join("")}</select></label></div></article></section>`;
   }
 
   function renderCurrentDashReportView() {
@@ -2177,11 +2197,14 @@
               <h3>리포트</h3>
               <p>선택한 기간 기준 snapshot을 조회합니다.</p>
             </div>
-            <div class="ctdash-period-tabs">
-              <button class="ctdash-chip ${currentDashReportPeriod === "total" ? "is-active" : ""}" type="button" data-ctdash-report-period="total">전체</button>
-              <button class="ctdash-chip ${currentDashReportPeriod === "monthly" ? "is-active" : ""}" type="button" data-ctdash-report-period="monthly">월별</button>
-              <button class="ctdash-chip ${currentDashReportPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-report-period="weekly">주차별</button>
-              <button class="ctdash-chip ${currentDashReportPeriod === "daily" ? "is-active" : ""}" type="button" data-ctdash-report-period="daily">일별</button>
+            <div class="ctdash-head-actions">
+              ${renderCurrentDayRefreshButton()}
+              <div class="ctdash-period-tabs">
+                <button class="ctdash-chip ${currentDashReportPeriod === "total" ? "is-active" : ""}" type="button" data-ctdash-report-period="total">전체</button>
+                <button class="ctdash-chip ${currentDashReportPeriod === "monthly" ? "is-active" : ""}" type="button" data-ctdash-report-period="monthly">월별</button>
+                <button class="ctdash-chip ${currentDashReportPeriod === "weekly" ? "is-active" : ""}" type="button" data-ctdash-report-period="weekly">주차별</button>
+                <button class="ctdash-chip ${currentDashReportPeriod === "daily" ? "is-active" : ""}" type="button" data-ctdash-report-period="daily">일별</button>
+              </div>
             </div>
           </div>
           <div class="ctdash-inline-fields">${currentDashReportScopeControls()}</div>
@@ -2260,6 +2283,7 @@
               <h3>대회별 분석</h3>
               <p>대회와 기간을 선택하면 해당 snapshot을 다시 조회합니다.</p>
             </div>
+            ${renderCurrentDayRefreshButton()}
           </div>
           <div class="ctdash-event-toolbar">
             <div class="ctdash-inline-fields">${currentDashEventScopeControls()}</div>
@@ -6518,7 +6542,7 @@
         return;
       }
 
-      const currentTestRefreshButton = e.target.closest("#sot_current_test_refresh_btn");
+      const currentTestRefreshButton = e.target.closest("[data-current-snapshot-refresh]");
       if (currentTestRefreshButton) {
         console.log("[SOT Current Test] refresh button clicked");
         refreshCurrentDashSelection();

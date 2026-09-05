@@ -759,6 +759,9 @@
   .ctdash-status-row b{ color:#211812; }
   .ctdash-refresh,.ctdash-tab,.ctdash-chip{ border:0; border-radius:999px; font:inherit; font-weight:900; cursor:pointer; transition:.16s ease; }
   .ctdash-refresh{ min-height:44px; margin-top:8px; padding:0 18px; color:#fff; background:linear-gradient(135deg,#c96b37,#ab5426); box-shadow:0 14px 28px rgba(201,107,55,.24); }
+  .ctdash-head-actions{ display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:10px; }
+  .ctdash-manual-refresh{ margin-top:0; white-space:nowrap; }
+  .ctdash-manual-refresh:disabled{ opacity:.48; cursor:not-allowed; box-shadow:none; }
   .ctdash-main-tabs,.ctdash-period-tabs,.ctdash-legend,.ctdash-inline-fields{ display:flex; flex-wrap:wrap; gap:10px; }
   .ctdash-main-tabs{ margin-top:18px; }
   .ctdash-tab,.ctdash-chip{ padding:11px 16px; background:rgba(33,24,18,.08); color:#6f6256; }
