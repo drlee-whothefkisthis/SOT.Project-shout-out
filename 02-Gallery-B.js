@@ -1467,7 +1467,7 @@ function createCardEl(photo, sizeClass) {
         ? "이제 내 사진을 모두 담아 보세요"
         : `${regularPrice.toLocaleString()}원 대신 전부 ${PACKAGE_PRICE.toLocaleString()}원`;
     } else if (count === 4) {
-      benefitTitle.textContent = "마지막 한 장, 샤라웃이 900원에 쏠게요";
+      benefitTitle.textContent = "마지막 1장, 샤라웃이 900원에 쏠게요";
       benefitSub.textContent = "한 장만 더 담고 모든 사진을 간직하세요";
     } else if (count === 3) {
       benefitTitle.textContent = "2장 더 고르면 5,100원 할인";
