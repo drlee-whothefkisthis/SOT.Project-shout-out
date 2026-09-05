@@ -126,13 +126,14 @@ events.reverse();
     assert.equal(await page.locator('[data-event-code="260607-yd"] .sot-recent-past-card__day').textContent(), "7");
     assert.equal(await page.locator('[data-event-code="260607-yd"] .sot-recent-past-card__month').textContent(), "6월");
     assert.equal(await page.locator('[data-event-code="260607-yd"] .sot-recent-past-card__course').textContent(), "Half, 10K");
-    assert.equal(await page.locator('[data-event-code="260517-ic"] .sot-recent-past-card__course').textContent(), "Full, Half, 10K, 5K");
+    assert.equal(await page.locator('[data-event-code="260517-ic"] .sot-recent-past-card__course').textContent(), "코스 정보 준비 중");
     assert.equal(await page.locator(".sot-recent-past-card .arrow").count(), 6);
     assert.equal(await page.locator(".sot-recent-hot-card .arrow").count(), 4);
     assert.equal(await page.locator('[data-event-code="260620-cj"] .sot-recent-hot-card__day').textContent(), "20");
     assert.equal(await page.locator('[data-event-code="260620-cj"] .sot-recent-hot-card__month').textContent(), "6월");
     assert.equal(await page.locator('[data-event-code="260620-cj"] .sot-recent-hot-card__course').textContent(), "10K, 5K");
-    assert.equal(await page.locator('[data-event-code="260628-sd"] .sot-recent-hot-card__course').textContent(), "Full, Half, 10K, 5K");
+    assert.equal(await page.locator('[data-event-code="260628-sd"] .sot-recent-hot-card__course').textContent(), "코스 정보 준비 중");
+    assert.equal(await page.locator('[data-event-code="260906-md"] .sot-recent-hot-card__course').textContent(), "코스 정보 준비 중");
     assert.equal(await page.locator(".sot-recent-hot-card .arrow").first().textContent(), "›");
     assert.deepEqual(await page.locator(".sot-recent-month option").allTextContents(), [
       "전체 월", "2026년 6월", "2026년 5월", "2026년 4월"

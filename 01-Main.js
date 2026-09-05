@@ -437,7 +437,7 @@ onReady(function () {
       ? race.course.map(value => String(value || "").trim()).filter(Boolean)
       : [];
     if (courses.length) return courses.join(", ");
-    return String((race && race.course_info) || "").trim() || "Full, Half, 10K, 5K";
+    return String((race && race.course_info) || "").trim() || "코스 정보 준비 중";
   }
 
   function eventTag(race) {
