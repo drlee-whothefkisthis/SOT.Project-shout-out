@@ -180,7 +180,7 @@
     });
     // admin-api's agg_key parameter is mapped to DashboardSummary's agg_type.
     if (opts.agg_type) payload.agg_key = opts.agg_type;
-    ["tab", "snapshot_type", "period_key", "target_date"].forEach(key => {
+    ["tab", "snapshot_type", "period_key", "target_date", "manual_refresh"].forEach(key => {
       if (opts[key] !== undefined && opts[key] !== null && opts[key] !== "") payload[key] = opts[key];
     });
     if (opts.event_code !== undefined && opts.event_code !== null && opts.event_code !== "") {
