@@ -29,6 +29,17 @@ const events = [
   bib_min_digits: 4
 }));
 
+const earlyEvent = {
+  event_code: "260906-md",
+  event_display_name: "2026 제23회 새벽강변 국제마라톤대회",
+  event_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  publish_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  is_public: false,
+  name_search_enabled: false,
+  bib_min_digits: 4
+};
+events.push(earlyEvent);
+
 // Ranking and publication time must not override event-date ordering.
 events.find(event => event.event_code === "260531-gs").home_rank = 1;
 events.find(event => event.event_code === "260531-gs").home_score = 9999;
@@ -78,15 +89,15 @@ events.reverse();
     assert.equal(await page.locator(".sot-recent-title, .sot-recent-heading").count(), 0);
     assert.equal(await page.locator("#sot-recent-hot-title").textContent(), "인기 대회");
     assert.equal(await page.locator(".sot-recent-hot-card").count(), 4);
-    assert.equal(await page.locator(".sot-recent-hot-card.is-expanded").getAttribute("data-event-code"), "260628-sd");
+    assert.equal(await page.locator(".sot-recent-hot-card.is-expanded").getAttribute("data-event-code"), "260906-md");
     assert.deepEqual(
       await page.locator(".sot-recent-hot-card").evaluateAll(cards => cards.map(card => card.dataset.eventCode)),
-      ["260628-sd", "260620-cj", "260614-dj", "260614-ic"]
+      ["260906-md", "260628-sd", "260620-cj", "260614-dj"]
     );
     assert.equal(await page.locator(".sot-recent-hot-badge").count(), 1);
     assert.equal(await page.locator(".sot-recent-group").getAttribute("aria-labelledby"), "sot-recent-hot-title");
     assert.equal(await page.locator(".recent-event[href]").count(), 0);
-    assert.equal(await page.locator("button.recent-event").count(), 9);
+    assert.equal(await page.locator("button.recent-event").count(), 10);
     assert.equal(await page.locator(".sot-recent-panel").count(), 1);
     assert.equal(
       await page.locator(".sot-recent-panel").evaluate(panel => getComputedStyle(panel).backgroundColor),
@@ -98,8 +109,10 @@ events.reverse();
       "hot and past sections should share one outer card"
     );
     const pastCodes = await page.locator(".sot-recent-past-card").evaluateAll(cards => cards.map(card => card.dataset.eventCode));
-    assert.equal(pastCodes.length, 5, `unexpected past cards: ${pastCodes.join(", ")}`);
-    assert.equal(pastCodes[0], "260607-yd");
+    assert.equal(pastCodes.length, 6, `unexpected past cards: ${pastCodes.join(", ")}`);
+    assert.equal(pastCodes[0], "260614-ic");
+    assert.equal(await page.locator('[data-event-code="260906-md"]').getAttribute("data-search-ready"), "false");
+    assert.equal(await page.locator('[data-event-code="260906-md"] .sot-recent-hot-card__cta').textContent(), "공개 예정");
     assert.equal(await page.locator("#sot-recent-events-root img").count(), 0);
     assert.equal(await page.locator(".sot-recent-message").count(), 0);
     assert.equal(await page.locator(".sot-recent-subtitle").count(), 0);
@@ -114,7 +127,7 @@ events.reverse();
     assert.equal(await page.locator('[data-event-code="260607-yd"] .sot-recent-past-card__month').textContent(), "6월");
     assert.equal(await page.locator('[data-event-code="260607-yd"] .sot-recent-past-card__course').textContent(), "Half, 10K");
     assert.equal(await page.locator('[data-event-code="260517-ic"] .sot-recent-past-card__course').textContent(), "Full, Half, 10K, 5K");
-    assert.equal(await page.locator(".sot-recent-past-card .arrow").count(), 5);
+    assert.equal(await page.locator(".sot-recent-past-card .arrow").count(), 6);
     assert.equal(await page.locator(".sot-recent-hot-card .arrow").count(), 4);
     assert.equal(await page.locator('[data-event-code="260620-cj"] .sot-recent-hot-card__day').textContent(), "20");
     assert.equal(await page.locator('[data-event-code="260620-cj"] .sot-recent-hot-card__month').textContent(), "6월");
@@ -131,6 +144,12 @@ events.reverse();
     await page.locator(".suggestion-item").click();
     assert.equal(await page.locator("#app-event-id-hidden").inputValue(), "260614-ic");
     assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), "app-bib-input");
+
+    await page.locator("#app-event-id-input").fill("새벽강변");
+    assert.equal(await page.locator(".suggestion-item").count(), 0, "early banner event must not enter search suggestions");
+    page.once("dialog", dialog => dialog.dismiss());
+    await page.locator('[data-event-code="260906-md"]').click();
+    assert.equal(await page.locator("#app-event-id-hidden").inputValue(), "");
 
     await page.locator('[data-event-code="260620-cj"]').click();
     assert.equal(await page.locator("#app-event-id-input").inputValue(), "2026 제25회 충주마라톤");
@@ -163,7 +182,7 @@ events.reverse();
     }
     await carousel.evaluate(el => el.scrollTo({ left: el.scrollWidth, behavior: "instant" }));
     await page.waitForFunction(() => document.querySelector(".sot-recent-hot-list").scrollLeft > 0);
-    await page.locator('.sot-recent-hot-card[data-event-code="260614-ic"]').click();
+    await page.locator('.recent-event[data-event-code="260614-ic"]').click();
     assert.equal(await page.locator("#app-event-id-hidden").inputValue(), "260614-ic");
     assert.equal(await page.evaluate(() => document.activeElement.id), "app-bib-input");
 
@@ -205,7 +224,7 @@ events.reverse();
     await page.locator('.sot-recent-hot-card[data-event-code="260620-cj"]').hover();
     await page.waitForFunction(() => {
       const cards = document.querySelectorAll(".sot-recent-hot-card");
-      return cards[1].getBoundingClientRect().width > cards[0].getBoundingClientRect().width * 1.5;
+      return cards[2].getBoundingClientRect().width > cards[0].getBoundingClientRect().width * 1.5;
     });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     if (process.env.SOT_DESKTOP_PREVIEW) {
@@ -214,7 +233,7 @@ events.reverse();
     await page.mouse.move(0, 0);
     await page.waitForFunction(() => {
       const cards = document.querySelectorAll(".sot-recent-hot-card");
-      return cards[1].getBoundingClientRect().width > cards[0].getBoundingClientRect().width * 1.5;
+      return cards[2].getBoundingClientRect().width > cards[0].getBoundingClientRect().width * 1.5;
     });
     await page.locator(".sot-recent-month").selectOption("2026-04");
     assert.equal(await page.locator(".sot-recent-hot-card.is-expanded").getAttribute("data-event-code"), "260620-cj");

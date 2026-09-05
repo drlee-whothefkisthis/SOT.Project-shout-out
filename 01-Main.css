@@ -724,6 +724,11 @@
     gap:6px;
   }
   .sot-recent-hot-card__title{font-size:20px;}
+  .sot-recent-hot-card.has-long-title .sot-recent-hot-card__title{
+    font-size:16px;
+    line-height:1.12;
+    letter-spacing:-.045em;
+  }
   .sot-recent-hot-card__mobile-date{font-size:12px;}
   .sot-recent-hot-card__course{font-size:11px;}
 }

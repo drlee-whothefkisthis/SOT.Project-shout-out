@@ -351,6 +351,7 @@ onReady(function () {
   const RECENT_ROOT_ID = "sot-recent-events-root";
   const RECENT_HOT_COUNT = 4;
   const RECENT_PAST_PAGE_SIZE = 6;
+  const RECENT_EARLY_EXPOSURE_MS = 2 * 24 * 60 * 60 * 1000;
 
   let selectedPastMonth = "all";
   let expandedHotEventCode = "";
@@ -358,6 +359,16 @@ onReady(function () {
 
   function isHomeEvent(race) {
     return !!race && race.home_visible !== false;
+  }
+
+  function isSearchReadyEvent(race) {
+    return !!race && races.some(item => item.id === race.id);
+  }
+
+  function isEarlyHomeEvent(race, now) {
+    if (!isHomeEvent(race)) return false;
+    if (!race.publish_at) return race.is_public === true;
+    return race.publish_at.getTime() <= now.getTime() + RECENT_EARLY_EXPOSURE_MS;
   }
 
   function compareRecentEvents(a, b) {
@@ -473,6 +484,13 @@ onReady(function () {
 
   function createHotCard(race, index) {
     const card = createEventLink(race, "sot-recent-hot-card");
+    const searchReady = isSearchReadyEvent(race);
+    if (displayRaceName(race).length >= 16) card.classList.add("has-long-title");
+    card.dataset.searchReady = searchReady ? "true" : "false";
+    if (!searchReady) {
+      card.classList.add("is-search-pending");
+      card.setAttribute("aria-label", `${race.name} 사진 검색 준비 중`);
+    }
     card.appendChild(createText("span", "sot-recent-hot-card__eyebrow", index === 0 ? "LATEST EVENT" : `EVENT ${String(index + 1).padStart(2, "0")}`));
     const parts = kstDateParts(race.event_date);
     const thumb = document.createElement("span");
@@ -491,7 +509,7 @@ onReady(function () {
     card.appendChild(thumb);
     card.appendChild(copy);
     card.appendChild(arrow);
-    card.appendChild(createText("span", "sot-recent-hot-card__cta", "사진 찾기 →"));
+    card.appendChild(createText("span", "sot-recent-hot-card__cta", searchReady ? "사진 찾기 →" : "공개 예정"));
     return card;
   }
 
@@ -541,15 +559,17 @@ onReady(function () {
     const root = ensureRecentRoot();
     if (!root) return;
 
-    const homeEvents = races.filter(isHomeEvent).sort(compareRecentEvents);
-    if (!homeEvents.length) {
+    const now = new Date();
+    const homeEvents = racesAll.filter(race => isEarlyHomeEvent(race, now)).sort(compareRecentEvents);
+    const searchableHomeEvents = races.filter(isHomeEvent).sort(compareRecentEvents);
+    if (!homeEvents.length && !searchableHomeEvents.length) {
       renderRecentStatus("선택할 수 있는 대회를 준비 중입니다.", "empty");
       return;
     }
 
     const hotEvents = homeEvents.slice(0, RECENT_HOT_COUNT);
     const hotCodes = new Set(hotEvents.map(race => race.id));
-    const pastEvents = homeEvents
+    const pastEvents = searchableHomeEvents
       .filter(race => !hotCodes.has(race.id) && isPastOrToday(race))
       .sort((a, b) => eventTimestamp(b) - eventTimestamp(a));
 
@@ -669,6 +689,10 @@ onReady(function () {
       const card = event.target.closest(".recent-event[data-event-code]");
       if (!card || !root.contains(card)) return;
       event.preventDefault();
+      if (card.dataset.searchReady === "false") {
+        alert("아직 사진 검색 준비 중인 대회입니다. 공개 후 검색할 수 있습니다.");
+        return;
+      }
       if (selectRaceByCode(card.dataset.eventCode)) scrollSearchInputsIntoView();
     });
 
