@@ -284,6 +284,8 @@
     } catch (error) {
       message.textContent = error.code === "IDENTITY_NOT_VERIFIED"
         ? "입력한 정보와 등록 정보가 일치하지 않습니다."
+        : error.code === "LOGIN_RATE_LIMITED"
+          ? "로그인 시도가 많습니다. 15분 후 다시 시도해 주세요."
         : genericError(error, "확인 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
       button.disabled = false;
       button.textContent = "배정 대회 확인";
