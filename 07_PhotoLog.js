@@ -244,7 +244,7 @@
             </label>
             <label class="pl-field">
               <span class="pl-label">비밀번호</span>
-              <input class="pl-input" name="phone_last4" type="text" inputmode="numeric" autocomplete="one-time-code" minlength="4" maxlength="4" pattern="[0-9]{4}" placeholder="연락처 뒤 4자리" required>
+              <input class="pl-input" name="phone_last4" type="password" inputmode="numeric" autocomplete="current-password" minlength="4" maxlength="8" pattern="[0-9]{4,8}" placeholder="연락처 뒤 4자리 또는 설정한 비밀번호" required>
             </label>
             <button class="pl-button pl-button--wide" type="submit">배정 대회 확인</button>
           </form>
@@ -254,7 +254,7 @@
 
     const form = root.querySelector("[data-pl-login]");
     const last4 = form.elements.phone_last4;
-    last4.addEventListener("input", () => { last4.value = last4.value.replace(/\D/g, "").slice(0, 4); });
+    last4.addEventListener("input", () => { last4.value = last4.value.replace(/\D/g, "").slice(0, 8); });
     form.addEventListener("submit", submitLogin);
   }
 
@@ -336,7 +336,10 @@
       <div class="pl-shell">
         <div class="pl-page-header">
           <div class="pl-brand">SHOUT-OUT</div>
-          <button class="pl-link pl-logout" type="button" data-pl-logout>LOGOUT</button>
+          <div class="pl-page-actions">
+            <button class="pl-link pl-logout" type="button" data-pl-change-password>비밀번호 변경</button>
+            <button class="pl-link pl-logout" type="button" data-pl-logout>LOGOUT</button>
+          </div>
         </div>
         <section class="pl-card">
           <div class="pl-toolbar">
@@ -358,6 +361,7 @@
       </div>`;
 
     root.querySelector("[data-pl-logout]").addEventListener("click", () => renderLogin());
+    root.querySelector("[data-pl-change-password]").addEventListener("click", renderPasswordChange);
     root.querySelectorAll("[data-pl-view-event]").forEach((card) => {
       const open = () => loadEventDetail(card.dataset.plViewEvent);
       card.addEventListener("click", open);
@@ -369,6 +373,88 @@
       });
     });
     window.scrollTo({ top: 0, behavior: "auto" });
+  }
+
+  function renderPasswordChange(message = "", success = false) {
+    const safeMessage = typeof message === "string" ? message : "";
+    root.innerHTML = `
+      <div class="pl-shell">
+        <div class="pl-page-header">
+          <div class="pl-brand">SHOUT-OUT</div>
+          <button class="pl-link pl-logout" type="button" data-pl-back-events>대회 목록</button>
+        </div>
+        <section class="pl-card">
+          <p class="pl-kicker">Account</p>
+          <h1 class="pl-heading">비밀번호 변경</h1>
+          <p class="pl-copy">숫자 4~8자리로 설정해 주세요. 처음에는 연락처 뒤 4자리로 확인할 수 있습니다.</p>
+          ${success ? `
+            <p class="pl-alert" data-kind="success">${escapeHtml(safeMessage)}</p>
+            <button class="pl-button pl-button--wide" type="button" data-pl-back-events>대회 목록으로</button>` : `
+            <form class="pl-stack" data-pl-password-change novalidate>
+              <label class="pl-field">
+                <span class="pl-label">현재 비밀번호</span>
+                <input class="pl-input" name="current_password" type="password" inputmode="numeric" autocomplete="current-password" minlength="4" maxlength="8" pattern="[0-9]{4,8}" placeholder="현재 비밀번호" required>
+              </label>
+              <label class="pl-field">
+                <span class="pl-label">새 비밀번호</span>
+                <input class="pl-input" name="new_password" type="password" inputmode="numeric" autocomplete="new-password" minlength="4" maxlength="8" pattern="[0-9]{4,8}" placeholder="숫자 4~8자리" required>
+              </label>
+              <label class="pl-field">
+                <span class="pl-label">새 비밀번호 확인</span>
+                <input class="pl-input" name="confirm_password" type="password" inputmode="numeric" autocomplete="new-password" minlength="4" maxlength="8" pattern="[0-9]{4,8}" placeholder="새 비밀번호 다시 입력" required>
+              </label>
+              <button class="pl-button pl-button--wide" type="submit">비밀번호 변경</button>
+            </form>
+            <p class="pl-alert" data-pl-password-message aria-live="assertive">${escapeHtml(safeMessage)}</p>`}
+        </section>
+      </div>`;
+
+    root.querySelectorAll("[data-pl-back-events]").forEach((button) => {
+      button.addEventListener("click", () => renderEvents());
+    });
+    const form = root.querySelector("[data-pl-password-change]");
+    if (!form) return;
+    form.querySelectorAll("input").forEach((input) => {
+      input.addEventListener("input", () => { input.value = input.value.replace(/\D/g, "").slice(0, 8); });
+    });
+    form.addEventListener("submit", submitPasswordChange);
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }
+
+  async function submitPasswordChange(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector("button[type='submit']");
+    const message = root.querySelector("[data-pl-password-message]");
+    const currentPassword = form.elements.current_password.value;
+    const newPassword = form.elements.new_password.value;
+    const confirmPassword = form.elements.confirm_password.value;
+    if (!form.reportValidity()) return;
+    if (newPassword !== confirmPassword) {
+      message.textContent = "새 비밀번호가 서로 일치하지 않습니다.";
+      return;
+    }
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    button.disabled = true;
+    button.textContent = "변경 중…";
+    message.textContent = "";
+    try {
+      await api("/api/v1/photographer-access/password", {
+        method: "POST",
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+      });
+      renderPasswordChange("비밀번호를 변경했습니다.", true);
+    } catch (error) {
+      message.textContent = error.code === "CURRENT_PASSWORD_INCORRECT"
+        ? "현재 비밀번호가 맞지 않습니다."
+        : error.code === "PASSWORD_UNCHANGED"
+          ? "새 비밀번호는 현재 비밀번호와 달라야 합니다."
+          : error.code === "PASSWORD_INVALID"
+            ? "비밀번호는 숫자 4~8자리여야 합니다."
+            : genericError(error, "비밀번호를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      button.disabled = false;
+      button.textContent = "비밀번호 변경";
+    }
   }
 
   async function loadEventDetail(eventCode) {
