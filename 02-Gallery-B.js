@@ -1463,11 +1463,21 @@ function createCardEl(photo, sizeClass) {
 
     if (hasPackage) {
       benefitTitle.textContent = "패키지 혜택이 적용됐어요";
-      benefitSub.textContent = `${regularPrice.toLocaleString()}원 대신 전부 ${PACKAGE_PRICE.toLocaleString()}원`;
+      benefitSub.textContent = count === PACKAGE_THRESHOLD
+        ? "이제 내 사진을 모두 담아 보세요"
+        : `${regularPrice.toLocaleString()}원 대신 전부 ${PACKAGE_PRICE.toLocaleString()}원`;
+    } else if (count === 4) {
+      benefitTitle.textContent = "마지막 한 장, 샤라웃이 900원에 쏠게요";
+      benefitSub.textContent = "한 장만 더 담고 모든 사진을 간직하세요";
+    } else if (count === 3) {
+      benefitTitle.textContent = "2장 더 고르면 5,100원 할인";
+      benefitSub.textContent = "결국 남는 건 사진뿐이다 — 어른들 말씀";
+    } else if (count === 2) {
+      benefitTitle.textContent = "추가 3장은 12,900원에 드려요";
+      benefitSub.textContent = "50장을 담아도 전부 24,900원";
     } else {
-      const remaining = PACKAGE_THRESHOLD - count;
-      benefitTitle.textContent = `${remaining}장만 더 고르면 패키지 가격이 열려요`;
-      benefitSub.textContent = `${PACKAGE_THRESHOLD}장 이상이면 장당 가격 대신 한 번에 ${PACKAGE_PRICE.toLocaleString()}원`;
+      benefitTitle.textContent = "5장 이상은 24,900원 일괄 적용";
+      benefitSub.textContent = "오늘의 추억을 빠짐없이 간직해 보세요";
     }
 
     const justReachedPackage =
