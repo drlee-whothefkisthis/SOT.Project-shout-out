@@ -93,19 +93,33 @@
     return fallback;
   }
 
-  function formatEventDate(value) {
-    const matched = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ""));
+  function eventDateParts(value) {
+    const raw = String(value || "").trim();
+    const matched = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
     if (!matched) return "날짜 미정";
-    return `${Number(matched[1])}년 ${Number(matched[2])}월 ${Number(matched[3])}일`;
+    if (!raw.includes("T")) return { year: Number(matched[1]), month: Number(matched[2]), day: Number(matched[3]) };
+    const instant = new Date(raw);
+    if (Number.isNaN(instant.getTime())) return { year: Number(matched[1]), month: Number(matched[2]), day: Number(matched[3]) };
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit",
+    }).formatToParts(instant);
+    const values = Object.fromEntries(parts.map(({ type, value: partValue }) => [type, partValue]));
+    return { year: Number(values.year), month: Number(values.month), day: Number(values.day) };
+  }
+
+  function formatEventDate(value) {
+    const parts = eventDateParts(value);
+    if (typeof parts === "string") return parts;
+    return `${parts.year}년 ${parts.month}월 ${parts.day}일`;
   }
 
   function formatEventListDate(value) {
-    const matched = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ""));
-    if (!matched) return "날짜 미정";
+    const parts = eventDateParts(value);
+    if (typeof parts === "string") return parts;
     const weekday = ["일", "월", "화", "수", "목", "금", "토"][
-      new Date(Date.UTC(Number(matched[1]), Number(matched[2]) - 1, Number(matched[3]))).getUTCDay()
+      new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay()
     ];
-    return `${Number(matched[2])}월 ${Number(matched[3])}일 (${weekday})`;
+    return `${parts.month}월 ${parts.day}일 (${weekday})`;
   }
 
   function kstTodaySerial() {
@@ -120,23 +134,23 @@
   }
 
   function showEventInList(value) {
-    const matched = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ""));
-    if (!matched) return true;
-    const eventSerial = Date.UTC(Number(matched[1]), Number(matched[2]) - 1, Number(matched[3]));
+    const parts = eventDateParts(value);
+    if (typeof parts === "string") return true;
+    const eventSerial = Date.UTC(parts.year, parts.month - 1, parts.day);
     return eventSerial >= kstTodaySerial() - 3 * 24 * 60 * 60 * 1000;
   }
 
   function eventMonthLabel(value) {
-    const matched = /^\d{4}-(\d{2})-\d{2}/.exec(String(value || ""));
-    return matched ? `${Number(matched[1])}월` : "일정 미정";
+    const parts = eventDateParts(value);
+    return typeof parts === "string" ? "일정 미정" : `${parts.month}월`;
   }
 
   function uploadDirectory(event) {
     const eventCode = String(event?.event_code || "").trim();
     const codeDate = /^(\d{2})(\d{2})(\d{2})-/.exec(eventCode);
-    const dateMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(event?.event_date || ""));
-    const year = codeDate ? `20${codeDate[1]}` : dateMatch?.[1];
-    const month = codeDate ? Number(codeDate[2]) : Number(dateMatch?.[2]);
+    const eventDate = eventDateParts(event?.event_date);
+    const year = codeDate ? `20${codeDate[1]}` : (typeof eventDate === "string" ? 0 : eventDate.year);
+    const month = codeDate ? Number(codeDate[2]) : (typeof eventDate === "string" ? 0 : eventDate.month);
     if (!year || !month || month < 1 || month > 12 || !eventCode) return "업로드 경로 미정";
     const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
     return `/upload/marathon-${year}/${String(month).padStart(2, "0")}-${monthNames[month - 1]}/${eventCode}/${CONFIG.uploadDirectoryLeaf}/`;
@@ -167,8 +181,10 @@
   }
 
   function eventDateValue(value) {
-    const matched = /^(\d{4}-\d{2}-\d{2})/.exec(String(value || ""));
-    return matched ? matched[1] : "";
+    const parts = eventDateParts(value);
+    return typeof parts === "string"
+      ? ""
+      : `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
   }
 
   function safeExternalUrl(value) {
@@ -492,7 +508,10 @@
             <div class="pl-context__item"><div class="pl-context__label">포토그래퍼</div><div class="pl-context__value">${escapeHtml(state.photographer.name)}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">장소</div><div class="pl-context__value">${escapeHtml(event.location || "장소 미정")}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">대회일</div><div class="pl-context__value">${escapeHtml(formatEventDate(event.event_date))}</div></div>
-            <div class="pl-context__item"><div class="pl-context__label">집결 시각</div><div class="pl-context__value">${escapeHtml(formatGatheringTime(event.event_date))}</div></div>
+            <div class="pl-context__item"><div class="pl-context__label">집결</div><div class="pl-context__value">${escapeHtml(formatGatheringTime(event.event_date))}</div></div>
+            ${String(event.pickup || "").trim()
+              ? `<div class="pl-context__item"><div class="pl-context__label">픽업</div><div class="pl-context__value">${escapeHtml(event.pickup)}</div></div>`
+              : ""}
             <div class="pl-context__item pl-context__item--wide"><div class="pl-context__label">업로드 디렉터리</div><div class="pl-context__value pl-context__value--path">${escapeHtml(directory)}</div></div>
           </div>
           <div class="pl-detail-actions">
