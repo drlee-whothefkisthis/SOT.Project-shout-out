@@ -97,6 +97,21 @@
     return `${Number(matched[1])}년 ${Number(matched[2])}월 ${Number(matched[3])}일`;
   }
 
+  function formatEventListDate(value) {
+    const matched = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ""));
+    if (!matched) return "날짜 미정";
+    return `${Number(matched[2])}월 ${Number(matched[3])}일`;
+  }
+
+  function eventMonthLabel(value) {
+    const matched = /^\d{4}-(\d{2})-\d{2}/.exec(String(value || ""));
+    return matched ? `${Number(matched[1])}월` : "일정 미정";
+  }
+
+  function formatEventListName(value) {
+    return String(value || "").replace(/^2026(?:년)?\s*/, "").trim();
+  }
+
   function formatGatheringTime(value) {
     const eventTime = new Date(String(value || ""));
     if (Number.isNaN(eventTime.getTime()) || !String(value || "").includes("T")) return "시간 미정";
@@ -247,19 +262,33 @@
 
   function renderEvents(loadError = "") {
     const eventRows = state.events.length
-      ? state.events.map((item) => `
-          <article class="pl-event pl-event--clickable" role="button" tabindex="0" data-pl-view-event="${escapeHtml(item.event_code)}">
-            <div>
-              <div class="pl-event__name">${escapeHtml(item.event_name || item.event_code)}</div>
-              <div class="pl-event__meta">${escapeHtml(formatEventDate(item.event_date))}</div>
-            </div>
-            <span class="pl-event__chevron" aria-hidden="true">›</span>
-          </article>`).join("")
+      ? (() => {
+          const groups = new Map();
+          state.events.forEach((item) => {
+            const month = eventMonthLabel(item.event_date);
+            if (!groups.has(month)) groups.set(month, []);
+            groups.get(month).push(item);
+          });
+          return Array.from(groups.entries()).map(([month, items]) => `
+            <section class="pl-event-group">
+              <h2 class="pl-event-group__title">${escapeHtml(month)}</h2>
+              <div class="pl-event-group__list">
+                ${items.map((item) => `
+                  <article class="pl-event pl-event--clickable" role="button" tabindex="0" data-pl-view-event="${escapeHtml(item.event_code)}">
+                    <div class="pl-event__name">${escapeHtml(formatEventListName(item.event_name || item.event_code))}</div>
+                    <div class="pl-event__meta">${escapeHtml(formatEventListDate(item.event_date))}</div>
+                  </article>`).join("")}
+              </div>
+            </section>`).join("");
+        })()
       : '<div class="pl-event"><div><div class="pl-event__name">배정된 확정 대회가 없습니다.</div><div class="pl-event__meta">관리자에게 배정 상태를 확인해 주세요.</div></div></div>';
 
     root.innerHTML = `
       <div class="pl-shell">
-        <div class="pl-brand">SHOUT-OUT</div>
+        <div class="pl-page-header">
+          <div class="pl-brand">SHOUT-OUT</div>
+          <button class="pl-link pl-logout" type="button" data-pl-logout>LOGOUT</button>
+        </div>
         <section class="pl-card">
           <div class="pl-toolbar">
             <div>
@@ -267,7 +296,6 @@
               <h1 class="pl-heading">${escapeHtml(state.photographer?.name)}님의 대회</h1>
               <p class="pl-copy">작성할 대회를 선택해 주세요.</p>
             </div>
-            <button class="pl-button pl-button--ghost pl-button--small" type="button" data-pl-logout>로그아웃</button>
           </div>
           <p class="pl-alert" aria-live="assertive">${escapeHtml(loadError)}</p>
           <div class="pl-event-list">${eventRows}</div>
@@ -319,7 +347,10 @@
             <div class="pl-context__item"><div class="pl-context__label">포토그래퍼</div><div class="pl-context__value">${escapeHtml(state.photographer.name)}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">장소</div><div class="pl-context__value">${escapeHtml(event.location || "장소 미정")}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">대회일</div><div class="pl-context__value">${escapeHtml(formatEventDate(event.event_date))}</div></div>
-            <div class="pl-context__item"><div class="pl-context__label">집결 시각</div><div class="pl-context__value">${escapeHtml(formatGatheringTime(event.event_date))}</div></div>
+            <div class="pl-context__item"><div class="pl-context__label">집결</div><div class="pl-context__value">${escapeHtml(formatGatheringTime(event.event_date))}</div></div>
+            ${String(event.pickup || "").trim()
+              ? `<div class="pl-context__item"><div class="pl-context__label">픽업</div><div class="pl-context__value">${escapeHtml(event.pickup)}</div></div>`
+              : ""}
           </div>
           <div class="pl-detail-actions">
             ${mapUrl
