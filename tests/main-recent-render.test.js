@@ -139,6 +139,11 @@ events.reverse();
       "전체 월", "2026년 6월", "2026년 5월", "2026년 4월"
     ]);
 
+    await page.locator("#app-event-id-input").click();
+    assert.equal(await page.locator(".suggestion-item").count(), 8, "clicking an empty event input should open recent suggestions");
+    assert.equal(await page.locator("#app-event-suggestions").evaluate(box => getComputedStyle(box).display), "block");
+    assert.equal(await page.locator('.suggestion-item[data-event-code="260906-md"]').count(), 0, "non-searchable early events must stay out of suggestions");
+
     await page.locator("#app-event-id-input").fill("광역시 갖기배");
     assert.equal(await page.locator(".suggestion-item").count(), 1);
     assert.equal(await page.locator(".suggestion-item").first().textContent(), "2026 인천광역시장기배 건강달리기");

@@ -286,8 +286,7 @@ onReady(function () {
   function renderEventSuggestions() {
     if (!suggestionsBox) return;
     const query = (eventInput.value || "").trim();
-    if (!query) { hideEventSuggestions(); return; }
-    eventMatches = matchingRaces(query);
+    eventMatches = query ? matchingRaces(query) : races.slice(0, 8);
     suggestionsBox.replaceChildren();
     if (!eventMatches.length) {
       const empty = createText("p", "suggestion-info", "일치하는 대회가 없습니다.");
@@ -313,6 +312,14 @@ onReady(function () {
   eventInput.addEventListener("input", () => {
     hiddenEventId.value = "";
     setBibActionUi();
+    renderEventSuggestions();
+  });
+
+  eventInput.addEventListener("focus", () => {
+    renderEventSuggestions();
+  });
+
+  eventInput.addEventListener("click", () => {
     renderEventSuggestions();
   });
 
@@ -772,7 +779,8 @@ onReady(function () {
       racesAll = mappedAll;
       races = mappedAllowed;
 
-      hideEventSuggestions();
+      if (document.activeElement === eventInput) renderEventSuggestions();
+      else hideEventSuggestions();
       renderRecentEvents();
 
     } catch (err) {
