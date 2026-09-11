@@ -369,11 +369,11 @@
           </div>
           ${errorMessage ? `<p class="pl-alert" aria-live="assertive">${escapeHtml(errorMessage)}</p>` : ""}
           <div class="pl-downloads">
-            <a class="pl-manual-download" href="${escapeHtml(CONFIG.equipmentListDownloadUrl)}" download>
+            <a class="pl-manual-download" href="${escapeHtml(CONFIG.equipmentListDownloadUrl)}" target="_blank" rel="noopener noreferrer">
               <span class="pl-manual-download__copy"><strong>장비 리스트</strong></span>
               <span class="pl-manual-download__action">다운로드</span>
             </a>
-            <a class="pl-manual-download" href="${escapeHtml(CONFIG.equipmentManualDownloadUrl)}" download>
+            <a class="pl-manual-download" href="${escapeHtml(CONFIG.equipmentManualDownloadUrl)}" target="_blank" rel="noopener noreferrer">
               <span class="pl-manual-download__copy"><strong>촬영 장비 설정 메뉴얼</strong></span>
               <span class="pl-manual-download__action">다운로드</span>
             </a>
