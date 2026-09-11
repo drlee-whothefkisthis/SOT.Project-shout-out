@@ -368,20 +368,16 @@
             </div>
           </div>
           ${errorMessage ? `<p class="pl-alert" aria-live="assertive">${escapeHtml(errorMessage)}</p>` : ""}
-          <a class="pl-manual-download" href="${escapeHtml(CONFIG.equipmentListDownloadUrl)}" download>
-            <span class="pl-manual-download__copy">
-              <strong>장비 리스트</strong>
-              <small>PDF 파일 다운로드</small>
-            </span>
-            <span class="pl-manual-download__action">다운로드</span>
-          </a>
-          <a class="pl-manual-download" href="${escapeHtml(CONFIG.equipmentManualDownloadUrl)}" download>
-            <span class="pl-manual-download__copy">
-              <strong>촬영 장비 설정 메뉴얼</strong>
-              <small>PDF 파일 다운로드</small>
-            </span>
-            <span class="pl-manual-download__action">다운로드</span>
-          </a>
+          <div class="pl-downloads">
+            <a class="pl-manual-download" href="${escapeHtml(CONFIG.equipmentListDownloadUrl)}" download>
+              <span class="pl-manual-download__copy"><strong>장비 리스트</strong></span>
+              <span class="pl-manual-download__action">다운로드</span>
+            </a>
+            <a class="pl-manual-download" href="${escapeHtml(CONFIG.equipmentManualDownloadUrl)}" download>
+              <span class="pl-manual-download__copy"><strong>촬영 장비 설정 메뉴얼</strong></span>
+              <span class="pl-manual-download__action">다운로드</span>
+            </a>
+          </div>
           <div class="pl-event-list">${eventRows}</div>
         </section>
       </div>`;
