@@ -6,6 +6,7 @@
     tokenKey: "sot_photographer_access_v2",
     draftPrefix: "sot_photographer_report_draft_v1",
     requestTimeoutMs: 25000,
+    equipmentListDownloadUrl: "https://storage.googleapis.com/project-shoutout-480002-public-assets/manuals/equipment-list.pdf",
     equipmentManualDownloadUrl: "https://storage.googleapis.com/project-shoutout-480002-public-assets/manuals/field-equipment-manual-v1.pdf",
     uploadDirectoryLeaf: "hei",
   });
@@ -367,9 +368,16 @@
             </div>
           </div>
           ${errorMessage ? `<p class="pl-alert" aria-live="assertive">${escapeHtml(errorMessage)}</p>` : ""}
+          <a class="pl-manual-download" href="${escapeHtml(CONFIG.equipmentListDownloadUrl)}" download>
+            <span class="pl-manual-download__copy">
+              <strong>장비 리스트</strong>
+              <small>PDF 파일 다운로드</small>
+            </span>
+            <span class="pl-manual-download__action">다운로드</span>
+          </a>
           <a class="pl-manual-download" href="${escapeHtml(CONFIG.equipmentManualDownloadUrl)}" download>
             <span class="pl-manual-download__copy">
-              <strong>촬영 현장 장비 매뉴얼</strong>
+              <strong>촬영 장비 설정 메뉴얼</strong>
               <small>PDF 파일 다운로드</small>
             </span>
             <span class="pl-manual-download__action">다운로드</span>
