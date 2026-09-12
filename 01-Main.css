@@ -291,11 +291,13 @@
     }
 
     #shout-upload-notice-inner {
+      position: relative;
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       column-gap: 10px;
       row-gap: 7px;
       align-items: start;
+      padding-right: 26px;
     }
 
     #shout-upload-notice-copy {
@@ -340,8 +342,9 @@
     }
 
     #shout-upload-notice-close {
-      grid-column: 2;
-      grid-row: 2;
+      position: absolute;
+      top: 0;
+      right: 0;
     }
 
     body.has-shout-upload-notice {
