@@ -1,6 +1,9 @@
 try {
 (function () {
-  var NOTICE_BANNER_ENABLED = false;
+  var UPLOAD_NOTICE_ENABLED = true;
+  var UPLOAD_PROGRESS_PERCENT = 50;
+  var UPLOAD_COMPLETE_TIME = "오후 2시";
+  var UPLOAD_NOTICE_DISMISS_KEY = "shout_upload_notice_20260913_dismissed";
 
   function detectKakaoInApp() {
     return /KAKAOTALK/i.test(navigator.userAgent || "");
@@ -12,58 +15,63 @@ try {
     return isKakao;
   }
 
-  function createBanner() {
-    if (document.getElementById("kakao-inapp-banner")) return;
+  function createUploadNotice() {
+    if (document.getElementById("shout-upload-notice")) return;
 
     var banner = document.createElement("div");
-    banner.id = "kakao-inapp-banner";
+    banner.id = "shout-upload-notice";
+    banner.setAttribute("role", "status");
+    banner.setAttribute("aria-live", "polite");
     banner.innerHTML =
-      '<div id="kakao-inapp-banner-inner">' +
-        '<div id="kakao-inapp-banner-text">' +
-          '<p id="kakao-inapp-banner-title"></p>' +
-          '<p id="kakao-inapp-banner-desc"></p>' +
+      '<div id="shout-upload-notice-inner">' +
+        '<div id="shout-upload-notice-copy">' +
+          '<p id="shout-upload-notice-title">사진 업로드 진행 중</p>' +
+          '<p id="shout-upload-notice-desc">오늘 촬영 사진을 순차적으로 업로드하고 있어요.</p>' +
         '</div>' +
-        '<button id="kakao-inapp-banner-close" type="button" aria-label="배너 닫기">×</button>' +
+        '<div id="shout-upload-notice-progress" aria-label="사진 업로드 진행률">' +
+          '<span id="shout-upload-notice-percent"></span>' +
+          '<div id="shout-upload-notice-track"><span id="shout-upload-notice-fill"></span></div>' +
+        '</div>' +
+        '<p id="shout-upload-notice-time"></p>' +
+        '<button id="shout-upload-notice-close" type="button" aria-label="업로드 안내 배너 닫기">×</button>' +
       '</div>';
 
     document.body.appendChild(banner);
 
-    var closeButton = document.getElementById("kakao-inapp-banner-close");
+    var percent = Math.max(0, Math.min(100, Number(UPLOAD_PROGRESS_PERCENT) || 0));
+    document.getElementById("shout-upload-notice-percent").textContent = percent + "% 업로드";
+    document.getElementById("shout-upload-notice-fill").style.width = percent + "%";
+    document.getElementById("shout-upload-notice-time").textContent = UPLOAD_COMPLETE_TIME + " 완료 예정";
+
+    var closeButton = document.getElementById("shout-upload-notice-close");
     if (closeButton) {
       closeButton.addEventListener("click", function () {
-        banner.classList.remove("is-visible");
-        document.body.classList.remove("has-kakao-inapp-banner");
-        sessionStorage.setItem("kakao_inapp_notice_shown", "1");
+        banner.remove();
+        document.body.classList.remove("has-shout-upload-notice");
+        sessionStorage.setItem(UPLOAD_NOTICE_DISMISS_KEY, "1");
       });
     }
   }
 
-  function showBannerOnce() {
-    var alreadyShown = sessionStorage.getItem("kakao_inapp_notice_shown");
-    if (alreadyShown === "1") return;
-
-    createBanner();
-
-    var banner = document.getElementById("kakao-inapp-banner");
-    if (!banner) return;
-
-    banner.classList.add("is-visible");
-    document.body.classList.add("has-kakao-inapp-banner");
-    sessionStorage.setItem("kakao_inapp_notice_shown", "1");
+  function showUploadNotice() {
+    if (sessionStorage.getItem(UPLOAD_NOTICE_DISMISS_KEY) === "1") return;
+    createUploadNotice();
+    if (document.getElementById("shout-upload-notice")) {
+      document.body.classList.add("has-shout-upload-notice");
+    }
   }
 
   function init() {
     initKakaoInAppFlag();
 
-    if (!NOTICE_BANNER_ENABLED) {
-      var existingBanner = document.getElementById("kakao-inapp-banner");
+    if (!UPLOAD_NOTICE_ENABLED) {
+      var existingBanner = document.getElementById("shout-upload-notice");
       if (existingBanner) existingBanner.remove();
-
-      document.body.classList.remove("has-kakao-inapp-banner");
+      document.body.classList.remove("has-shout-upload-notice");
       return;
     }
 
-    showBannerOnce();
+    showUploadNotice();
   }
 
   if (document.readyState === "loading") {
