@@ -1,9 +1,12 @@
 try {
 (function () {
   var UPLOAD_NOTICE_ENABLED = true;
-  var UPLOAD_PROGRESS_PERCENT = 50;
+  var UPLOAD_NOTICE_DATE = "2026-09-13";
+  var UPLOAD_START_MINUTES = (7 * 60) + 30;
+  var UPLOAD_COMPLETE_MINUTES = 14 * 60;
   var UPLOAD_COMPLETE_TIME = "오후 2시";
   var UPLOAD_NOTICE_DISMISS_KEY = "shout_upload_notice_20260913_dismissed";
+  var uploadProgressTimer = null;
 
   function detectKakaoInApp() {
     return /KAKAOTALK/i.test(navigator.userAgent || "");
@@ -13,6 +16,52 @@ try {
     var isKakao = detectKakaoInApp() ? "1" : "0";
     sessionStorage.setItem("is_kakao_inapp", isKakao);
     return isKakao;
+  }
+
+  function getKstTimeParts() {
+    var parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23"
+    }).formatToParts(new Date());
+    var values = {};
+    parts.forEach(function (part) {
+      if (part.type !== "literal") values[part.type] = part.value;
+    });
+    return values;
+  }
+
+  function getScheduledProgress() {
+    var now = getKstTimeParts();
+    var date = now.year + "-" + now.month + "-" + now.day;
+    if (date !== UPLOAD_NOTICE_DATE) return null;
+
+    var currentMinutes = (Number(now.hour) * 60) + Number(now.minute);
+    var range = UPLOAD_COMPLETE_MINUTES - UPLOAD_START_MINUTES;
+    var percent = ((currentMinutes - UPLOAD_START_MINUTES) / range) * 100;
+    return Math.max(0, Math.min(100, Math.round(percent)));
+  }
+
+  function updateUploadNotice() {
+    var percent = getScheduledProgress();
+    var banner = document.getElementById("shout-upload-notice");
+    if (percent === null) {
+      if (banner) banner.remove();
+      document.body.classList.remove("has-shout-upload-notice");
+      if (uploadProgressTimer) window.clearInterval(uploadProgressTimer);
+      return false;
+    }
+    if (!banner) return false;
+
+    document.getElementById("shout-upload-notice-percent").textContent = percent + "% 업로드";
+    document.getElementById("shout-upload-notice-fill").style.width = percent + "%";
+    document.getElementById("shout-upload-notice-time").textContent =
+      percent >= 100 ? "업로드 완료" : UPLOAD_COMPLETE_TIME + " 완료 예정";
+    return true;
   }
 
   function createUploadNotice() {
@@ -38,10 +87,7 @@ try {
 
     document.body.appendChild(banner);
 
-    var percent = Math.max(0, Math.min(100, Number(UPLOAD_PROGRESS_PERCENT) || 0));
-    document.getElementById("shout-upload-notice-percent").textContent = percent + "% 업로드";
-    document.getElementById("shout-upload-notice-fill").style.width = percent + "%";
-    document.getElementById("shout-upload-notice-time").textContent = UPLOAD_COMPLETE_TIME + " 완료 예정";
+    updateUploadNotice();
 
     var closeButton = document.getElementById("shout-upload-notice-close");
     if (closeButton) {
@@ -49,15 +95,18 @@ try {
         banner.remove();
         document.body.classList.remove("has-shout-upload-notice");
         sessionStorage.setItem(UPLOAD_NOTICE_DISMISS_KEY, "1");
+        if (uploadProgressTimer) window.clearInterval(uploadProgressTimer);
       });
     }
   }
 
   function showUploadNotice() {
     if (sessionStorage.getItem(UPLOAD_NOTICE_DISMISS_KEY) === "1") return;
+    if (getScheduledProgress() === null) return;
     createUploadNotice();
     if (document.getElementById("shout-upload-notice")) {
       document.body.classList.add("has-shout-upload-notice");
+      uploadProgressTimer = window.setInterval(updateUploadNotice, 60000);
     }
   }
 
