@@ -292,9 +292,15 @@
 
     #shout-upload-notice-inner {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto;
+      grid-template-columns: minmax(0, 1fr) auto;
       column-gap: 10px;
       row-gap: 7px;
+      align-items: start;
+    }
+
+    #shout-upload-notice-copy {
+      grid-column: 1;
+      grid-row: 1;
     }
 
     #shout-upload-notice-title {
@@ -307,7 +313,7 @@
 
     #shout-upload-notice-progress {
       grid-column: 1 / -1;
-      grid-row: 2;
+      grid-row: 3;
       width: 100%;
     }
 
@@ -323,7 +329,14 @@
     }
 
     #shout-upload-notice-time {
+      grid-column: 1;
+      grid-row: 2;
       font-size: 12px;
+    }
+
+    #shout-upload-notice-close {
+      grid-column: 2;
+      grid-row: 1;
     }
 
     body.has-shout-upload-notice {
