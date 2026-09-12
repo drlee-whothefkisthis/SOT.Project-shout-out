@@ -299,15 +299,19 @@
     }
 
     #shout-upload-notice-copy {
-      grid-column: 1;
-      grid-row: 1;
+      display: contents;
     }
 
     #shout-upload-notice-title {
-      font-size: 13px;
+      grid-column: 1;
+      grid-row: 1;
+      font-size: 15px;
+      line-height: 1.35;
     }
 
     #shout-upload-notice-desc {
+      grid-column: 1;
+      grid-row: 2;
       font-size: 12px;
     }
 
@@ -329,14 +333,15 @@
     }
 
     #shout-upload-notice-time {
-      grid-column: 1;
-      grid-row: 2;
-      font-size: 12px;
+      grid-column: 2;
+      grid-row: 1;
+      font-size: 14px;
+      line-height: 1.45;
     }
 
     #shout-upload-notice-close {
       grid-column: 2;
-      grid-row: 1;
+      grid-row: 2;
     }
 
     body.has-shout-upload-notice {
