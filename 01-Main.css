@@ -268,21 +268,8 @@
     white-space: nowrap;
   }
 
-  #shout-upload-notice-close {
-    flex: 0 0 auto;
-    appearance: none;
-    border: 0;
-    background: transparent;
-    color: #ffffff;
-    font-size: 20px;
-    line-height: 1;
-    cursor: pointer;
-    padding: 0;
-    margin: 0;
-  }
-
   body.has-shout-upload-notice {
-    padding-top: 66px;
+    padding-top: var(--shout-upload-notice-height, 66px);
   }
 
   @media screen and (max-width: 767px) {
@@ -304,7 +291,7 @@
 
     #shout-upload-notice-title {
       grid-column: 1;
-      grid-row: 2;
+      grid-row: 1;
       font-size: 15px;
       line-height: 1.35;
       white-space: nowrap;
@@ -312,13 +299,13 @@
 
     #shout-upload-notice-desc {
       grid-column: 1 / -1;
-      grid-row: 3;
+      grid-row: 2;
       font-size: 12px;
     }
 
     #shout-upload-notice-progress {
       grid-column: 1 / -1;
-      grid-row: 4;
+      grid-row: 3;
       width: 100%;
     }
 
@@ -335,20 +322,11 @@
 
     #shout-upload-notice-time {
       grid-column: 2;
-      grid-row: 2;
+      grid-row: 1;
       font-size: 14px;
       line-height: 1.45;
     }
 
-    #shout-upload-notice-close {
-      grid-column: 2;
-      grid-row: 1;
-      justify-self: end;
-    }
-
-    body.has-shout-upload-notice {
-      padding-top: 118px;
-    }
   }
 
   @media screen and (max-width: 359px) {

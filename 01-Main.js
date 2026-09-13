@@ -5,7 +5,6 @@ try {
   var UPLOAD_START_MINUTES = (7 * 60) + 30;
   var UPLOAD_COMPLETE_MINUTES = 14 * 60;
   var UPLOAD_COMPLETE_TIME = "오후 2시";
-  var UPLOAD_NOTICE_DISMISS_KEY = "shout_upload_notice_20260913_dismissed";
   var uploadProgressTimer = null;
 
   function detectKakaoInApp() {
@@ -46,12 +45,19 @@ try {
     return Math.max(0, Math.min(100, Math.round(percent)));
   }
 
+  function syncUploadNoticeSpacing() {
+    var banner = document.getElementById("shout-upload-notice");
+    if (!banner) return;
+    document.body.style.setProperty("--shout-upload-notice-height", banner.offsetHeight + "px");
+  }
+
   function updateUploadNotice() {
     var percent = getScheduledProgress();
     var banner = document.getElementById("shout-upload-notice");
     if (percent === null) {
       if (banner) banner.remove();
       document.body.classList.remove("has-shout-upload-notice");
+      document.body.style.removeProperty("--shout-upload-notice-height");
       if (uploadProgressTimer) window.clearInterval(uploadProgressTimer);
       return false;
     }
@@ -61,6 +67,7 @@ try {
     document.getElementById("shout-upload-notice-fill").style.width = percent + "%";
     document.getElementById("shout-upload-notice-time").textContent =
       percent >= 100 ? "업로드 완료" : UPLOAD_COMPLETE_TIME + " 완료 예정";
+    syncUploadNoticeSpacing();
     return true;
   }
 
@@ -82,30 +89,20 @@ try {
           '<div id="shout-upload-notice-track"><span id="shout-upload-notice-fill"></span></div>' +
         '</div>' +
         '<p id="shout-upload-notice-time"></p>' +
-        '<button id="shout-upload-notice-close" type="button" aria-label="업로드 안내 배너 닫기">×</button>' +
       '</div>';
 
     document.body.appendChild(banner);
 
     updateUploadNotice();
-
-    var closeButton = document.getElementById("shout-upload-notice-close");
-    if (closeButton) {
-      closeButton.addEventListener("click", function () {
-        banner.remove();
-        document.body.classList.remove("has-shout-upload-notice");
-        sessionStorage.setItem(UPLOAD_NOTICE_DISMISS_KEY, "1");
-        if (uploadProgressTimer) window.clearInterval(uploadProgressTimer);
-      });
-    }
   }
 
   function showUploadNotice() {
-    if (sessionStorage.getItem(UPLOAD_NOTICE_DISMISS_KEY) === "1") return;
     if (getScheduledProgress() === null) return;
     createUploadNotice();
     if (document.getElementById("shout-upload-notice")) {
       document.body.classList.add("has-shout-upload-notice");
+      syncUploadNoticeSpacing();
+      window.addEventListener("resize", syncUploadNoticeSpacing);
       uploadProgressTimer = window.setInterval(updateUploadNotice, 60000);
     }
   }
@@ -117,6 +114,7 @@ try {
       var existingBanner = document.getElementById("shout-upload-notice");
       if (existingBanner) existingBanner.remove();
       document.body.classList.remove("has-shout-upload-notice");
+      document.body.style.removeProperty("--shout-upload-notice-height");
       return;
     }
 
