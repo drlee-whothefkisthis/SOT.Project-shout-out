@@ -46,8 +46,8 @@ try {
     banner.innerHTML =
       '<div id="shout-upload-notice-inner">' +
         '<div id="shout-upload-notice-copy">' +
-          '<p id="shout-upload-notice-title">✓ 오늘 두 대회 사진 업로드 완료</p>' +
-          '<p id="shout-upload-notice-desc">두 대회 사진 모두 지금 검색할 수 있어요.</p>' +
+          '<p id="shout-upload-notice-title">✓ 제26회 강화해변마라톤 · 히어로 레이스</p>' +
+          '<p id="shout-upload-notice-desc">두 대회 사진 업로드 완료 · 지금 검색할 수 있어요.</p>' +
         '</div>' +
       '</div>';
 
