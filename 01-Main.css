@@ -207,19 +207,16 @@
   #shout-upload-notice-inner {
     max-width: 1100px;
     margin: 0 auto;
-    display: flex;
-    align-items: center;
-    gap: 18px;
   }
 
   #shout-upload-notice-copy {
-    flex: 1 1 auto;
     min-width: 0;
   }
 
   #shout-upload-notice-title {
     margin: 0;
-    font-size: 14px;
+    color: #b8f0c6;
+    font-size: 16px;
     font-weight: 700;
     line-height: 1.4;
   }
@@ -231,48 +228,6 @@
     opacity: 0.82;
   }
 
-  #shout-upload-notice-hero-complete {
-    color: #b8f0c6;
-    font-weight: 700;
-  }
-
-  #shout-upload-notice-progress {
-    width: min(220px, 28vw);
-    flex: 0 1 220px;
-  }
-
-  #shout-upload-notice-percent {
-    display: block;
-    margin-bottom: 5px;
-    color: #ffd1ab;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  #shout-upload-notice-track {
-    height: 5px;
-    overflow: hidden;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.22);
-  }
-
-  #shout-upload-notice-fill {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, #f08842, #ffd092);
-    transition: width 240ms ease;
-  }
-
-  #shout-upload-notice-time {
-    flex: 0 0 auto;
-    margin: 0;
-    color: #ffd1ab;
-    font-size: 13px;
-    font-weight: 700;
-    white-space: nowrap;
-  }
-
   body.has-shout-upload-notice {
     padding-top: var(--shout-upload-notice-height, 66px);
   }
@@ -282,65 +237,8 @@
       padding: 10px 14px;
     }
 
-    #shout-upload-notice-inner {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      column-gap: 6px;
-      row-gap: 5px;
-      align-items: start;
-    }
-
-    #shout-upload-notice-copy {
-      display: contents;
-    }
-
     #shout-upload-notice-title {
-      grid-column: 1;
-      grid-row: 1;
       font-size: 15px;
-      line-height: 1.35;
-      white-space: nowrap;
-    }
-
-    #shout-upload-notice-desc {
-      grid-column: 1 / -1;
-      grid-row: 2;
-      font-size: 12px;
-    }
-
-    #shout-upload-notice-progress {
-      grid-column: 1 / -1;
-      grid-row: 3;
-      width: 100%;
-    }
-
-    #shout-upload-notice-percent {
-      display: inline-block;
-      margin: 0 8px 0 0;
-    }
-
-    #shout-upload-notice-track {
-      display: inline-block;
-      width: calc(100% - 70px);
-      vertical-align: middle;
-    }
-
-    #shout-upload-notice-time {
-      grid-column: 2;
-      grid-row: 1;
-      font-size: 14px;
-      line-height: 1.45;
-    }
-
-  }
-
-  @media screen and (max-width: 359px) {
-    #shout-upload-notice-title {
-      font-size: 14px;
-    }
-
-    #shout-upload-notice-time {
-      font-size: 13px;
     }
   }
 

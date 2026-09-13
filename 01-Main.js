@@ -1,11 +1,9 @@
 try {
 (function () {
   var UPLOAD_NOTICE_ENABLED = true;
-  var UPLOAD_NOTICE_DATE = "2026-09-13";
-  var UPLOAD_START_MINUTES = (7 * 60) + 30;
-  var UPLOAD_COMPLETE_MINUTES = 14 * 60;
-  var UPLOAD_COMPLETE_TIME = "오후 2시";
-  var uploadProgressTimer = null;
+  var UPLOAD_NOTICE_START_AT = Date.parse("2026-09-13T00:00:00+09:00");
+  var UPLOAD_NOTICE_END_AT = Date.parse("2026-09-14T00:00:00+09:00");
+  var uploadNoticeEndTimer = null;
 
   function detectKakaoInApp() {
     return /KAKAOTALK/i.test(navigator.userAgent || "");
@@ -17,32 +15,9 @@ try {
     return isKakao;
   }
 
-  function getKstTimeParts() {
-    var parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Seoul",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23"
-    }).formatToParts(new Date());
-    var values = {};
-    parts.forEach(function (part) {
-      if (part.type !== "literal") values[part.type] = part.value;
-    });
-    return values;
-  }
-
-  function getScheduledProgress() {
-    var now = getKstTimeParts();
-    var date = now.year + "-" + now.month + "-" + now.day;
-    if (date !== UPLOAD_NOTICE_DATE) return null;
-
-    var currentMinutes = (Number(now.hour) * 60) + Number(now.minute);
-    var range = UPLOAD_COMPLETE_MINUTES - UPLOAD_START_MINUTES;
-    var percent = ((currentMinutes - UPLOAD_START_MINUTES) / range) * 100;
-    return Math.max(0, Math.min(100, Math.round(percent)));
+  function isUploadNoticeActive() {
+    var now = Date.now();
+    return UPLOAD_NOTICE_ENABLED && now >= UPLOAD_NOTICE_START_AT && now < UPLOAD_NOTICE_END_AT;
   }
 
   function syncUploadNoticeSpacing() {
@@ -51,24 +26,14 @@ try {
     document.body.style.setProperty("--shout-upload-notice-height", banner.offsetHeight + "px");
   }
 
-  function updateUploadNotice() {
-    var percent = getScheduledProgress();
+  function hideUploadNotice() {
     var banner = document.getElementById("shout-upload-notice");
-    if (percent === null) {
-      if (banner) banner.remove();
-      document.body.classList.remove("has-shout-upload-notice");
-      document.body.style.removeProperty("--shout-upload-notice-height");
-      if (uploadProgressTimer) window.clearInterval(uploadProgressTimer);
-      return false;
-    }
-    if (!banner) return false;
-
-    document.getElementById("shout-upload-notice-percent").textContent = percent + "% 업로드";
-    document.getElementById("shout-upload-notice-fill").style.width = percent + "%";
-    document.getElementById("shout-upload-notice-time").textContent =
-      percent >= 100 ? "업로드 완료" : UPLOAD_COMPLETE_TIME + " 완료 예정";
-    syncUploadNoticeSpacing();
-    return true;
+    if (banner) banner.remove();
+    document.body.classList.remove("has-shout-upload-notice");
+    document.body.style.removeProperty("--shout-upload-notice-height");
+    if (uploadNoticeEndTimer) window.clearTimeout(uploadNoticeEndTimer);
+    uploadNoticeEndTimer = null;
+    window.removeEventListener("resize", syncUploadNoticeSpacing);
   }
 
   function createUploadNotice() {
@@ -81,42 +46,33 @@ try {
     banner.innerHTML =
       '<div id="shout-upload-notice-inner">' +
         '<div id="shout-upload-notice-copy">' +
-          '<p id="shout-upload-notice-title">사진 업로드 진행 중</p>' +
-          '<p id="shout-upload-notice-desc"><strong id="shout-upload-notice-hero-complete">✓ 히어로 레이스 사진 업로드 완료</strong><span> · 다른 사진은 순차 업로드 중이에요.</span></p>' +
+          '<p id="shout-upload-notice-title">✓ 오늘 두 대회 사진 업로드 완료</p>' +
+          '<p id="shout-upload-notice-desc">두 대회 사진 모두 지금 검색할 수 있어요.</p>' +
         '</div>' +
-        '<div id="shout-upload-notice-progress" aria-label="사진 업로드 진행률">' +
-          '<span id="shout-upload-notice-percent"></span>' +
-          '<div id="shout-upload-notice-track"><span id="shout-upload-notice-fill"></span></div>' +
-        '</div>' +
-        '<p id="shout-upload-notice-time"></p>' +
       '</div>';
 
     document.body.appendChild(banner);
-
-    updateUploadNotice();
   }
 
   function showUploadNotice() {
-    if (getScheduledProgress() === null) return;
+    if (!isUploadNoticeActive()) {
+      hideUploadNotice();
+      return;
+    }
     createUploadNotice();
     if (document.getElementById("shout-upload-notice")) {
       document.body.classList.add("has-shout-upload-notice");
       syncUploadNoticeSpacing();
       window.addEventListener("resize", syncUploadNoticeSpacing);
-      uploadProgressTimer = window.setInterval(updateUploadNotice, 60000);
+      uploadNoticeEndTimer = window.setTimeout(hideUploadNotice, UPLOAD_NOTICE_END_AT - Date.now());
+      document.addEventListener("visibilitychange", function () {
+        if (!isUploadNoticeActive()) hideUploadNotice();
+      });
     }
   }
 
   function init() {
     initKakaoInAppFlag();
-
-    if (!UPLOAD_NOTICE_ENABLED) {
-      var existingBanner = document.getElementById("shout-upload-notice");
-      if (existingBanner) existingBanner.remove();
-      document.body.classList.remove("has-shout-upload-notice");
-      document.body.style.removeProperty("--shout-upload-notice-height");
-      return;
-    }
 
     showUploadNotice();
   }
