@@ -231,6 +231,11 @@
     opacity: 0.82;
   }
 
+  #shout-upload-notice-hero-complete {
+    color: #b8f0c6;
+    font-weight: 700;
+  }
+
   #shout-upload-notice-progress {
     width: min(220px, 28vw);
     flex: 0 1 220px;

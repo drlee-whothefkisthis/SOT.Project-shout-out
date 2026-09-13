@@ -82,7 +82,7 @@ try {
       '<div id="shout-upload-notice-inner">' +
         '<div id="shout-upload-notice-copy">' +
           '<p id="shout-upload-notice-title">사진 업로드 진행 중</p>' +
-          '<p id="shout-upload-notice-desc">오늘 촬영 사진을 순차적으로 업로드하고 있어요.</p>' +
+          '<p id="shout-upload-notice-desc"><strong id="shout-upload-notice-hero-complete">✓ 히어로 레이스 사진 업로드 완료</strong><span> · 다른 사진은 순차 업로드 중이에요.</span></p>' +
         '</div>' +
         '<div id="shout-upload-notice-progress" aria-label="사진 업로드 진행률">' +
           '<span id="shout-upload-notice-percent"></span>' +
