@@ -865,12 +865,13 @@
   let sotDashLastError = "";
   let sotCurrentTestData = SOT_HEAD.emptyDashboardData();
   let sotCurrentTestLoading = false;
+  let currentDashManualRefreshLoading = false;
   let sotCurrentTestRequestId = 0;
   let sotCurrentTestLoaded = false;
   let sotCurrentTestLastError = "";
   let sotCurrentTestMissingSnapshot = null;
   let currentDashView = "report";
-  let currentDashReportPeriod = "total";
+  let currentDashReportPeriod = "monthly";
   let currentDashReportTotalChartPeriod = "daily";
   let currentDashReportSelectedWeekStart = "";
   let currentDashReportSelectedWeekKey = sotWeekKeyFromDateKey(yesterdayKSTDateKey());
@@ -1806,15 +1807,16 @@
       if (currentDashView === "event-analysis") {
         ensureCurrentDashEventListSnapshot().then(() => {
           syncCurrentDashSelections();
-          if (currentDashSelectedEvent && currentDashSelectedEvent !== "all") {
-            ensureCurrentDashEventDetail(currentDashSelectedEvent);
-          } else {
-            renderCurrentTestDashboard();
-          }
+          renderCurrentTestDashboard();
         });
-      }
-      if (currentDashView === "event-analysis" && currentDashSelectedEvent !== "all") {
-        ensureCurrentDashEventDetail(currentDashSelectedEvent);
+        if (currentDashSelectedEvent && currentDashSelectedEvent !== "all") {
+          const detailKey = `${snapshotType}::${periodKey}::${currentDashSelectedEvent}`;
+          currentDashEventDetailCache[detailKey] = sotCurrentTestData;
+          currentDashEventDetailCode = currentDashSelectedEvent;
+          currentDashEventDetailPeriodKey = periodKey;
+          currentDashEventDetailData = sotCurrentTestData;
+          currentDashEventDetailLoading = false;
+        }
       }
     } catch (error) {
       if (requestId !== sotCurrentTestRequestId || requestView !== currentDashView) return;
@@ -2140,8 +2142,8 @@
 
   function renderCurrentDayRefreshButton() {
     const requiresEvent = currentDashView === "event-analysis";
-    const disabled = (requiresEvent && !currentDashSelectedEvent) || sotCurrentTestLoading || currentDashEventDetailLoading;
-    const label = sotCurrentTestLoading || currentDashEventDetailLoading ? "오늘 데이터 최신화 중..." : "오늘 데이터 최신화";
+    const disabled = (requiresEvent && !currentDashSelectedEvent) || currentDashManualRefreshLoading || sotCurrentTestLoading || currentDashEventDetailLoading;
+    const label = currentDashManualRefreshLoading ? "오늘 데이터 최신화 중..." : "오늘 데이터 최신화";
     const title = requiresEvent && !currentDashSelectedEvent ? "대회를 먼저 선택해주세요" : "버튼을 누른 시각까지의 오늘 데이터를 다시 집계합니다";
     return `<button class="ctdash-refresh ctdash-manual-refresh" type="button" data-current-snapshot-refresh ${disabled ? "disabled" : ""} title="${title}">${label}</button>`;
   }
@@ -2168,7 +2170,14 @@
     invalidateCurrentDashReportCache();
     clearCurrentDashEventDetailCache();
     currentDashStatusSnapshot = null;
-    await loadCurrentTestDashboard({ manualRefresh: true });
+    currentDashManualRefreshLoading = true;
+    renderCurrentTestDashboard();
+    try {
+      await loadCurrentTestDashboard({ manualRefresh: true });
+    } finally {
+      currentDashManualRefreshLoading = false;
+      renderCurrentTestDashboard();
+    }
   }
 
   function renderCurrentDashSelectionGate() {
