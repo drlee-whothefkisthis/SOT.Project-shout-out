@@ -368,22 +368,21 @@
             </div>
           </div>
           ${errorMessage ? `<p class="pl-alert" aria-live="assertive">${escapeHtml(errorMessage)}</p>` : ""}
-          <div class="pl-downloads">
-            <a class="pl-manual-download" href="${escapeHtml(CONFIG.equipmentListDownloadUrl)}" target="_blank" rel="noopener noreferrer">
-              <span class="pl-manual-download__copy"><strong>장비 리스트</strong></span>
-              <span class="pl-manual-download__action">열기</span>
-            </a>
-            <a class="pl-manual-download" href="${escapeHtml(CONFIG.equipmentManualDownloadUrl)}" target="_blank" rel="noopener noreferrer">
-              <span class="pl-manual-download__copy"><strong>촬영 장비 설정 메뉴얼</strong></span>
-              <span class="pl-manual-download__action">열기</span>
-            </a>
-          </div>
+          <button class="pl-required-reading" type="button" data-pl-required-reading>
+            <span class="pl-required-reading__eyebrow">Required Reading</span>
+            <span class="pl-required-reading__content">
+              <strong>필독사항</strong>
+              <span>촬영 전 장비·현장 안내를 확인해 주세요.</span>
+            </span>
+            <span class="pl-required-reading__action">확인하기 <span aria-hidden="true">→</span></span>
+          </button>
           <div class="pl-event-list">${eventRows}</div>
         </section>
       </div>`;
 
     root.querySelector("[data-pl-logout]").addEventListener("click", () => renderLogin());
     root.querySelector("[data-pl-change-password]").addEventListener("click", renderPasswordChange);
+    root.querySelector("[data-pl-required-reading]").addEventListener("click", renderRequiredReading);
     root.querySelectorAll("[data-pl-view-event]").forEach((card) => {
       const open = () => loadEventDetail(card.dataset.plViewEvent);
       card.addEventListener("click", open);
@@ -394,6 +393,34 @@
         }
       });
     });
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }
+
+  function renderRequiredReading() {
+    root.innerHTML = `
+      <div class="pl-shell">
+        <div class="pl-page-header">
+          <div class="pl-brand">SHOUT-OUT</div>
+          <button class="pl-link pl-logout" type="button" data-pl-back-events>대회 목록</button>
+        </div>
+        <section class="pl-card">
+          <p class="pl-kicker">Required Reading</p>
+          <h1 class="pl-heading">필독사항</h1>
+          <p class="pl-copy">촬영 전 아래 자료를 확인해 주세요.</p>
+          <div class="pl-reading-list">
+            <a class="pl-manual-download" href="${escapeHtml(CONFIG.equipmentListDownloadUrl)}" target="_blank" rel="noopener noreferrer">
+              <span class="pl-manual-download__copy"><strong>장비 리스트</strong><small>현장 수령·반납 장비를 확인합니다.</small></span>
+              <span class="pl-manual-download__action">열기 <span aria-hidden="true">↗</span></span>
+            </a>
+            <a class="pl-manual-download" href="${escapeHtml(CONFIG.equipmentManualDownloadUrl)}" target="_blank" rel="noopener noreferrer">
+              <span class="pl-manual-download__copy"><strong>촬영 장비 설정 메뉴얼</strong><small>카메라·촬영 장비 설정을 확인합니다.</small></span>
+              <span class="pl-manual-download__action">열기 <span aria-hidden="true">↗</span></span>
+            </a>
+          </div>
+        </section>
+      </div>`;
+
+    root.querySelector("[data-pl-back-events]").addEventListener("click", renderEvents);
     window.scrollTo({ top: 0, behavior: "auto" });
   }
 
