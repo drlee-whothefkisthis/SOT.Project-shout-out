@@ -6,8 +6,6 @@
     tokenKey: "sot_photographer_access_v2",
     draftPrefix: "sot_photographer_report_draft_v1",
     requestTimeoutMs: 25000,
-    equipmentListDownloadUrl: "https://storage.googleapis.com/project-shoutout-480002-public-assets/manuals/equipment-list.pdf",
-    equipmentManualDownloadUrl: "https://storage.googleapis.com/project-shoutout-480002-public-assets/manuals/field-equipment-manual-v1.pdf",
     uploadDirectoryLeaf: "hei",
   });
 
@@ -86,6 +84,48 @@
       throw error;
     } finally {
       window.clearTimeout(timer);
+    }
+  }
+
+  async function openProtectedManual(manualKey, button) {
+    if (!state.token) {
+      renderLogin("문서를 열려면 다시 로그인해 주세요.");
+      return;
+    }
+    const popup = window.open("", "_blank");
+    const originalHtml = button.innerHTML;
+    button.disabled = true;
+    button.textContent = "문서 준비 중…";
+    let timer;
+    try {
+      const controller = new AbortController();
+      timer = window.setTimeout(() => controller.abort(), CONFIG.requestTimeoutMs);
+      const response = await fetch(
+        `${CONFIG.apiBase}/api/v1/photographer-access/manuals/${encodeURIComponent(manualKey)}`,
+        { headers: { Authorization: `Bearer ${state.token}` }, signal: controller.signal }
+      );
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        const error = new Error(payload?.error?.message || "문서를 열지 못했습니다.");
+        error.code = payload?.error?.code || "MANUAL_OPEN_FAILED";
+        throw error;
+      }
+      const pdfUrl = URL.createObjectURL(await response.blob());
+      if (popup) popup.location.replace(pdfUrl);
+      else window.open(pdfUrl, "_blank", "noopener");
+      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60 * 1000);
+    } catch (error) {
+      if (popup) popup.close();
+      const message = root.querySelector("[data-pl-manual-message]");
+      if (message) {
+        message.textContent = error.code === "AUTH_REQUIRED" || error.code === "ACCESS_TOKEN_INVALID"
+          ? "인증 시간이 만료되었습니다. 다시 로그인해 주세요."
+          : genericError(error, "문서를 열지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      }
+    } finally {
+      window.clearTimeout(timer);
+      button.disabled = false;
+      button.innerHTML = originalHtml;
     }
   }
 
@@ -407,19 +447,23 @@
           <h1 class="pl-heading">필독사항</h1>
           <p class="pl-copy">촬영 전 아래 자료를 확인해 주세요.</p>
           <div class="pl-reading-list">
-            <a class="pl-manual-download" href="${escapeHtml(CONFIG.equipmentListDownloadUrl)}" target="_blank" rel="noopener noreferrer">
+            <button class="pl-manual-download" type="button" data-pl-open-manual="equipment-list">
               <span class="pl-manual-download__copy"><strong>장비 리스트</strong><small>현장 수령·반납 장비를 확인합니다.</small></span>
               <span class="pl-manual-download__action">열기 <span aria-hidden="true">↗</span></span>
-            </a>
-            <a class="pl-manual-download" href="${escapeHtml(CONFIG.equipmentManualDownloadUrl)}" target="_blank" rel="noopener noreferrer">
+            </button>
+            <button class="pl-manual-download" type="button" data-pl-open-manual="field-equipment-manual">
               <span class="pl-manual-download__copy"><strong>촬영 장비 설정 메뉴얼</strong><small>카메라·촬영 장비 설정을 확인합니다.</small></span>
               <span class="pl-manual-download__action">열기 <span aria-hidden="true">↗</span></span>
-            </a>
+            </button>
           </div>
+          <p class="pl-alert" data-pl-manual-message aria-live="assertive"></p>
         </section>
       </div>`;
 
     root.querySelector("[data-pl-back-events]").addEventListener("click", renderEvents);
+    root.querySelectorAll("[data-pl-open-manual]").forEach((button) => {
+      button.addEventListener("click", () => openProtectedManual(button.dataset.plOpenManual, button));
+    });
     window.scrollTo({ top: 0, behavior: "auto" });
   }
 

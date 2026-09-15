@@ -124,7 +124,7 @@
   .pl-required-reading__content span { color: var(--pl-muted); font-size: 14px; }
   .pl-required-reading__action { color: var(--pl-blue); font-size: 14px; font-weight: 850; white-space: nowrap; }
   .pl-reading-list { margin-top: 26px; border-top: 1px solid var(--pl-line); border-bottom: 1px solid var(--pl-line); }
-  .pl-manual-download { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 46px; padding: 11px 2px; color: var(--pl-ink); text-decoration: none; transition: color .15s; }
+  .pl-manual-download { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 16px; min-height: 46px; padding: 11px 2px; border: 0; background: transparent; color: var(--pl-ink); font: inherit; text-align: left; text-decoration: none; cursor: pointer; transition: color .15s; }
   .pl-manual-download + .pl-manual-download { border-top: 1px solid var(--pl-line); }
   .pl-manual-download:hover { color: var(--pl-blue); }
   .pl-manual-download__copy { display: grid; gap: 3px; min-width: 0; }
