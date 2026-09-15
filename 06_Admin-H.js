@@ -1484,6 +1484,436 @@
   }
 
 </style>
+<style id="sot-admin-mobile-layout-v1">
+  /* Mobile layout override. Keep desktop rules and runtime behavior unchanged. */
+  @media (max-width: 767px){
+    html,
+    body{
+      max-width:100%;
+      overflow-x:hidden;
+    }
+
+    .sh-admin-wrap.shell,
+    .sh-admin-wrap.shell:has(.prh-shell){
+      width:100% !important;
+      max-width:none !important;
+      min-width:0;
+      min-height:100vh;
+      margin:0 !important;
+      padding:10px !important;
+      border:0 !important;
+      border-radius:0 !important;
+      box-shadow:none !important;
+    }
+
+    .sh-admin-wrap *,
+    .sh-admin-wrap *::before,
+    .sh-admin-wrap *::after{
+      box-sizing:border-box;
+    }
+
+    .sh-admin-wrap section,
+    .sh-admin-wrap article,
+    .sh-admin-wrap div,
+    .sh-admin-panel,
+    .sot-current-test-content,
+    .ctdash-shell,
+    .prh-shell{
+      min-width:0;
+      max-width:100%;
+    }
+
+    .sh-admin-hero.hero,
+    .ctdash-hero.hero{
+      grid-template-columns:minmax(0,1fr);
+      gap:10px;
+    }
+
+    .sh-admin-hero-main.hero-main,
+    .ctdash-hero-main.ctdash-card.hero-main,
+    .sh-admin-status-card.hero-side,
+    .ctdash-hero-side.ctdash-card.hero-side,
+    .sh-card.card,
+    .sh-event-filter.card,
+    .ctdash-section{
+      padding:16px;
+      border-radius:20px;
+    }
+
+    .sh-admin-title,
+    .ctdash-hero-main h2{
+      font-size:clamp(30px,10vw,38px) !important;
+      line-height:1;
+      overflow-wrap:anywhere;
+    }
+
+    .sh-admin-status-card{
+      width:100%;
+      min-width:0;
+      margin-top:0;
+    }
+
+    .sh-admin-tabs,
+    .sh-db-tabs,
+    .ctdash-main-tabs,
+    .ctdash-period-tabs,
+    .sot-dash-tabs,
+    .prh-filters{
+      width:100%;
+      max-width:100%;
+      flex-wrap:nowrap;
+      justify-content:flex-start;
+      overflow-x:auto;
+      overflow-y:hidden;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
+    }
+
+    .sh-admin-tabs::-webkit-scrollbar,
+    .sh-db-tabs::-webkit-scrollbar,
+    .ctdash-main-tabs::-webkit-scrollbar,
+    .ctdash-period-tabs::-webkit-scrollbar,
+    .sot-dash-tabs::-webkit-scrollbar,
+    .prh-filters::-webkit-scrollbar{
+      display:none;
+    }
+
+    .sh-admin-tab,
+    .sh-db-tab,
+    .ctdash-tab,
+    .ctdash-chip,
+    .sot-dash-tab,
+    .prh-filters button{
+      flex:0 0 auto;
+      white-space:nowrap;
+    }
+
+    .sh-admin-panel{
+      margin-top:12px;
+    }
+
+    .sh-row{
+      flex-direction:column;
+      flex-wrap:nowrap;
+      gap:12px;
+    }
+
+    .sh-row .sh-col{
+      flex:1 1 auto;
+      width:100%;
+      min-width:0;
+    }
+
+    .sh-event-filter{
+      grid-template-columns:minmax(0,1fr);
+      gap:10px;
+    }
+
+    .sh-event-filter #sh_btn_refresh,
+    .sh-event-filter .sh-chip,
+    .sh-btn.primary{
+      width:100%;
+      justify-content:center;
+    }
+
+    .sh-input,
+    .sh-select,
+    .ctdash-input,
+    .ctdash-select,
+    .ctdash-textarea,
+    .sot-dash-input{
+      max-width:100%;
+      font-size:16px;
+    }
+
+    /* Event management becomes a readable card list instead of a desktop table. */
+    .sh-admin-panel[data-admin-panel="events"] > .sh-table{
+      display:block;
+      width:100%;
+      overflow:visible;
+      border:0;
+      border-radius:0;
+      background:transparent;
+      box-shadow:none;
+    }
+
+    .sh-admin-panel[data-admin-panel="events"] > .sh-table thead{
+      display:none;
+    }
+
+    .sh-admin-panel[data-admin-panel="events"] > .sh-table tbody{
+      display:grid;
+      gap:10px;
+    }
+
+    .sh-admin-panel[data-admin-panel="events"] > .sh-table tbody tr{
+      display:grid;
+      gap:0;
+      padding:8px 14px;
+      border:1px solid rgba(255,255,255,.74);
+      border-radius:20px;
+      background:var(--sh-panel);
+      box-shadow:0 12px 30px rgba(73,49,31,.07);
+    }
+
+    .sh-admin-panel[data-admin-panel="events"] > .sh-table tbody td{
+      display:grid;
+      grid-template-columns:92px minmax(0,1fr);
+      gap:12px;
+      align-items:center;
+      width:100%;
+      min-width:0;
+      padding:11px 0;
+      border-top:1px solid rgba(80,58,40,.08);
+      background:transparent;
+      white-space:normal;
+      overflow-wrap:anywhere;
+    }
+
+    .sh-admin-panel[data-admin-panel="events"] > .sh-table tbody td:first-child{
+      border-top:0;
+    }
+
+    .sh-admin-panel[data-admin-panel="events"] > .sh-table tbody td::before{
+      color:var(--sh-muted);
+      font-size:11px;
+      font-weight:850;
+    }
+
+    .sh-admin-panel[data-admin-panel="events"] > .sh-table tbody td:nth-child(1)::before{ content:"날짜"; }
+    .sh-admin-panel[data-admin-panel="events"] > .sh-table tbody td:nth-child(2)::before{ content:"대회"; }
+    .sh-admin-panel[data-admin-panel="events"] > .sh-table tbody td:nth-child(3)::before{ content:"참가자 수"; }
+    .sh-admin-panel[data-admin-panel="events"] > .sh-table tbody td:nth-child(4)::before{ content:"배번호 타입"; }
+    .sh-admin-panel[data-admin-panel="events"] > .sh-table tbody td:nth-child(5)::before{ content:"공개 여부"; }
+    .sh-admin-panel[data-admin-panel="events"] > .sh-table tbody td:nth-child(6)::before{ content:"관리"; }
+
+    .sh-admin-panel[data-admin-panel="events"] > .sh-table tbody td[colspan]{
+      display:block;
+      padding:18px 0;
+      text-align:center !important;
+    }
+
+    .sh-admin-panel[data-admin-panel="events"] > .sh-table tbody td[colspan]::before{
+      content:none;
+    }
+
+    .sh-admin-panel[data-admin-panel="events"] .sh-btn-sm{
+      min-height:38px;
+      margin:2px 3px 2px 0;
+    }
+
+    .ctdash-two-col,
+    .ctdash-sub-grid,
+    .ctdash-form-grid,
+    .ctdash-form-grid.three,
+    .ctdash-conv-grid,
+    .ctdash-conv-grid.ctdash-wide-grid,
+    .fr-two-col,
+    .prh-layout,
+    .prh-grid,
+    .prh-feedback,
+    .sot-dash-grid.two,
+    .sot-dash-course-form,
+    .sot-dash-funnel{
+      grid-template-columns:minmax(0,1fr) !important;
+    }
+
+    html body .ctdash-conv-grid.ctdash-wide-grid{
+      grid-template-columns:minmax(0,1fr) !important;
+    }
+
+    .ctdash-summary-grid,
+    .ctdash-metrics-grid,
+    .ctdash-metrics-grid.ctdash-balanced-grid.is-count-6,
+    .ctdash-sales-grid,
+    .ctdash-spot-grid,
+    .ctdash-spot-grid.ctdash-balanced-grid.is-count-5,
+    .ctdash-spot-grid.ctdash-balanced-grid.is-count-6,
+    .sot-dash-kpis,
+    .sot-dash-kpis.is-mini,
+    .prh-metrics{
+      grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+      gap:9px;
+    }
+
+    .ctdash-summary-grid .ctdash-metric-card.is-wide,
+    .ctdash-sales-grid .ctdash-metric-card.is-money,
+    .ctdash-metric-card.is-event-name,
+    .ctdash-wide-section,
+    .ctdash-spot-section{
+      grid-column:1 / -1 !important;
+    }
+
+    .ctdash-metric-card,
+    .ctdash-conv-card,
+    .ctdash-sub-card,
+    .ctdash-spot-card,
+    .sot-dash-card{
+      min-width:0;
+      padding:14px;
+    }
+
+    .ctdash-metric-card strong,
+    .ctdash-spot-card strong,
+    .sot-dash-value{
+      font-size:clamp(22px,7vw,28px);
+      overflow-wrap:anywhere;
+    }
+
+    .ctdash-section-head,
+    .sot-dash-topbar,
+    .prh-toolbar,
+    .prh-detail-head{
+      align-items:stretch;
+      flex-direction:column;
+    }
+
+    .ctdash-section-head > *,
+    .sot-dash-topbar > *,
+    .prh-toolbar > *{
+      width:100%;
+      min-width:0;
+    }
+
+    .ctdash-inline-fields{
+      display:grid;
+      grid-template-columns:minmax(0,1fr);
+      gap:10px;
+    }
+
+    .ctdash-inline-fields label,
+    .prh-toolbar label{
+      width:100%;
+      min-width:0;
+    }
+
+    .ctdash-chart-box{
+      padding:10px;
+      border-radius:16px;
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+
+    .ctdash-legend{
+      flex-wrap:nowrap;
+      overflow-x:auto;
+      scrollbar-width:none;
+    }
+
+    .ctdash-legend span{
+      flex:0 0 auto;
+      white-space:nowrap;
+    }
+
+    /* Large analytical tables stay usable without making the whole page wider. */
+    .ctdash-table-wrap,
+    .sh-db-table-wrap,
+    .sot-dash-table-wrap,
+    .fr-compact-table-wrap,
+    .fr-two-col .ctdash-table-wrap{
+      display:block;
+      width:100%;
+      max-width:100%;
+      overflow-x:auto;
+      overflow-y:hidden;
+      -webkit-overflow-scrolling:touch;
+      overscroll-behavior-x:contain;
+    }
+
+    .ctdash-table,
+    .sh-db-table,
+    .sot-dash-table{
+      min-width:680px;
+    }
+
+    .sot-admin-dashboard{
+      grid-template-columns:minmax(0,1fr);
+      min-height:0;
+      border-radius:20px;
+    }
+
+    .sot-dash-sidebar{
+      padding:16px;
+      overflow:visible;
+    }
+
+    .sot-dash-nav{
+      display:flex;
+      gap:8px;
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
+    }
+
+    .sot-dash-nav-group{
+      display:none;
+    }
+
+    .sot-dash-nav-btn{
+      flex:0 0 auto;
+      width:auto;
+      white-space:nowrap;
+    }
+
+    .sot-dash-main{
+      min-width:0;
+      padding:16px 12px 40px;
+    }
+
+    .sot-dash-filters{
+      justify-content:flex-start;
+    }
+
+    .prh-list{
+      max-height:300px;
+      overflow-y:auto;
+    }
+
+    .prh-detail,
+    .prh-empty{
+      min-height:0;
+    }
+
+    .prh-detail-head,
+    .prh-detail-head > div:last-child{
+      text-align:left;
+    }
+  }
+
+  @media (max-width: 390px){
+    .sh-admin-wrap.shell,
+    .sh-admin-wrap.shell:has(.prh-shell){
+      padding:8px !important;
+    }
+
+    .sh-admin-hero-main.hero-main,
+    .ctdash-hero-main.ctdash-card.hero-main,
+    .sh-admin-status-card.hero-side,
+    .ctdash-hero-side.ctdash-card.hero-side,
+    .sh-card.card,
+    .sh-event-filter.card,
+    .ctdash-section{
+      padding:14px;
+    }
+
+    .ctdash-summary-grid,
+    .ctdash-metrics-grid,
+    .ctdash-metrics-grid.ctdash-balanced-grid.is-count-6,
+    .ctdash-sales-grid,
+    .ctdash-spot-grid,
+    .ctdash-spot-grid.ctdash-balanced-grid.is-count-5,
+    .ctdash-spot-grid.ctdash-balanced-grid.is-count-6,
+    .sot-dash-kpis,
+    .sot-dash-kpis.is-mini{
+      grid-template-columns:minmax(0,1fr) !important;
+    }
+
+    .sh-admin-panel[data-admin-panel="events"] > .sh-table tbody td{
+      grid-template-columns:78px minmax(0,1fr);
+      gap:8px;
+    }
+  }
+</style>
 
 <!-- UI fit patch v2: forced wide sections and balanced metric grids -->
 <style id="sot-admin-ui-fit-v2-force">
