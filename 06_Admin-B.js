@@ -1699,12 +1699,6 @@
 
   function currentDashSnapshotTypeForView(viewName) {
     if (viewName === "report") {
-      if (currentDashSelectedEvent) {
-        if (currentDashReportPeriod === "weekly") return "event_weekly";
-        if (currentDashReportPeriod === "monthly") return "event_monthly";
-        if (currentDashReportPeriod === "total") return "event_total";
-        return "event_daily";
-      }
       if (currentDashReportPeriod === "weekly") return "report_weekly";
       if (currentDashReportPeriod === "monthly") return "report_monthly";
       if (currentDashReportPeriod === "total") return "report_total";
@@ -1753,7 +1747,7 @@
   async function loadCurrentTestDashboard(options) {
     const opts = options || {};
     if (!["report", "event-analysis"].includes(currentDashView)) return;
-    if (!currentDashSelectedEvent) {
+    if (currentDashView === "event-analysis" && !currentDashSelectedEvent) {
       renderCurrentTestDashboard();
       return;
     }
@@ -1780,7 +1774,7 @@
       const payload = await SOT_HEAD.fetchDashboardSnapshot({
         snapshotType,
         periodKey,
-        eventCode: currentDashSelectedEvent,
+        eventCode: currentDashView === "report" ? "all" : currentDashSelectedEvent,
         tab: currentDashView,
         manualRefresh: opts.manualRefresh === true
       });
@@ -1831,7 +1825,7 @@
       console.error("[SOT Snapshot] failed", {
         message: error?.message,
         snapshot_type: currentDashSnapshotTypeForView(currentDashView),
-        event_code: currentDashSelectedEvent,
+        event_code: currentDashView === "report" ? "all" : currentDashSelectedEvent,
         period_key: currentDashPeriodKeyForView(currentDashView)
       });
     } finally {
@@ -1922,7 +1916,7 @@
       return;
     }
 
-    if (["report", "event-analysis"].includes(currentDashView) && !currentDashSelectedEvent) {
+    if (currentDashView === "event-analysis" && !currentDashSelectedEvent) {
       target.innerHTML = currentTestDashboardFrame(renderCurrentDashSelectionGate(), "대회 선택");
       return;
     }
@@ -2081,23 +2075,21 @@
   }
 
   function currentDashReportScopeControls() {
-    const eventOptions = currentDashEventOptions();
-    const eventSelect = `<label><span>대회 선택</span><select class="ctdash-select" id="ctdash_event_select"><option value="">대회를 선택해주세요</option>${eventOptions.map(row => `<option value="${escapeHtml(row.event_code)}" ${row.event_code === currentDashSelectedEvent ? "selected" : ""}>${escapeHtml(currentDashEventLabel(row))}</option>`).join("")}</select></label>`;
     if (currentDashReportPeriod === "total") {
-      return `${eventSelect}<label><span>전체 기준</span><input class="ctdash-input" type="text" value="total" disabled></label>`;
+      return `<label><span>전체 기준</span><input class="ctdash-input" type="text" value="total" disabled></label>`;
     }
     if (currentDashReportPeriod === "monthly") {
-      return `${eventSelect}<label><span>월 선택</span><input class="ctdash-input" type="month" id="ctdash_report_month_input" value="${escapeHtml(currentDashReportSelectedMonthKey || monthKeyFromDateKey(currentDashReportSelectedDateKey || todayKSTDateKey()))}"></label>`;
+      return `<label><span>월 선택</span><input class="ctdash-input" type="month" id="ctdash_report_month_input" value="${escapeHtml(currentDashReportSelectedMonthKey || monthKeyFromDateKey(currentDashReportSelectedDateKey || todayKSTDateKey()))}"></label>`;
     }
     if (currentDashReportPeriod === "weekly") {
       const monthKey = currentDashReportSelectedMonthKey || monthKeyFromDateKey(todayKSTDateKey());
       const weeks = buildWeeksForMonth(monthKey);
-      return `${eventSelect}
+      return `
         <label><span>기준월</span><input class="ctdash-input" type="month" id="ctdash_report_week_month_input" value="${escapeHtml(monthKey)}"></label>
         <label><span>주차 선택</span><select class="ctdash-select" id="ctdash_report_week_select">${weeks.map(row => `<option value="${escapeHtml(row.week_key)}" ${row.week_key === currentDashReportSelectedWeekKey ? "selected" : ""}>${escapeHtml(row.label)}</option>`).join("")}</select></label>
       `;
     }
-    return `${eventSelect}<label><span>일자 선택</span><input class="ctdash-input" type="date" id="ctdash_report_date_input" value="${escapeHtml(currentDashReportSelectedDateKey || "")}"></label>`;
+    return `<label><span>일자 선택</span><input class="ctdash-input" type="date" id="ctdash_report_date_input" value="${escapeHtml(currentDashReportSelectedDateKey || "")}"></label>`;
   }
 
   function currentDashEventScopeControls() {
@@ -2147,9 +2139,11 @@
   }
 
   function renderCurrentDayRefreshButton() {
-    const disabled = !currentDashSelectedEvent || sotCurrentTestLoading || currentDashEventDetailLoading;
+    const requiresEvent = currentDashView === "event-analysis";
+    const disabled = (requiresEvent && !currentDashSelectedEvent) || sotCurrentTestLoading || currentDashEventDetailLoading;
     const label = sotCurrentTestLoading || currentDashEventDetailLoading ? "오늘 데이터 최신화 중..." : "오늘 데이터 최신화";
-    return `<button class="ctdash-refresh ctdash-manual-refresh" type="button" data-current-snapshot-refresh ${disabled ? "disabled" : ""} title="${!currentDashSelectedEvent ? "대회를 먼저 선택해주세요" : "버튼을 누른 시각까지의 오늘 데이터를 다시 집계합니다"}">${label}</button>`;
+    const title = requiresEvent && !currentDashSelectedEvent ? "대회를 먼저 선택해주세요" : "버튼을 누른 시각까지의 오늘 데이터를 다시 집계합니다";
+    return `<button class="ctdash-refresh ctdash-manual-refresh" type="button" data-current-snapshot-refresh ${disabled ? "disabled" : ""} title="${title}">${label}</button>`;
   }
 
   function syncCurrentDashSelectionToToday() {
@@ -2168,8 +2162,8 @@
   }
 
   async function refreshCurrentDashSelection() {
-    if (!currentDashSelectedEvent) return;
     if (!["report", "event-analysis"].includes(currentDashView)) return;
+    if (currentDashView === "event-analysis" && !currentDashSelectedEvent) return;
     syncCurrentDashSelectionToToday();
     invalidateCurrentDashReportCache();
     clearCurrentDashEventDetailCache();
@@ -2185,7 +2179,7 @@
 
   function renderCurrentDashReportView() {
     const state = currentDashReportState();
-    const people = currentDashboardPeopleForSelection(currentDashSelectedEvent);
+    const people = currentDashboardPeopleForSelection("all");
     const photoCounts = Array.isArray(sotCurrentTestData.photo_counts) ? sotCurrentTestData.photo_counts : [];
     const reportEventRows = currentDashReportEventRows();
     return `
@@ -6464,9 +6458,13 @@
           renderLegacyAnalysisV2();
           if (legacyAnalysisLoadState === "idle") loadLegacyAnalysisV2();
     }
-    if (["report", "event-analysis"].includes(activeAdminView)) {
+    if (activeAdminView === "report") {
       renderCurrentTestDashboard();
-      // 목록만 준비한다. 분석 snapshot은 대회 선택 이후에만 요청한다.
+      void loadCurrentTestDashboard();
+    }
+    if (activeAdminView === "event-analysis") {
+      renderCurrentTestDashboard();
+      // 대회별 분석은 목록만 준비하고, snapshot은 대회 선택 이후 요청한다.
       void ensureCurrentDashEventListSnapshot().then(renderCurrentTestDashboard);
     }
     if (activeAdminView === "diary") {
@@ -6780,28 +6778,28 @@
         currentDashReportSelectedWeekKey = sotWeekKeyFromDateKey(currentDashReportSelectedDateKey);
         currentDashReportSelectedMonthKey = monthKeyFromDateKey(currentDashReportSelectedDateKey);
         invalidateCurrentDashReportCache();
-        if (currentDashSelectedEvent) loadCurrentTestDashboard();
+        loadCurrentTestDashboard();
         return;
       }
       if (e.target && e.target.id === "ctdash_report_week_month_input") {
         currentDashReportSelectedMonthKey = e.target.value || monthKeyFromDateKey(todayKSTDateKey());
         syncReportWeeklySelection(currentDashReportSelectedDateKey, currentDashReportSelectedWeekKey);
         invalidateCurrentDashReportCache();
-        if (currentDashSelectedEvent) loadCurrentTestDashboard();
+        loadCurrentTestDashboard();
         return;
       }
       if (e.target && e.target.id === "ctdash_report_week_select") {
         currentDashReportSelectedWeekKey = e.target.value || "";
         syncReportWeeklySelection("", currentDashReportSelectedWeekKey);
         invalidateCurrentDashReportCache();
-        if (currentDashSelectedEvent) loadCurrentTestDashboard();
+        loadCurrentTestDashboard();
         return;
       }
       if (e.target && e.target.id === "ctdash_report_month_input") {
         currentDashReportSelectedMonthKey = e.target.value || monthKeyFromDateKey(todayKSTDateKey());
         currentDashReportSelectedDateKey = `${currentDashReportSelectedMonthKey}-01`;
         invalidateCurrentDashReportCache();
-        if (currentDashSelectedEvent) loadCurrentTestDashboard();
+        loadCurrentTestDashboard();
         return;
       }
       if (e.target && e.target.id === "ctdash_event_select") {
