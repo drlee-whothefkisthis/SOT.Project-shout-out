@@ -370,7 +370,7 @@
           ${errorMessage ? `<p class="pl-alert" aria-live="assertive">${escapeHtml(errorMessage)}</p>` : ""}
           <button class="pl-required-reading" type="button" data-pl-required-reading>
             <span class="pl-required-reading__content">
-              <strong>⭐️ 필독사항</strong>
+              <strong>🔥 필독사항</strong>
               <span>반드시 확인 후 진행해 주세요.</span>
             </span>
             <span class="pl-required-reading__action">확인하기 <span aria-hidden="true">→</span></span>
