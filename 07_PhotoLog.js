@@ -369,10 +369,10 @@
           </div>
           ${errorMessage ? `<p class="pl-alert" aria-live="assertive">${escapeHtml(errorMessage)}</p>` : ""}
           <button class="pl-required-reading" type="button" data-pl-required-reading>
-            <span class="pl-required-reading__eyebrow">Required Reading</span>
+            <span class="pl-required-reading__icon" aria-hidden="true">✓</span>
             <span class="pl-required-reading__content">
               <strong>필독사항</strong>
-              <span>촬영 전 장비·현장 안내를 확인해 주세요.</span>
+              <span>반드시 확인 후 진행해 주세요.</span>
             </span>
             <span class="pl-required-reading__action">확인하기 <span aria-hidden="true">→</span></span>
           </button>
