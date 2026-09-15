@@ -1485,7 +1485,157 @@
 
 </style>
 <style id="sot-admin-mobile-layout-v1">
-  /* Mobile layout override. Keep desktop rules and runtime behavior unchanged. */
+  /* Responsive layout override. Keep runtime behavior unchanged. */
+  .sh-admin-wrap,
+  .sh-admin-wrap *{
+    box-sizing:border-box;
+  }
+
+  .sh-admin-wrap.shell{
+    width:min(1480px,calc(100vw - 28px));
+    max-width:1480px;
+  }
+
+  @media (max-width:1199px){
+    .sh-admin-wrap.shell,
+    .sh-admin-wrap.shell:has(.prh-shell){
+      width:calc(100vw - 20px) !important;
+      max-width:none !important;
+      margin:10px auto 56px !important;
+      padding:18px !important;
+      border-radius:28px !important;
+    }
+
+    .sh-admin-hero.hero,
+    .ctdash-hero.hero{
+      grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);
+      gap:14px;
+    }
+
+    .sh-row{
+      flex-wrap:wrap;
+    }
+
+    .sh-row .sh-col{
+      flex:1 1 calc(50% - 12px);
+      min-width:220px;
+    }
+
+    .sh-event-filter{
+      grid-template-columns:minmax(180px,.7fr) minmax(240px,1.3fr) auto auto;
+    }
+
+    .ctdash-summary-grid,
+    .ctdash-sales-grid,
+    .ctdash-spot-grid{
+      grid-template-columns:repeat(3,minmax(0,1fr));
+    }
+
+    .ctdash-metrics-grid,
+    .ctdash-metrics-grid.ctdash-balanced-grid.is-count-6,
+    .ctdash-spot-grid.ctdash-balanced-grid.is-count-6{
+      grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+    }
+
+    .ctdash-conv-grid,
+    .ctdash-conv-grid.ctdash-wide-grid{
+      grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    }
+
+    .prh-layout{
+      grid-template-columns:minmax(280px,340px) minmax(0,1fr);
+    }
+
+    .ctdash-table-wrap,
+    .sh-db-table-wrap,
+    .sot-dash-table-wrap{
+      max-width:100%;
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+  }
+
+  @media (max-width:991px){
+    .sh-admin-wrap.shell,
+    .sh-admin-wrap.shell:has(.prh-shell){
+      width:calc(100vw - 16px) !important;
+      margin:8px auto 48px !important;
+      padding:14px !important;
+      border-radius:24px !important;
+    }
+
+    .sh-admin-hero.hero,
+    .ctdash-hero.hero{
+      grid-template-columns:minmax(0,1fr);
+    }
+
+    .sh-admin-status-card{
+      width:100%;
+      min-width:0;
+      margin-top:0;
+    }
+
+    .sh-event-filter{
+      grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    }
+
+    .ctdash-two-col,
+    .ctdash-sub-grid,
+    .prh-layout,
+    .prh-grid,
+    .sot-dash-grid.two{
+      grid-template-columns:minmax(0,1fr) !important;
+    }
+
+    .ctdash-summary-grid,
+    .ctdash-metrics-grid,
+    .ctdash-metrics-grid.ctdash-balanced-grid.is-count-6,
+    .ctdash-sales-grid,
+    .ctdash-spot-grid,
+    .ctdash-spot-grid.ctdash-balanced-grid.is-count-5,
+    .ctdash-spot-grid.ctdash-balanced-grid.is-count-6,
+    .sot-dash-kpis,
+    .sot-dash-kpis.is-mini,
+    .prh-metrics{
+      grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    }
+
+    .ctdash-form-grid.three{
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    .sot-admin-dashboard{
+      grid-template-columns:minmax(0,1fr);
+    }
+
+    .sot-dash-sidebar{
+      overflow:visible;
+    }
+
+    .sot-dash-nav{
+      display:flex;
+      gap:8px;
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
+    }
+
+    .sot-dash-nav-group{
+      display:none;
+    }
+
+    .sot-dash-nav-btn{
+      flex:0 0 auto;
+      width:auto;
+      white-space:nowrap;
+    }
+
+    .prh-list{
+      max-height:340px;
+      overflow-y:auto;
+    }
+  }
+
   @media (max-width: 767px){
     html,
     body{
