@@ -4,18 +4,21 @@ try {
   var UPLOAD_NOTICE_END_AT = Date.parse("2026-09-21T00:00:00+09:00");
   var UPLOAD_NOTICE_EVENTS = [
     {
+      order: 1,
       name: "2026 인천송도국제마라톤대회",
       startAt: Date.parse("2026-09-20T08:00:00+09:00"),
       completeAt: Date.parse("2026-09-20T14:00:00+09:00"),
       completeLabel: "오후 2시"
     },
     {
+      order: 2,
       name: "제19회 가평자라섬 전국마라톤대회",
       startAt: Date.parse("2026-09-20T08:30:00+09:00"),
       completeAt: Date.parse("2026-09-20T13:30:00+09:00"),
       completeLabel: "오후 1시 30분"
     },
     {
+      order: 3,
       name: "2026 한돈런",
       startAt: Date.parse("2026-09-20T09:00:00+09:00"),
       completeAt: Date.parse("2026-09-20T14:00:00+09:00"),
@@ -75,7 +78,7 @@ try {
     var now = Date.now();
     var activeEvents = UPLOAD_NOTICE_EVENTS.filter(function (event) {
       return now >= event.startAt;
-    });
+    }).sort(function (left, right) { return left.order - right.order; });
     var list = document.getElementById("shout-upload-notice-list");
     if (!list) return false;
 
