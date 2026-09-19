@@ -7,22 +7,19 @@ try {
       order: 1,
       name: "2026 인천송도국제마라톤대회",
       startAt: Date.parse("2026-09-20T08:00:00+09:00"),
-      completeAt: Date.parse("2026-09-20T14:00:00+09:00"),
-      completeLabel: "오후 2시"
+      completeAt: Date.parse("2026-09-20T14:00:00+09:00")
     },
     {
       order: 2,
       name: "제19회 가평자라섬 전국마라톤대회",
       startAt: Date.parse("2026-09-20T08:30:00+09:00"),
-      completeAt: Date.parse("2026-09-20T13:30:00+09:00"),
-      completeLabel: "오후 1시 30분"
+      completeAt: Date.parse("2026-09-20T13:30:00+09:00")
     },
     {
       order: 3,
       name: "2026 한돈런",
       startAt: Date.parse("2026-09-20T09:00:00+09:00"),
-      completeAt: Date.parse("2026-09-20T14:00:00+09:00"),
-      completeLabel: "오후 2시"
+      completeAt: Date.parse("2026-09-20T14:00:00+09:00")
     }
   ];
   var uploadNoticeEndTimer = null;
@@ -84,7 +81,7 @@ try {
 
     list.innerHTML = activeEvents.map(function (event) {
       var percent = getUploadNoticePercent(event, now);
-      var status = percent >= 100 ? "업로드 완료" : event.completeLabel + " 완료 예정";
+      var status = percent >= 100 ? "업로드 완료" : percent + "% 업로드";
       return '<div class="shout-upload-notice-event">' +
         '<div class="shout-upload-notice-event-head">' +
           '<span class="shout-upload-notice-event-name">' + event.name + '</span>' +
