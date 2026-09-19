@@ -1,9 +1,29 @@
 try {
 (function () {
   var UPLOAD_NOTICE_ENABLED = true;
-  var UPLOAD_NOTICE_START_AT = Date.parse("2026-09-13T00:00:00+09:00");
-  var UPLOAD_NOTICE_END_AT = Date.parse("2026-09-14T00:00:00+09:00");
+  var UPLOAD_NOTICE_END_AT = Date.parse("2026-09-21T00:00:00+09:00");
+  var UPLOAD_NOTICE_EVENTS = [
+    {
+      name: "2026 인천송도국제마라톤대회",
+      startAt: Date.parse("2026-09-20T08:00:00+09:00"),
+      completeAt: Date.parse("2026-09-20T14:00:00+09:00"),
+      completeLabel: "오후 2시"
+    },
+    {
+      name: "제19회 가평자라섬 전국마라톤대회",
+      startAt: Date.parse("2026-09-20T08:30:00+09:00"),
+      completeAt: Date.parse("2026-09-20T13:30:00+09:00"),
+      completeLabel: "오후 1시 30분"
+    },
+    {
+      name: "2026 한돈런",
+      startAt: Date.parse("2026-09-20T09:00:00+09:00"),
+      completeAt: Date.parse("2026-09-20T14:00:00+09:00"),
+      completeLabel: "오후 2시"
+    }
+  ];
   var uploadNoticeEndTimer = null;
+  var uploadProgressTimer = null;
 
   function detectKakaoInApp() {
     return /KAKAOTALK/i.test(navigator.userAgent || "");
@@ -17,7 +37,15 @@ try {
 
   function isUploadNoticeActive() {
     var now = Date.now();
-    return UPLOAD_NOTICE_ENABLED && now >= UPLOAD_NOTICE_START_AT && now < UPLOAD_NOTICE_END_AT;
+    return UPLOAD_NOTICE_ENABLED && now < UPLOAD_NOTICE_END_AT &&
+      UPLOAD_NOTICE_EVENTS.some(function (event) { return now >= event.startAt; });
+  }
+
+  function getUploadNoticePercent(event, now) {
+    if (now >= event.completeAt) return 100;
+    return Math.max(0, Math.min(100, Math.round(
+      ((now - event.startAt) / (event.completeAt - event.startAt)) * 100
+    )));
   }
 
   function syncUploadNoticeSpacing() {
@@ -33,7 +61,39 @@ try {
     document.body.style.removeProperty("--shout-upload-notice-height");
     if (uploadNoticeEndTimer) window.clearTimeout(uploadNoticeEndTimer);
     uploadNoticeEndTimer = null;
+    if (uploadProgressTimer) window.clearInterval(uploadProgressTimer);
+    uploadProgressTimer = null;
     window.removeEventListener("resize", syncUploadNoticeSpacing);
+  }
+
+  function updateUploadNotice() {
+    if (!isUploadNoticeActive()) {
+      hideUploadNotice();
+      return false;
+    }
+
+    var now = Date.now();
+    var activeEvents = UPLOAD_NOTICE_EVENTS.filter(function (event) {
+      return now >= event.startAt;
+    });
+    var list = document.getElementById("shout-upload-notice-list");
+    if (!list) return false;
+
+    list.innerHTML = activeEvents.map(function (event) {
+      var percent = getUploadNoticePercent(event, now);
+      var status = percent >= 100 ? "업로드 완료" : event.completeLabel + " 완료 예정";
+      return '<div class="shout-upload-notice-event">' +
+        '<div class="shout-upload-notice-event-head">' +
+          '<span class="shout-upload-notice-event-name">' + event.name + '</span>' +
+          '<span class="shout-upload-notice-event-status">' + status + '</span>' +
+        '</div>' +
+        '<div class="shout-upload-notice-track" aria-label="' + event.name + ' 사진 업로드 진행률">' +
+          '<span class="shout-upload-notice-fill" style="width:' + percent + '%"></span>' +
+        '</div>' +
+      '</div>';
+    }).join("");
+    syncUploadNoticeSpacing();
+    return true;
   }
 
   function createUploadNotice() {
@@ -46,12 +106,14 @@ try {
     banner.innerHTML =
       '<div id="shout-upload-notice-inner">' +
         '<div id="shout-upload-notice-copy">' +
-          '<p id="shout-upload-notice-title">✓ 제26회 강화해변마라톤 · 히어로 레이스</p>' +
-          '<p id="shout-upload-notice-desc">두 대회 사진 업로드 완료 · 지금 검색할 수 있어요.</p>' +
+          '<p id="shout-upload-notice-title">사진 업로드 진행 중</p>' +
+          '<p id="shout-upload-notice-desc">오늘 촬영 사진을 순차적으로 업로드하고 있어요.</p>' +
         '</div>' +
+        '<div id="shout-upload-notice-list"></div>' +
       '</div>';
 
     document.body.appendChild(banner);
+    updateUploadNotice();
   }
 
   function showUploadNotice() {
@@ -65,8 +127,9 @@ try {
       syncUploadNoticeSpacing();
       window.addEventListener("resize", syncUploadNoticeSpacing);
       uploadNoticeEndTimer = window.setTimeout(hideUploadNotice, UPLOAD_NOTICE_END_AT - Date.now());
+      uploadProgressTimer = window.setInterval(updateUploadNotice, 60000);
       document.addEventListener("visibilitychange", function () {
-        if (!isUploadNoticeActive()) hideUploadNotice();
+        updateUploadNotice();
       });
     }
   }
