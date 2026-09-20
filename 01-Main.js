@@ -433,6 +433,11 @@ onReady(function () {
   const RECENT_HOT_COUNT = 4;
   const RECENT_PAST_PAGE_SIZE = 6;
   const RECENT_EARLY_EXPOSURE_MS = 2 * 24 * 60 * 60 * 1000;
+  const TODAY_HOT_EVENT_ORDER = {
+    "260920-sd": 1,
+    "260920-gp": 2,
+    "260920-hn": 3
+  };
 
   let selectedPastMonth = "all";
   let expandedHotEventCode = "";
@@ -453,6 +458,12 @@ onReady(function () {
   }
 
   function compareRecentEvents(a, b) {
+    const aOrder = TODAY_HOT_EVENT_ORDER[a && a.id];
+    const bOrder = TODAY_HOT_EVENT_ORDER[b && b.id];
+    if (aOrder || bOrder) {
+      if (aOrder && bOrder) return aOrder - bOrder;
+      return aOrder ? -1 : 1;
+    }
     const aDate = eventTimestamp(a);
     const bDate = eventTimestamp(b);
     if (aDate !== bDate) return bDate - aDate;
