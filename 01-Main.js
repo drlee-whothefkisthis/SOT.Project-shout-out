@@ -972,6 +972,16 @@ onReady(function () {
     return /^[가-힣]+(?: [가-힣]+)*$/.test(name) && name.replace(/ /g, "").length >= 2;
   }
 
+  function isMixedKoreanNumericSearchQuery(value) {
+    const query = String(value || "").trim();
+    return /^(?=.*[가-힣])(?=.*\d)[가-힣\d]+(?: [가-힣\d]+)*$/.test(query) &&
+      query.replace(/[^가-힣]/g, "").length >= 2;
+  }
+
+  function isTextSearchQuery(value) {
+    return isNameSearchQuery(value) || isMixedKoreanNumericSearchQuery(value);
+  }
+
   function isNameSearchEnabledForEvent(eventCode) {
     const race = getRaceByCode(eventCode);
     return !!(race && race.name_search_enabled === true);
@@ -1026,7 +1036,7 @@ onReady(function () {
       return;
     }
 
-    if (isNameSearchQuery(bibVal) && !isNameSearchEnabledForEvent(eventId)) {
+    if (isTextSearchQuery(bibVal) && !isNameSearchEnabledForEvent(eventId)) {
       alert("예쁜 이름의 당신, 완주를 축하드립니다. \n아쉽게도 해당 대회는 이름 검색을 지원하지 않습니다.\n참가하신 배번호 숫자로 검색해주세요.");
       bibInput.focus();
       return;
@@ -1058,7 +1068,7 @@ onReady(function () {
   function isValidBibQuery(value, eventCode) {
     const v = String(value || "").trim();
     if (isNumericSearch(v) && v.length >= bibMinDigitsForEvent(eventCode)) return true;
-    if (isNameSearchQuery(v)) return true;
+    if (isTextSearchQuery(v)) return true;
     return false;
   }
 
