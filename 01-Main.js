@@ -150,7 +150,7 @@ try {
         '<button type="button" id="shout-search-guide-close" aria-label="사진 검색 안내 닫기">×</button>' +
         '<div id="shout-search-guide-copy">' +
           '<p id="shout-search-guide-title">[사진 검색 안내]</p>' +
-          '<p id="shout-search-guide-desc"><strong>제19회 가평 자라섬 전국 마라톤</strong> 참가자 중 <strong>팀명 또는 특수 형식의 배번호</strong>를 사용하신 분들은 <strong>팀명과 배번호</strong>를 보내주시면 사진을 검색하실 수 있도록 등록해 드리겠습니다.</p>' +
+          '<p id="shout-search-guide-desc"><strong>제19회 가평 자라섬 전국 마라톤</strong> 참가자 중 <strong>팀명 또는 특수 형식의 배번호</strong>를 사용하신 분들은 <strong>팀명과 배번호</strong>를 보내주시면 사진 검색이 가능하도록 등록해 드리겠습니다.</p>' +
         '</div>' +
         '<div id="shout-search-guide-actions">' +
           '<button type="button" id="shout-search-guide-dismiss">닫기</button>' +
