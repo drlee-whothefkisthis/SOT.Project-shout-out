@@ -298,7 +298,13 @@ onReady(function () {
   function focusBib() {
     const applyFocus = () => {
       try { eventInput.blur(); } catch (_) {}
-      bibInput.focus();
+      // Do not let focus finish the scroll before the selected-card animation
+      // begins. The click handler controls the final scroll position instead.
+      try {
+        bibInput.focus({ preventScroll: true });
+      } catch (_) {
+        bibInput.focus();
+      }
       if (typeof bibInput.select === "function") bibInput.select();
     };
 
