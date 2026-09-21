@@ -1,6 +1,7 @@
 try {
 (function () {
   var UPLOAD_NOTICE_ENABLED = true;
+  var SEARCH_GUIDE_ENABLED = true;
   var UPLOAD_NOTICE_END_AT = Date.parse("2026-09-21T00:00:00+09:00");
   var UPLOAD_NOTICE_EVENTS = [
     {
@@ -134,10 +135,40 @@ try {
     }
   }
 
+  function syncSearchGuideSpacing() {
+    var banner = document.getElementById("shout-search-guide");
+    if (!banner) return;
+    document.body.style.setProperty("--shout-search-guide-height", banner.offsetHeight + "px");
+  }
+
+  function showSearchGuide() {
+    if (!SEARCH_GUIDE_ENABLED || document.getElementById("shout-search-guide")) return;
+
+    var subject = encodeURIComponent("제19회 가평 자라섬 전국 마라톤 사진 검색 등록 요청");
+    var body = encodeURIComponent("팀명 :\n배번호 :");
+    var banner = document.createElement("section");
+    banner.id = "shout-search-guide";
+    banner.setAttribute("aria-label", "제19회 가평 자라섬 전국 마라톤 사진 검색 안내");
+    banner.innerHTML =
+      '<div id="shout-search-guide-inner">' +
+        '<div id="shout-search-guide-copy">' +
+          '<p id="shout-search-guide-title">[사진 검색 안내]</p>' +
+          '<p id="shout-search-guide-desc"><strong>제19회 가평 자라섬 전국 마라톤</strong> 참가자 중 <strong>팀명 또는 특수 형식의 배번호</strong>를 사용하신 분들은 <strong>팀명과 배번호</strong>를 보내주시면 사진을 검색하실 수 있도록 등록해 드리겠습니다.</p>' +
+        '</div>' +
+        '<a id="shout-search-guide-mail" href="mailto:contact@plp.im?subject=' + subject + '&body=' + body + '">메일 전송</a>' +
+      '</div>';
+
+    document.body.appendChild(banner);
+    document.body.classList.add("has-shout-search-guide");
+    syncSearchGuideSpacing();
+    window.addEventListener("resize", syncSearchGuideSpacing);
+  }
+
   function init() {
     initKakaoInAppFlag();
 
     showUploadNotice();
+    showSearchGuide();
   }
 
   if (document.readyState === "loading") {
