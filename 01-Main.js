@@ -2,6 +2,7 @@ try {
 (function () {
   var UPLOAD_NOTICE_ENABLED = true;
   var SEARCH_GUIDE_ENABLED = true;
+  var SEARCH_GUIDE_END_AT = Date.parse("2026-09-24T00:00:00+09:00");
   var UPLOAD_NOTICE_END_AT = Date.parse("2026-09-21T00:00:00+09:00");
   var UPLOAD_NOTICE_EVENTS = [
     {
@@ -135,8 +136,12 @@ try {
     }
   }
 
-  function showSearchGuide() {
-    if (!SEARCH_GUIDE_ENABLED || document.getElementById("shout-search-guide")) return;
+  function isSearchGuideActive() {
+    return SEARCH_GUIDE_ENABLED && Date.now() < SEARCH_GUIDE_END_AT;
+  }
+
+  function showSearchGuide(validationMessage) {
+    if (!isSearchGuideActive() || document.getElementById("shout-search-guide")) return;
 
     var subject = encodeURIComponent("제19회 가평 자라섬 전국 마라톤 사진 검색 등록 요청");
     var body = encodeURIComponent("팀명 :\n배번호 :");
@@ -150,6 +155,7 @@ try {
         '<button type="button" id="shout-search-guide-close" aria-label="사진 검색 안내 닫기">×</button>' +
         '<div id="shout-search-guide-copy">' +
           '<p id="shout-search-guide-title">[사진 검색 안내]</p>' +
+          '<p id="shout-search-guide-validation"><strong>' + validationMessage + '</strong></p>' +
           '<p id="shout-search-guide-desc"><strong>제19회 가평 자라섬 전국 마라톤</strong> 참가자 중 <strong>팀명 또는 특수 형식의 배번호</strong>를 사용하신 분들은 <strong>팀명과 배번호</strong>를 보내주시면 사진 검색이 가능하도록 등록해 드리겠습니다.</p>' +
         '</div>' +
         '<div id="shout-search-guide-actions">' +
@@ -183,8 +189,12 @@ try {
     initKakaoInAppFlag();
 
     showUploadNotice();
-    showSearchGuide();
   }
+
+  window.ShoutSearchGuide = {
+    isActive: isSearchGuideActive,
+    show: showSearchGuide
+  };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init, { once: true });
@@ -975,6 +985,20 @@ onReady(function () {
     return `배번호는 ${bibMinDigitsForEvent(eventCode)}자리 이상, 이름은 한글 2글자 이상 입력해주세요.`;
   }
 
+  function showBibSearchHelp(eventCode) {
+    const race = getRaceByCode(eventCode);
+    const isGapyeongEvent = /가평\s*자라섬/.test(String(race && race.name || ""));
+    const guide = window.ShoutSearchGuide;
+    const message = bibSearchHelpText(eventCode);
+
+    if (isGapyeongEvent && guide && guide.isActive()) {
+      guide.show(message);
+      return;
+    }
+
+    alert(message);
+  }
+
   function goToGallery(e) {
     if (e) e.preventDefault();
 
@@ -998,7 +1022,7 @@ onReady(function () {
     }
 
     if (!isValidBibQuery(bibVal, eventId)) {
-      alert(bibSearchHelpText(eventId));
+      showBibSearchHelp(eventId);
       return;
     }
 
@@ -1076,7 +1100,7 @@ onReady(function () {
       const eventId = (hiddenEventId.value || "").trim();
       if (!isValidBibQuery(bibVal, eventId)) {
         e.preventDefault();
-        alert(bibSearchHelpText(eventId));
+        showBibSearchHelp(eventId);
         bibInput.focus();
         return;
       }
@@ -1113,7 +1137,7 @@ onReady(function () {
 
       const eventId = (hiddenEventId.value || "").trim();
       if (!isValidBibQuery(bibVal, eventId)) {
-        alert(bibSearchHelpText(eventId));
+        showBibSearchHelp(eventId);
         return;
       }
 
