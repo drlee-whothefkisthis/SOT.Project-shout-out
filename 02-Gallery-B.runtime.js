@@ -306,6 +306,26 @@ window.ShoutGallery.getGalleryGridCoveredBottom = function (gridEl) {
     return 1;
   }
 
+  function getAmFileSequence(photo) {
+    const filename = getPhotoFileName(photo);
+    if (!filename) return null;
+
+    const base = filename.split("?")[0].split("/").pop() || "";
+    let upper = "";
+
+    try {
+      upper = decodeURIComponent(base).toUpperCase();
+    } catch (_) {
+      upper = String(base).toUpperCase();
+    }
+
+    const match = upper.match(/^[A-Z]M[_-](\d+)/);
+    if (!match) return null;
+
+    const sequence = Number(match[1]);
+    return Number.isSafeInteger(sequence) ? sequence : null;
+  }
+
   function getDedupeKey(p) {
     if (!p) return "";
     const file = (p.fileName || p.filename || p.file_name || "").toString().trim();
@@ -424,13 +444,22 @@ window.ShoutGallery.getGalleryGridCoveredBottom = function (gridEl) {
           photo,
           originalIndex,
           matchRank,
-          mpRank: getMpFileRank(photo)
+          mpRank: getMpFileRank(photo),
+          amSequence: getAmFileSequence(photo)
         };
       })
       .sort((a, b) => {
         if (a.matchRank !== b.matchRank) return a.matchRank - b.matchRank;
         if (a.matchRank < 2 && b.matchRank < 2 && a.mpRank !== b.mpRank) {
           return a.mpRank - b.mpRank;
+        }
+
+        if (a.mpRank === 0 && b.mpRank === 0) {
+          if (a.amSequence !== null && b.amSequence !== null && a.amSequence !== b.amSequence) {
+            return a.amSequence - b.amSequence;
+          }
+          if (a.amSequence !== null && b.amSequence === null) return -1;
+          if (a.amSequence === null && b.amSequence !== null) return 1;
         }
 
         return a.originalIndex - b.originalIndex;
