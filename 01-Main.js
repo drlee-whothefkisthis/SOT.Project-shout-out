@@ -135,33 +135,48 @@ try {
     }
   }
 
-  function syncSearchGuideSpacing() {
-    var banner = document.getElementById("shout-search-guide");
-    if (!banner) return;
-    document.body.style.setProperty("--shout-search-guide-height", banner.offsetHeight + "px");
-  }
-
   function showSearchGuide() {
     if (!SEARCH_GUIDE_ENABLED || document.getElementById("shout-search-guide")) return;
 
     var subject = encodeURIComponent("제19회 가평 자라섬 전국 마라톤 사진 검색 등록 요청");
     var body = encodeURIComponent("팀명 :\n배번호 :");
-    var banner = document.createElement("section");
-    banner.id = "shout-search-guide";
-    banner.setAttribute("aria-label", "제19회 가평 자라섬 전국 마라톤 사진 검색 안내");
-    banner.innerHTML =
+    var modal = document.createElement("section");
+    modal.id = "shout-search-guide";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-labelledby", "shout-search-guide-title");
+    modal.innerHTML =
       '<div id="shout-search-guide-inner">' +
+        '<button type="button" id="shout-search-guide-close" aria-label="사진 검색 안내 닫기">×</button>' +
         '<div id="shout-search-guide-copy">' +
           '<p id="shout-search-guide-title">[사진 검색 안내]</p>' +
           '<p id="shout-search-guide-desc"><strong>제19회 가평 자라섬 전국 마라톤</strong> 참가자 중 <strong>팀명 또는 특수 형식의 배번호</strong>를 사용하신 분들은 <strong>팀명과 배번호</strong>를 보내주시면 사진을 검색하실 수 있도록 등록해 드리겠습니다.</p>' +
         '</div>' +
-        '<a id="shout-search-guide-mail" href="mailto:contact@plp.im?subject=' + subject + '&body=' + body + '">메일 전송</a>' +
+        '<div id="shout-search-guide-actions">' +
+          '<button type="button" id="shout-search-guide-dismiss">닫기</button>' +
+          '<a id="shout-search-guide-mail" href="mailto:contact@plp.im?subject=' + subject + '&body=' + body + '">메일 전송</a>' +
+        '</div>' +
       '</div>';
 
-    document.body.appendChild(banner);
+    var closeGuide = function () {
+      modal.remove();
+      document.body.classList.remove("has-shout-search-guide");
+      document.removeEventListener("keydown", onKeyDown);
+    };
+    var onKeyDown = function (event) {
+      if (event.key === "Escape") closeGuide();
+    };
+
+    modal.addEventListener("click", function (event) {
+      if (event.target === modal || event.target.closest("#shout-search-guide-close, #shout-search-guide-dismiss")) {
+        closeGuide();
+      }
+    });
+    document.body.appendChild(modal);
     document.body.classList.add("has-shout-search-guide");
-    syncSearchGuideSpacing();
-    window.addEventListener("resize", syncSearchGuideSpacing);
+    document.addEventListener("keydown", onKeyDown);
+    var closeButton = document.getElementById("shout-search-guide-close");
+    if (closeButton) closeButton.focus();
   }
 
   function init() {

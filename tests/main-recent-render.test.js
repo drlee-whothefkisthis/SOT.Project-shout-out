@@ -80,6 +80,13 @@ events.reverse();
     </body></html>`);
     for (const script of scripts) await page.addScriptTag({ content: script });
 
+    await page.waitForSelector('#shout-search-guide[role="dialog"]');
+    assert.equal(await page.locator("#shout-search-guide").getAttribute("aria-modal"), "true");
+    assert.equal(await page.locator("body").evaluate(body => body.classList.contains("has-shout-search-guide")), true);
+    await page.locator("#shout-search-guide-dismiss").click();
+    assert.equal(await page.locator("#shout-search-guide").count(), 0, "search guide should close without leaving page spacing behind");
+    assert.equal(await page.locator("body").evaluate(body => body.classList.contains("has-shout-search-guide")), false);
+
     await page.waitForSelector(".sot-recent-past-card").catch(error => {
       if (pageErrors.length) throw pageErrors[0];
       throw error;
