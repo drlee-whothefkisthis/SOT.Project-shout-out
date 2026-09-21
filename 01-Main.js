@@ -315,12 +315,16 @@ onReady(function () {
   function scrollSearchInputsIntoView() {
     if (stopSearchScrollAdjustment) stopSearchScrollAdjustment();
     const viewport = window.visualViewport;
+    const desktopSmoothScroll = window.matchMedia &&
+      window.matchMedia("(hover: hover) and (pointer: fine)").matches &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const scrollToPageTop = () => {
-      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      window.scrollTo({ top: 0, left: 0, behavior: desktopSmoothScroll ? "smooth" : "instant" });
     };
 
-    // iOS may move the page as the keyboard opens, so restore the top
-    // position when the visual viewport changes.
+    // Desktop clicks animate to the top; mobile keeps the native keyboard flow.
+    // iOS may move the page as the keyboard opens, so restore the top position
+    // when the visual viewport changes.
     const frame = requestAnimationFrame(scrollToPageTop);
     if (viewport) viewport.addEventListener("resize", scrollToPageTop);
     const cleanup = () => {
