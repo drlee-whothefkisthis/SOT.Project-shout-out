@@ -936,7 +936,8 @@ onReady(function () {
   }
 
   function isNameSearchQuery(value) {
-    return /^[가-힣]{2,}$/.test(String(value || "").trim());
+    const name = String(value || "").trim();
+    return /^[가-힣]+(?: [가-힣]+)*$/.test(name) && name.replace(/ /g, "").length >= 2;
   }
 
   function isNameSearchEnabledForEvent(eventCode) {
@@ -945,8 +946,7 @@ onReady(function () {
   }
 
   function bibMinDigitsForEvent(eventCode) {
-    const race = getRaceByCode(eventCode);
-    return race && Number(race.bib_min_digits) === 3 ? 3 : 4;
+    return 4;
   }
 
   function bibSearchHelpText(eventCode) {
@@ -1012,7 +1012,7 @@ onReady(function () {
   function isValidBibQuery(value, eventCode) {
     const v = String(value || "").trim();
     if (isNumericSearch(v) && v.length >= bibMinDigitsForEvent(eventCode)) return true;
-    if (/^[가-힣]{2,}$/.test(v)) return true;
+    if (isNameSearchQuery(v)) return true;
     return false;
   }
 
