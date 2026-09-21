@@ -315,20 +315,17 @@ onReady(function () {
   function scrollSearchInputsIntoView() {
     if (stopSearchScrollAdjustment) stopSearchScrollAdjustment();
     const viewport = window.visualViewport;
-    const alignInputs = () => {
-      if (document.activeElement !== bibInput) return;
-      const top = Math.min(eventInput.getBoundingClientRect().top, bibInput.getBoundingClientRect().top);
-      const offset = (viewport ? viewport.offsetTop : 0) + 80;
-      window.scrollTo({ top: Math.max(0, window.scrollY + top - offset), behavior: "instant" });
+    const scrollToPageTop = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     };
 
-    // Focus remains in the original click gesture. Scrolling never focuses
-    // the section, and adjusts once the mobile keyboard changes the viewport.
-    const frame = requestAnimationFrame(alignInputs);
-    if (viewport) viewport.addEventListener("resize", alignInputs);
+    // iOS may move the page as the keyboard opens, so restore the top
+    // position when the visual viewport changes.
+    const frame = requestAnimationFrame(scrollToPageTop);
+    if (viewport) viewport.addEventListener("resize", scrollToPageTop);
     const cleanup = () => {
       cancelAnimationFrame(frame);
-      if (viewport) viewport.removeEventListener("resize", alignInputs);
+      if (viewport) viewport.removeEventListener("resize", scrollToPageTop);
       clearTimeout(timeout);
       stopSearchScrollAdjustment = null;
     };
