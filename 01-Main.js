@@ -974,6 +974,11 @@ onReady(function () {
     return /^[가-힣]+(?: [가-힣]+)*$/.test(name) && name.replace(/ /g, "").length >= 2;
   }
 
+  function isEnglishNameSearchQuery(value) {
+    const name = String(value || "").trim();
+    return /^[A-Za-z]+(?: [A-Za-z]+)*$/.test(name) && name.replace(/ /g, "").length >= 2;
+  }
+
   function isMixedKoreanNumericSearchQuery(value) {
     const query = String(value || "").trim();
     return /^(?=.*[가-힣])(?=.*\d)[가-힣\d]+(?: [가-힣\d]+)*$/.test(query) &&
@@ -981,7 +986,7 @@ onReady(function () {
   }
 
   function isTextSearchQuery(value) {
-    return isNameSearchQuery(value) || isMixedKoreanNumericSearchQuery(value);
+    return isNameSearchQuery(value) || isEnglishNameSearchQuery(value) || isMixedKoreanNumericSearchQuery(value);
   }
 
   function isNameSearchEnabledForEvent(eventCode) {
@@ -996,7 +1001,7 @@ onReady(function () {
   }
 
   function bibSearchHelpText(eventCode) {
-    return `배번호는 ${bibMinDigitsForEvent(eventCode)}자리 이상, 이름은 한글 2글자 이상 입력해주세요.`;
+    return `배번호는 ${bibMinDigitsForEvent(eventCode)}자리 이상, 이름은 한글 또는 영문 2글자 이상 입력해주세요.`;
   }
 
   function showBibSearchHelp(eventCode) {

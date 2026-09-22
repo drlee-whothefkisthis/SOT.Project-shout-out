@@ -175,6 +175,8 @@ events.reverse();
     assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), "app-bib-input");
     await page.locator("#app-bib-input").fill("타임캡1시간");
     assert.equal(await page.locator("#app-bib-action-btn").evaluate(button => button.classList.contains("is-ready")), true, "mixed Korean and numeric queries should be searchable");
+    await page.locator("#app-bib-input").fill("JAMES KIM");
+    assert.equal(await page.locator("#app-bib-action-btn").evaluate(button => button.classList.contains("is-ready")), true, "English names with spaces should be searchable");
 
     await page.locator(".sot-recent-month").selectOption("2026-04");
     assert.equal(await page.locator(".sot-recent-past-card").count(), 1);
