@@ -976,7 +976,7 @@ onReady(function () {
 
   function isEnglishNameSearchQuery(value) {
     const name = String(value || "").trim();
-    return /^[A-Za-z]+(?: [A-Za-z]+)*$/.test(name) && name.replace(/ /g, "").length >= 2;
+    return /^[A-Za-z]+(?:(?:\s*&\s*|\s+)[A-Za-z]+)*$/.test(name) && name.replace(/[^A-Za-z]/g, "").length >= 2;
   }
 
   function isMixedKoreanNumericSearchQuery(value) {
