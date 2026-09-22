@@ -897,7 +897,9 @@ onReady(function () {
             course,
             course_info: item.event_course_info ?? item.course_info ?? "",
             name_search_enabled: item.name_search_enabled === true,
-            bib_min_digits: Number(item.bib_min_digits) === 3 ? 3 : 4,
+            bib_min_digits: Number.isInteger(Number(item.bib_min_digits)) && Number(item.bib_min_digits) > 0
+              ? Number(item.bib_min_digits)
+              : 4,
             home_visible: item.home_visible === true ? true : (item.home_visible === false ? false : null),
             home_rank: item.home_rank ?? item.hot_rank ?? null,
             home_score: item.home_score ?? item.hot_score ?? item.popularity_score ?? null,
@@ -988,7 +990,9 @@ onReady(function () {
   }
 
   function bibMinDigitsForEvent(eventCode) {
-    return 4;
+    const race = getRaceByCode(eventCode);
+    const digits = Number(race && race.bib_min_digits);
+    return Number.isInteger(digits) && digits > 0 ? digits : 4;
   }
 
   function bibSearchHelpText(eventCode) {

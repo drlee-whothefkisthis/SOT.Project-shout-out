@@ -46,6 +46,7 @@ events.find(event => event.event_code === "260531-gs").home_score = 9999;
 events.find(event => event.event_code === "260531-gs").publish_at = "2026-07-01T00:00:00.000Z";
 events.find(event => event.event_code === "260620-cj").event_course_info = "Full, Half, 10K";
 events.find(event => event.event_code === "260620-cj").course = ["10K", "5K"];
+events.find(event => event.event_code === "260620-cj").bib_min_digits = 3;
 events.find(event => event.event_code === "260607-yd").event_course_info = "Half, 10K";
 events.reverse();
 
@@ -164,6 +165,10 @@ events.reverse();
     assert.equal(await page.locator("#app-event-id-hidden").inputValue(), "260620-cj");
     assert.equal(await page.locator(".sot-recent-message").count(), 0);
     assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), "app-bib-input");
+    await page.locator("#app-bib-input").fill("123");
+    assert.equal(await page.locator("#app-bib-action-btn").evaluate(button => button.classList.contains("is-ready")), true, "the event's Bubble bib_min_digits setting should allow three-digit bibs");
+    await page.locator("#app-bib-input").fill("12");
+    assert.equal(await page.locator("#app-bib-action-btn").evaluate(button => button.classList.contains("is-ready")), false);
     await page.waitForTimeout(500);
     assert.equal(await page.locator("#app-event-id-input").inputValue(), "2026 제25회 충주마라톤");
     assert.equal(await page.locator("#app-event-id-hidden").inputValue(), "260620-cj");
