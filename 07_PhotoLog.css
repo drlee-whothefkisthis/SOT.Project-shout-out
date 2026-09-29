@@ -232,3 +232,9 @@
     .pl-context--event-detail .pl-context__item { padding-inline: 8px; }
     .pl-context--event-detail .pl-context__value { font-size: 13px; }
   }
+
+  .pl-sketch-files { margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--pl-line); }
+  .pl-sketch-files .pl-subtitle { margin: 0 0 4px; }
+  .pl-sketch-files > .pl-button { margin-top: 14px; }
+  .pl-sketch-files__list { display: grid; gap: 8px; margin-top: 12px; }
+  .pl-sketch-file { display: block; padding: 11px 13px; border: 1px solid var(--pl-line); border-radius: 11px; color: var(--pl-blue); font-weight: 700; overflow-wrap: anywhere; }

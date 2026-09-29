@@ -566,6 +566,46 @@
     }
   }
 
+  const isSketchAssignment = (event) => event?.is_sketch === true;
+
+  async function loadSketchFiles(eventCode) {
+    const button = root.querySelector("[data-pl-sketch-files]");
+    const message = root.querySelector("[data-pl-sketch-files-message]");
+    const list = root.querySelector("[data-pl-sketch-files-list]");
+    if (!button || !message || !list || !state.selectedEvent ||
+        state.selectedEvent.event_code !== eventCode || !isSketchAssignment(state.selectedEvent)) return;
+    button.disabled = true;
+    message.textContent = "파일을 확인하고 있습니다…";
+    list.replaceChildren();
+    try {
+      const data = await api(`/api/v1/photographer-access/events/${encodeURIComponent(eventCode)}/sketch-files`);
+      if (!state.selectedEvent || state.selectedEvent.event_code !== eventCode || !root.contains(button)) return;
+      const files = Array.isArray(data.files) ? data.files : [];
+      files.forEach((file) => {
+        const url = safeExternalUrl(file.url);
+        if (!url || !url.startsWith("https://")) return;
+        const link = document.createElement("a");
+        link.className = "pl-sketch-file";
+        link.href = url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.download = String(file.name || "스케치 파일");
+        link.textContent = `다운로드 · ${file.name || "스케치 파일"}`;
+        list.appendChild(link);
+      });
+      message.textContent = list.children.length ? "" : "이 대회에 등록된 파일이 없습니다.";
+    } catch (error) {
+      if (!root.contains(button)) return;
+      if (error.status === 401 || error.code === "ACCESS_TOKEN_INVALID") {
+        renderLogin("인증 시간이 만료되었습니다. 다시 확인해 주세요.");
+        return;
+      }
+      message.textContent = genericError(error, "스케치 파일을 불러오지 못했습니다.");
+    } finally {
+      if (root.contains(button)) button.disabled = false;
+    }
+  }
+
   function renderEventDetail(event) {
     const mapUrl = safeExternalUrl(event.map_url);
     const courseMapUrl = safeExternalUrl(event.course_map_url);
@@ -605,9 +645,17 @@
                 : '<button class="pl-button" type="button" data-pl-locked-report>일지 작성</button>'}
           </div>
           <p class="pl-alert" data-pl-detail-message aria-live="polite"></p>
+          ${isSketchAssignment(event) ? `<div class="pl-sketch-files">
+            <h2 class="pl-subtitle">스케치 자료</h2>
+            <p class="pl-help">대회에 등록된 파일을 다운로드할 수 있습니다.</p>
+            <button class="pl-button pl-button--ghost" type="button" data-pl-sketch-files>파일 확인</button>
+            <p class="pl-alert" data-pl-sketch-files-message role="status"></p>
+            <div class="pl-sketch-files__list" data-pl-sketch-files-list></div>
+          </div>` : ""}
         </section>
       </div>`;
     root.querySelector("[data-pl-back]").addEventListener("click", () => renderEvents());
+    root.querySelector("[data-pl-sketch-files]")?.addEventListener("click", () => loadSketchFiles(event.event_code));
     const start = root.querySelector("[data-pl-start-report]");
     if (start) start.addEventListener("click", () => renderReport(event));
     const locked = root.querySelector("[data-pl-locked-report]");
@@ -649,7 +697,7 @@
           <section class="pl-section">
             <div class="pl-section__head"><h2 class="pl-section__title">1. 촬영 정보</h2><p class="pl-section__copy">실제 촬영 위치와 시간을 기록해 주세요.</p></div>
             <div class="pl-grid">
-              <label class="pl-field"><span class="pl-label">담당 역할</span><input class="pl-input" name="role" placeholder="예: 메인 구간 촬영" required></label>
+              <label class="pl-field"><span class="pl-label">담당 역할</span><input class="pl-input" name="role" placeholder="예: 메인 구간 촬영" ${isSketchAssignment(event) ? 'value="현장 스케치" readonly' : ""} required></label>
               <label class="pl-field"><span class="pl-label">실제 촬영 위치</span><input class="pl-input" name="actual_location_name" placeholder="예: 10km 반환점" required></label>
             </div>
             <label class="pl-field" style="margin-top:16px"><span class="pl-label">촬영 위치까지 이동 거리(km)</span><input class="pl-input" type="number" name="actual_location_distance" min="0" step="0.1" placeholder="선택 입력"></label>
@@ -748,6 +796,7 @@
       addRepeatRow("lenses", { code: "", count: 1, name: "" });
       syncPhotoCountRows();
     }
+    if (isSketchAssignment(event)) root.querySelector("[data-pl-report]").elements.role.value = "현장 스케치";
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
