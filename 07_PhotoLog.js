@@ -7,6 +7,7 @@
     draftPrefix: "sot_photographer_report_draft_v1",
     requestTimeoutMs: 25000,
     uploadDirectoryLeaf: "hei",
+    sketchGuideUrl: "https://app.notion.com/p/Sketch-Guide-3e09e82438d68073ac9ac7db0f0fc05e?source=copy_link",
   });
 
   const CAMERA_CODES = ["AM", "AP", "BM", "BP", "CM", "DM"];
@@ -647,6 +648,7 @@
           <p class="pl-alert" data-pl-detail-message aria-live="polite"></p>
           ${isSketchAssignment(event) ? `<div class="pl-sketch-files">
             <h2 class="pl-subtitle">스케치 자료</h2>
+            <a class="pl-button pl-button--ghost" href="${escapeHtml(CONFIG.sketchGuideUrl)}" target="_blank" rel="noopener noreferrer">스케치 가이드 열기</a>
             <p class="pl-help">대회에 등록된 파일을 다운로드할 수 있습니다.</p>
             <button class="pl-button pl-button--ghost" type="button" data-pl-sketch-files>파일 확인</button>
             <p class="pl-alert" data-pl-sketch-files-message role="status"></p>
