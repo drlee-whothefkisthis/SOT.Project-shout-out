@@ -223,6 +223,35 @@
     }).format(gatheringTime);
   }
 
+  function estimatedShootingHours(courses) {
+    const normalized = (Array.isArray(courses) ? courses : [])
+      .map((course) => String(course || "").trim().toLowerCase().replace(/\s+/g, ""));
+    if (normalized.some((course) => ["full", "풀", "42k", "42.195k"].includes(course))) {
+      return { hours: 5, course: "Full" };
+    }
+    if (normalized.some((course) => ["half", "하프", "21k", "21.0975k"].includes(course))) {
+      return { hours: 3, course: "Half" };
+    }
+    if (normalized.some((course) => ["10k", "10km", "5k", "5km"].includes(course))) {
+      return { hours: 2, course: "10K 이하" };
+    }
+    return null;
+  }
+
+  function formatEstimatedShootingTime(eventDate, courses) {
+    const estimate = estimatedShootingHours(courses);
+    const start = new Date(String(eventDate || ""));
+    if (!estimate || Number.isNaN(start.getTime()) || !String(eventDate || "").includes("T")) return "";
+    const finish = new Date(start.getTime() + estimate.hours * 60 * 60 * 1000);
+    const formatTime = (value) => new Intl.DateTimeFormat("ko-KR", {
+      timeZone: "Asia/Seoul",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(value);
+    return `${formatTime(start)}–${formatTime(finish)} · ${estimate.course} 기준`;
+  }
+
   function eventDateValue(value) {
     const parts = eventDateParts(value);
     return typeof parts === "string"
@@ -615,6 +644,7 @@
     const courseMapUrl = safeExternalUrl(event.course_map_url);
     const directory = uploadDirectory(event);
     const canWrite = !event.submitted && reportOpen(event);
+    const estimatedShootingTime = formatEstimatedShootingTime(event.event_date, event.course);
     root.innerHTML = `
       <div class="pl-shell">
         <div class="pl-brand">SHOUT-OUT</div>
@@ -627,6 +657,9 @@
             <div class="pl-context__item"><div class="pl-context__label">장소</div><div class="pl-context__value">${escapeHtml(event.location || "장소 미정")}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">대회일</div><div class="pl-context__value">${escapeHtml(formatEventDate(event.event_date))}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">집결</div><div class="pl-context__value">${escapeHtml(formatGatheringTime(event.event_date))}</div></div>
+            ${estimatedShootingTime
+              ? `<div class="pl-context__item"><div class="pl-context__label">예상 촬영</div><div class="pl-context__value">${escapeHtml(estimatedShootingTime)}</div></div>`
+              : ""}
             ${String(event.pickup || "").trim()
               ? `<div class="pl-context__item"><div class="pl-context__label">픽업</div><div class="pl-context__value">${escapeHtml(event.pickup)}</div></div>`
               : ""}
