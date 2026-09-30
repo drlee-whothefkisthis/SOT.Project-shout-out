@@ -7,6 +7,7 @@
     draftPrefix: "sot_photographer_report_draft_v1",
     requestTimeoutMs: 25000,
     uploadDirectoryLeaf: "hei",
+    requiredReadingUrl: "https://app.notion.com/p/3ea9e82438d6802dafdec2acd7690d31?source=copy_link",
     sketchGuideUrl: "https://app.notion.com/p/Sketch-Guide-3e09e82438d68073ac9ac7db0f0fc05e?source=copy_link",
   });
 
@@ -422,7 +423,9 @@
 
     root.querySelector("[data-pl-logout]").addEventListener("click", () => renderLogin());
     root.querySelector("[data-pl-change-password]").addEventListener("click", renderPasswordChange);
-    root.querySelector("[data-pl-required-reading]").addEventListener("click", renderRequiredReading);
+    root.querySelector("[data-pl-required-reading]").addEventListener("click", () => {
+      window.open(CONFIG.requiredReadingUrl, "_blank", "noopener,noreferrer");
+    });
     root.querySelectorAll("[data-pl-view-event]").forEach((card) => {
       const open = () => loadEventDetail(card.dataset.plViewEvent);
       card.addEventListener("click", open);
