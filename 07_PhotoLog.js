@@ -601,6 +601,11 @@
 
   const isSketchAssignment = (event) => event?.is_sketch === true;
 
+  function photographerDisplayName(event) {
+    const name = String(state.photographer?.name || "").trim();
+    return isSketchAssignment(event) ? `${name} · 스케치` : name;
+  }
+
   async function loadSketchFiles(eventCode) {
     const button = root.querySelector("[data-pl-sketch-files]");
     const message = root.querySelector("[data-pl-sketch-files-message]");
@@ -653,7 +658,7 @@
           <p class="pl-kicker" style="margin-top:24px">Event Detail</p>
           <h1 class="pl-heading pl-heading--event">${formatEventDetailName(event.event_name || event.event_code)}</h1>
           <div class="pl-context pl-context--event-detail">
-            <div class="pl-context__item"><div class="pl-context__label">포토그래퍼</div><div class="pl-context__value">${escapeHtml(state.photographer.name)}</div></div>
+            <div class="pl-context__item"><div class="pl-context__label">포토그래퍼</div><div class="pl-context__value">${escapeHtml(photographerDisplayName(event))}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">장소</div><div class="pl-context__value">${escapeHtml(event.location || "장소 미정")}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">대회일</div><div class="pl-context__value">${escapeHtml(formatEventDate(event.event_date))}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">집결</div><div class="pl-context__value">${escapeHtml(formatGatheringTime(event.event_date))}</div></div>
@@ -725,7 +730,7 @@
           <p class="pl-kicker" style="margin-top:24px">Event Report</p>
           <h1 class="pl-heading">포토그래퍼 일지 작성</h1>
           <div class="pl-context">
-            <div class="pl-context__item"><div class="pl-context__label">작성자</div><div class="pl-context__value">${escapeHtml(state.photographer.name)}</div></div>
+            <div class="pl-context__item"><div class="pl-context__label">작성자</div><div class="pl-context__value">${escapeHtml(photographerDisplayName(event))}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">대회</div><div class="pl-context__value">${escapeHtml(event.event_name || event.event_code)}</div></div>
             <div class="pl-context__item"><div class="pl-context__label">촬영일</div><div class="pl-context__value">${escapeHtml(formatEventDate(event.event_date))}</div></div>
           </div>
