@@ -226,13 +226,15 @@
   function estimatedShootingHours(courses) {
     const normalized = (Array.isArray(courses) ? courses : [])
       .map((course) => String(course || "").trim().toLowerCase().replace(/\s+/g, ""));
-    if (normalized.some((course) => ["full", "풀", "42k", "42.195k"].includes(course))) {
+    // Notion option names vary by event: Full/풀/풀코스/42.195K, etc.
+    // Use the longest recognised distance rather than requiring one exact label.
+    if (normalized.some((course) => /full|풀|42(?:\.195)?k?/.test(course))) {
       return { hours: 5, course: "Full" };
     }
-    if (normalized.some((course) => ["half", "하프", "21k", "21.0975k"].includes(course))) {
+    if (normalized.some((course) => /half|하프|21(?:\.0975)?k?/.test(course))) {
       return { hours: 3, course: "Half" };
     }
-    if (normalized.some((course) => ["10k", "10km", "5k", "5km"].includes(course))) {
+    if (normalized.some((course) => /(?:10|5)(?:k|km|킬로|키로)/.test(course))) {
       return { hours: 2, course: "10K 이하" };
     }
     return null;
