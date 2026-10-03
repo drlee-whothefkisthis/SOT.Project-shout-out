@@ -8,12 +8,14 @@ try {
     {
       order: 1,
       name: "2026 안동마라톤대회",
+      matchTerm: "안동",
       startAt: Date.parse("2026-10-04T08:00:00+09:00"),
       completeAt: Date.parse("2026-10-04T17:00:00+09:00")
     },
     {
       order: 2,
       name: "2026 홍천사랑마라톤대회",
+      matchTerm: "홍천",
       startAt: Date.parse("2026-10-04T09:00:00+09:00"),
       completeAt: Date.parse("2026-10-04T15:00:00+09:00")
     }
@@ -42,6 +44,25 @@ try {
     return Math.max(0, Math.min(100, Math.round(
       ((now - event.startAt) / (event.completeAt - event.startAt)) * 100
     )));
+  }
+
+  function getActiveUploadNoticeEvent(eventName, now) {
+    var current = Number.isFinite(now) ? now : Date.now();
+    var name = String(eventName || "").replace(/\s+/g, "");
+    if (!UPLOAD_NOTICE_ENABLED || current >= UPLOAD_NOTICE_END_AT) return null;
+
+    var event = UPLOAD_NOTICE_EVENTS.find(function (item) {
+      var term = String(item.matchTerm || item.name || "").replace(/\s+/g, "");
+      return term && name.indexOf(term) !== -1 && current >= item.startAt && current < item.completeAt;
+    });
+
+    if (!event) return null;
+    return {
+      name: event.name,
+      startAt: event.startAt,
+      completeAt: event.completeAt,
+      endAt: UPLOAD_NOTICE_END_AT
+    };
   }
 
   function syncUploadNoticeSpacing() {
@@ -190,6 +211,10 @@ try {
     show: showSearchGuide
   };
 
+  window.ShoutUploadNotice = {
+    getActiveEvent: getActiveUploadNoticeEvent
+  };
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init, { once: true });
   } else {
@@ -212,6 +237,7 @@ function onReady(fn) {
 onReady(function () {
   const AUTH_LOGIN_URL = "/login";
   const AUTH_INTENT_KEY = "shout_auth_intent";
+  const GALLERY_UPLOAD_NOTICE_KEY = "shout_gallery_upload_notice";
   const MYPAGE_URL = "/mypage";
 
   function isLoggedIn() {
@@ -1012,6 +1038,28 @@ onReady(function () {
     alert(message);
   }
 
+  function prepareGalleryUploadNotice(eventCode) {
+    try {
+      sessionStorage.removeItem(GALLERY_UPLOAD_NOTICE_KEY);
+
+      const race = getRaceByCode(eventCode);
+      const notice = window.ShoutUploadNotice;
+      const activeEvent = notice && typeof notice.getActiveEvent === "function"
+        ? notice.getActiveEvent(race && race.name)
+        : null;
+
+      if (!activeEvent) return;
+      sessionStorage.setItem(GALLERY_UPLOAD_NOTICE_KEY, JSON.stringify({
+        eventCode: String(eventCode || "").trim(),
+        completeAt: activeEvent.completeAt,
+        endAt: activeEvent.endAt,
+        createdAt: Date.now()
+      }));
+    } catch (error) {
+      console.warn("[Main] gallery upload notice preparation failed:", error);
+    }
+  }
+
   function goToGallery(e) {
     if (e) e.preventDefault();
 
@@ -1058,6 +1106,7 @@ onReady(function () {
         console.warn("[Main] tracking URL append failed:", err);
       }
     }
+    prepareGalleryUploadNotice(eventId);
     window.location.href = targetUrl;
   }
 
