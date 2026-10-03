@@ -3,25 +3,19 @@ try {
   var UPLOAD_NOTICE_ENABLED = true;
   var SEARCH_GUIDE_ENABLED = true;
   var SEARCH_GUIDE_END_AT = Date.parse("2026-09-24T00:00:00+09:00");
-  var UPLOAD_NOTICE_END_AT = Date.parse("2026-09-21T00:00:00+09:00");
+  var UPLOAD_NOTICE_END_AT = Date.parse("2026-10-05T00:00:00+09:00");
   var UPLOAD_NOTICE_EVENTS = [
     {
       order: 1,
-      name: "2026 인천송도국제마라톤대회",
-      startAt: Date.parse("2026-09-20T08:00:00+09:00"),
-      completeAt: Date.parse("2026-09-20T16:00:00+09:00")
+      name: "2026 안동마라톤대회",
+      startAt: Date.parse("2026-10-04T08:00:00+09:00"),
+      completeAt: Date.parse("2026-10-04T17:00:00+09:00")
     },
     {
       order: 2,
-      name: "제19회 가평자라섬 전국마라톤대회",
-      startAt: Date.parse("2026-09-20T08:30:00+09:00"),
-      completeAt: Date.parse("2026-09-20T15:00:00+09:00")
-    },
-    {
-      order: 3,
-      name: "2026 한돈런",
-      startAt: Date.parse("2026-09-20T09:00:00+09:00"),
-      completeAt: Date.parse("2026-09-20T14:30:00+09:00")
+      name: "2026 홍천사랑마라톤대회",
+      startAt: Date.parse("2026-10-04T09:00:00+09:00"),
+      completeAt: Date.parse("2026-10-04T15:00:00+09:00")
     }
   ];
   var uploadNoticeEndTimer = null;
