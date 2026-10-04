@@ -10,7 +10,7 @@ try {
       name: "2026 안동마라톤대회",
       matchTerm: "안동",
       startAt: Date.parse("2026-10-04T08:00:00+09:00"),
-      completeAt: Date.parse("2026-10-04T18:00:00+09:00")
+      completeAt: Date.parse("2026-10-04T19:00:00+09:00")
     },
     {
       order: 2,
