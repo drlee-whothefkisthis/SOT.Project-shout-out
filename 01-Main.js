@@ -522,12 +522,6 @@ onReady(function () {
   const RECENT_HOT_COUNT = 4;
   const RECENT_PAST_PAGE_SIZE = 6;
   const RECENT_EARLY_EXPOSURE_MS = 2 * 24 * 60 * 60 * 1000;
-  const TODAY_HOT_EVENT_ORDER = {
-    "260920-sd": 1,
-    "260920-gp": 2,
-    "260920-hn": 3
-  };
-
   let selectedPastMonth = "all";
   let expandedHotEventCode = "";
   let visiblePastCount = RECENT_PAST_PAGE_SIZE;
@@ -546,17 +540,33 @@ onReady(function () {
     return race.publish_at.getTime() <= now.getTime() + RECENT_EARLY_EXPOSURE_MS;
   }
 
+  function recentEventDay(race) {
+    const parts = kstDateParts(race && race.event_date);
+    return parts ? Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)) / 86400000 : -Infinity;
+  }
+
   function compareRecentEvents(a, b) {
-    const aOrder = TODAY_HOT_EVENT_ORDER[a && a.id];
-    const bOrder = TODAY_HOT_EVENT_ORDER[b && b.id];
-    if (aOrder || bOrder) {
-      if (aOrder && bOrder) return aOrder - bOrder;
-      return aOrder ? -1 : 1;
-    }
+    const aGroup = Number.isInteger(a.recent_group) ? a.recent_group : Infinity;
+    const bGroup = Number.isInteger(b.recent_group) ? b.recent_group : Infinity;
+    if (aGroup !== bGroup) return aGroup - bGroup;
+    const aParticipants = Number.isFinite(a.participant_count) ? a.participant_count : -1;
+    const bParticipants = Number.isFinite(b.participant_count) ? b.participant_count : -1;
+    if (aParticipants !== bParticipants) return bParticipants - aParticipants;
     const aDate = eventTimestamp(a);
     const bDate = eventTimestamp(b);
     if (aDate !== bDate) return bDate - aDate;
     return (a.name || "").localeCompare(b.name || "", "ko");
+  }
+
+  function sortRecentEvents(events) {
+    const dates = Array.from(new Set(events.map(recentEventDay).filter(Number.isFinite))).sort((a, b) => b - a);
+    const groups = new Map();
+    let group = -1;
+    dates.forEach((day, index) => {
+      if (index === 0 || dates[index - 1] - day > 1) group += 1;
+      groups.set(day, group);
+    });
+    return events.map(race => ({ ...race, recent_group: groups.get(recentEventDay(race)) })).sort(compareRecentEvents);
   }
 
   function eventTimestamp(race) {
@@ -741,14 +751,17 @@ onReady(function () {
     if (!root) return;
 
     const now = new Date();
-    const homeEvents = racesAll.filter(race => isEarlyHomeEvent(race, now)).sort(compareRecentEvents);
-    const searchableHomeEvents = races.filter(isHomeEvent).sort(compareRecentEvents);
+    const homeEvents = sortRecentEvents(racesAll.filter(race => isEarlyHomeEvent(race, now)));
+    const searchableHomeEvents = races.filter(isHomeEvent);
     if (!homeEvents.length && !searchableHomeEvents.length) {
       renderRecentStatus("선택할 수 있는 대회를 준비 중입니다.", "empty");
       return;
     }
 
-    const hotEvents = homeEvents.slice(0, RECENT_HOT_COUNT);
+    const newestGroup = homeEvents.filter(race => race.recent_group === 0);
+    const hotEvents = newestGroup.length >= RECENT_HOT_COUNT
+      ? newestGroup
+      : homeEvents.slice(0, RECENT_HOT_COUNT);
     const hotCodes = new Set(hotEvents.map(race => race.id));
     const pastEvents = searchableHomeEvents
       .filter(race => !hotCodes.has(race.id) && isPastOrToday(race))
@@ -929,7 +942,10 @@ onReady(function () {
             home_visible: item.home_visible === true ? true : (item.home_visible === false ? false : null),
             home_rank: item.home_rank ?? item.hot_rank ?? null,
             home_score: item.home_score ?? item.hot_score ?? item.popularity_score ?? null,
-            home_priority: item.home_priority ?? null
+            home_priority: item.home_priority ?? null,
+            participant_count: Number.isFinite(Number(item.people)) && item.people !== "" && item.people != null
+              ? Number(item.people)
+              : null
           };
         })
         .filter(Boolean);
