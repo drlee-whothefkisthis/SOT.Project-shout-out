@@ -1,4 +1,33 @@
 (function () {
+const initialPaymentUrlCandidates = [];
+
+function rememberInitialUrl(value) {
+    const url = String(value || "").trim();
+    if (url && !initialPaymentUrlCandidates.includes(url)) {
+        initialPaymentUrlCandidates.push(url);
+    }
+}
+
+rememberInitialUrl(window.location.href);
+rememberInitialUrl(document.URL);
+
+try {
+    if (window.navigation && window.navigation.currentEntry) {
+        rememberInitialUrl(window.navigation.currentEntry.url);
+    }
+} catch (e) {}
+
+try {
+    const navigationEntry = performance.getEntriesByType("navigation")[0];
+    rememberInitialUrl(navigationEntry && navigationEntry.name);
+} catch (e) {}
+
+try {
+    if (window.top && window.top !== window) {
+        rememberInitialUrl(window.top.location.href);
+    }
+} catch (e) {}
+
 function onReady(fn) {
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", fn, { once: true });
@@ -23,17 +52,62 @@ onReady(async function () {
     let sessionId = "";
     const statusMsg = document.getElementById("status-message");
 
-    function readPaymentParams() {
-        const currentUrl = new URL(window.location.href);
-        urlParams = currentUrl.searchParams;
-        return {
-            paymentKey: urlParams.get("paymentKey") || "",
-            orderId: urlParams.get("orderId") || "",
-            amount: urlParams.get("amount") || ""
-        };
+    function readUrlParams(rawUrl) {
+        try {
+            return new URL(rawUrl, window.location.origin).searchParams;
+        } catch (e) {
+            return new URLSearchParams("");
+        }
     }
 
-    function waitForPaymentParams() {
+    function firstParam(params, names) {
+        for (const name of names) {
+            const value = String(params.get(name) || "").trim();
+            if (value) return value;
+        }
+        return "";
+    }
+
+    function readPaymentParams() {
+        const candidates = [];
+        const addCandidate = (value) => {
+            const url = String(value || "").trim();
+            if (url && !candidates.includes(url)) candidates.push(url);
+        };
+
+        addCandidate(window.location.href);
+        addCandidate(document.URL);
+        try {
+            if (window.navigation && window.navigation.currentEntry) {
+                addCandidate(window.navigation.currentEntry.url);
+            }
+        } catch (e) {}
+        try {
+            const navigationEntry = performance.getEntriesByType("navigation")[0];
+            addCandidate(navigationEntry && navigationEntry.name);
+        } catch (e) {}
+        initialPaymentUrlCandidates.forEach(addCandidate);
+
+        urlParams = readUrlParams(window.location.href);
+        const result = {
+            paymentKey: "",
+            orderId: "",
+            amount: "",
+            sessionId: ""
+        };
+
+        for (const candidate of candidates) {
+            const params = readUrlParams(candidate);
+            if (!result.paymentKey) result.paymentKey = firstParam(params, ["paymentKey", "payment_key"]);
+            if (!result.orderId) result.orderId = firstParam(params, ["orderId", "order_id", "ctx"]);
+            if (!result.amount) result.amount = firstParam(params, ["amount"]);
+            if (!result.sessionId) result.sessionId = firstParam(params, ["session_id", "sid"]);
+        }
+
+        return result;
+    }
+
+    function waitForPaymentParams(checkoutContext) {
         return new Promise((resolve) => {
             const visibleTimeoutMs = 4000;
             let visibleSince = document.visibilityState === "hidden" ? 0 : Date.now();
@@ -58,7 +132,9 @@ onReady(async function () {
                 if (settled) return;
 
                 const params = readPaymentParams();
-                if (params.paymentKey && params.orderId && params.amount) {
+                const hasOrderId = Boolean(params.orderId || (checkoutContext && checkoutContext.order_id));
+                const hasAmount = Boolean(params.amount || (checkoutContext && checkoutContext.amount));
+                if (params.paymentKey && hasOrderId && hasAmount) {
                     finish(params);
                     return;
                 }
@@ -70,8 +146,8 @@ onReady(async function () {
                     if (Date.now() - visibleSince >= visibleTimeoutMs) {
                         console.warn("[Payment Success] required redirect params missing", {
                             hasPaymentKey: Boolean(params.paymentKey),
-                            hasOrderId: Boolean(params.orderId),
-                            hasAmount: Boolean(params.amount),
+                            hasOrderId: hasOrderId,
+                            hasAmount: hasAmount,
                             hrefLength: window.location.href.length
                         });
                         finish(params);
@@ -128,11 +204,12 @@ onReady(async function () {
         }
     }
 
-    const paymentParams = await waitForPaymentParams();
+    const checkoutContextAtEntry = readCheckoutContext();
+    const paymentParams = await waitForPaymentParams(checkoutContextAtEntry);
     paymentKey = paymentParams.paymentKey;
-    orderId = paymentParams.orderId;
-    amount = paymentParams.amount;
-    sessionId = urlParams.get("session_id") || sessionStorage.getItem("sot_session_id") || "";
+    orderId = paymentParams.orderId || String(checkoutContextAtEntry.order_id || "").trim();
+    amount = paymentParams.amount || String(checkoutContextAtEntry.amount || "").trim();
+    sessionId = paymentParams.sessionId || sessionStorage.getItem("sot_session_id") || "";
 
     if (!paymentKey || !orderId || !amount) {
         alert("잘못된 접근입니다.");
