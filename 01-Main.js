@@ -3,21 +3,28 @@ try {
   var UPLOAD_NOTICE_ENABLED = true;
   var SEARCH_GUIDE_ENABLED = true;
   var SEARCH_GUIDE_END_AT = Date.parse("2026-09-24T00:00:00+09:00");
-  var UPLOAD_NOTICE_END_AT = Date.parse("2026-10-05T00:00:00+09:00");
+  var UPLOAD_NOTICE_END_AT = Date.parse("2026-10-06T00:00:00+09:00");
   var UPLOAD_NOTICE_EVENTS = [
     {
       order: 1,
-      name: "2026 안동마라톤대회",
-      matchTerm: "안동",
-      startAt: Date.parse("2026-10-04T08:00:00+09:00"),
-      completeAt: Date.parse("2026-10-04T19:00:00+09:00")
+      name: "2026 한경서울마라톤",
+      matchTerm: "한경서울",
+      startAt: Date.parse("2026-10-05T07:30:00+09:00"),
+      completeAt: Date.parse("2026-10-05T12:30:00+09:00")
     },
     {
       order: 2,
-      name: "2026 홍천사랑마라톤대회",
-      matchTerm: "홍천",
-      startAt: Date.parse("2026-10-04T09:00:00+09:00"),
-      completeAt: Date.parse("2026-10-04T15:00:00+09:00")
+      name: "제12회 시흥시 전국하프마라톤",
+      matchTerm: "시흥",
+      startAt: Date.parse("2026-10-05T09:00:00+09:00"),
+      completeAt: Date.parse("2026-10-05T14:00:00+09:00")
+    },
+    {
+      order: 3,
+      name: "제23회 강남국제평화마라톤",
+      matchTerm: "강남",
+      startAt: Date.parse("2026-10-05T09:00:00+09:00"),
+      completeAt: Date.parse("2026-10-05T17:00:00+09:00")
     }
   ];
   var uploadNoticeEndTimer = null;
