@@ -16,12 +16,91 @@ onReady(async function () {
     const accessToken = sessionStorage.getItem("shout_access_token") || "";
     const MY_PAGE_PATH = "/mypage";
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const paymentKey =       urlParams.get("paymentKey");
-    const orderId = urlParams.get("orderId");
-    const amount = urlParams.get("amount");
-    const sessionId = urlParams.get("session_id") || sessionStorage.getItem("sot_session_id") || "";
+    let urlParams = new URLSearchParams(window.location.search);
+    let paymentKey = "";
+    let orderId = "";
+    let amount = "";
+    let sessionId = "";
     const statusMsg = document.getElementById("status-message");
+
+    function readPaymentParams() {
+        const currentUrl = new URL(window.location.href);
+        urlParams = currentUrl.searchParams;
+        return {
+            paymentKey: urlParams.get("paymentKey") || "",
+            orderId: urlParams.get("orderId") || "",
+            amount: urlParams.get("amount") || ""
+        };
+    }
+
+    function waitForPaymentParams() {
+        return new Promise((resolve) => {
+            const visibleTimeoutMs = 4000;
+            let visibleSince = document.visibilityState === "hidden" ? 0 : Date.now();
+            let retryTimer = null;
+            let settled = false;
+
+            function cleanup() {
+                if (retryTimer) clearTimeout(retryTimer);
+                window.removeEventListener("pageshow", handleResume);
+                window.removeEventListener("focus", handleResume);
+                document.removeEventListener("visibilitychange", handleVisibilityChange);
+            }
+
+            function finish(params) {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                resolve(params);
+            }
+
+            function check() {
+                if (settled) return;
+
+                const params = readPaymentParams();
+                if (params.paymentKey && params.orderId && params.amount) {
+                    finish(params);
+                    return;
+                }
+
+                if (document.visibilityState === "hidden") {
+                    visibleSince = 0;
+                } else {
+                    if (!visibleSince) visibleSince = Date.now();
+                    if (Date.now() - visibleSince >= visibleTimeoutMs) {
+                        console.warn("[Payment Success] required redirect params missing", {
+                            hasPaymentKey: Boolean(params.paymentKey),
+                            hasOrderId: Boolean(params.orderId),
+                            hasAmount: Boolean(params.amount),
+                            hrefLength: window.location.href.length
+                        });
+                        finish(params);
+                        return;
+                    }
+                }
+
+                retryTimer = setTimeout(check, 150);
+            }
+
+            function handleResume() {
+                visibleSince = Date.now();
+                check();
+            }
+
+            function handleVisibilityChange() {
+                if (document.visibilityState === "hidden") {
+                    visibleSince = 0;
+                } else {
+                    handleResume();
+                }
+            }
+
+            window.addEventListener("pageshow", handleResume);
+            window.addEventListener("focus", handleResume);
+            document.addEventListener("visibilitychange", handleVisibilityChange);
+            check();
+        });
+    }
 
     function readCheckoutContext() {
         try {
@@ -49,10 +128,22 @@ onReady(async function () {
         }
     }
 
+    const paymentParams = await waitForPaymentParams();
+    paymentKey = paymentParams.paymentKey;
+    orderId = paymentParams.orderId;
+    amount = paymentParams.amount;
+    sessionId = urlParams.get("session_id") || sessionStorage.getItem("sot_session_id") || "";
+
     if (!paymentKey || !orderId || !amount) {
         alert("잘못된 접근입니다.");
         return;
     }
+
+    if (window.__shoutPaymentConfirmStarted) {
+        console.warn("[Payment Success] duplicate confirm prevented", { orderId: orderId });
+        return;
+    }
+    window.__shoutPaymentConfirmStarted = true;
 
     if (!usersId || !accessToken) {
         if (statusMsg) statusMsg.innerText = "결제 승인을 위해 다시 로그인해주세요.";
