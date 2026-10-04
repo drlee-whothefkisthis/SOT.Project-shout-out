@@ -237,7 +237,6 @@ function onReady(fn) {
 onReady(function () {
   const AUTH_LOGIN_URL = "/login";
   const AUTH_INTENT_KEY = "shout_auth_intent";
-  const GALLERY_UPLOAD_NOTICE_KEY = "shout_gallery_upload_notice";
   const MYPAGE_URL = "/mypage";
 
   function isLoggedIn() {
@@ -1038,26 +1037,59 @@ onReady(function () {
     alert(message);
   }
 
-  function prepareGalleryUploadNotice(eventCode) {
-    try {
-      sessionStorage.removeItem(GALLERY_UPLOAD_NOTICE_KEY);
+  function showGalleryUploadNoticeBeforeNavigation(eventCode, targetUrl) {
+    const race = getRaceByCode(eventCode);
+    const notice = window.ShoutUploadNotice;
+    const activeEvent = notice && typeof notice.getActiveEvent === "function"
+      ? notice.getActiveEvent(race && race.name)
+      : null;
 
-      const race = getRaceByCode(eventCode);
-      const notice = window.ShoutUploadNotice;
-      const activeEvent = notice && typeof notice.getActiveEvent === "function"
-        ? notice.getActiveEvent(race && race.name)
-        : null;
+    if (!activeEvent) return false;
 
-      if (!activeEvent) return;
-      sessionStorage.setItem(GALLERY_UPLOAD_NOTICE_KEY, JSON.stringify({
-        eventCode: String(eventCode || "").trim(),
-        completeAt: activeEvent.completeAt,
-        endAt: activeEvent.endAt,
-        createdAt: Date.now()
-      }));
-    } catch (error) {
-      console.warn("[Main] gallery upload notice preparation failed:", error);
-    }
+    const existing = document.getElementById("main-gallery-upload-notice");
+    if (existing) return true;
+
+    const modal = document.createElement("section");
+    modal.id = "main-gallery-upload-notice";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-labelledby", "main-gallery-upload-notice-title");
+    modal.innerHTML =
+      '<div class="main-gallery-upload-notice__panel">' +
+        '<p class="main-gallery-upload-notice__eyebrow">UPLOAD NOTICE</p>' +
+        '<h2 id="main-gallery-upload-notice-title">사진 업로드 진행 중</h2>' +
+        '<p class="main-gallery-upload-notice__desc">현재 촬영 사진을 순차적으로 업로드하고 있어요.<br>업로드가 완료되기 전까지 검색 결과에 모든 사진이 표시되지 않을 수 있습니다.</p>' +
+        '<button type="button" class="main-gallery-upload-notice__confirm">확인</button>' +
+      '</div>';
+
+    const closeNotice = function () {
+      modal.remove();
+      document.body.classList.remove("has-main-gallery-upload-notice");
+      document.removeEventListener("keydown", onKeyDown);
+    };
+    const onKeyDown = function (event) {
+      if (event.key === "Escape") closeNotice();
+    };
+
+    modal.addEventListener("click", function (event) {
+      if (event.target === modal) {
+        closeNotice();
+        return;
+      }
+      if (event.target.closest(".main-gallery-upload-notice__confirm")) {
+        document.removeEventListener("keydown", onKeyDown);
+        window.location.href = targetUrl;
+      }
+    });
+
+    document.body.appendChild(modal);
+    document.body.classList.add("has-main-gallery-upload-notice");
+    document.addEventListener("keydown", onKeyDown);
+    window.requestAnimationFrame(function () {
+      const confirmButton = modal.querySelector(".main-gallery-upload-notice__confirm");
+      if (confirmButton) confirmButton.focus();
+    });
+    return true;
   }
 
   function goToGallery(e) {
@@ -1106,7 +1138,7 @@ onReady(function () {
         console.warn("[Main] tracking URL append failed:", err);
       }
     }
-    prepareGalleryUploadNotice(eventId);
+    if (showGalleryUploadNoticeBeforeNavigation(eventId, targetUrl)) return;
     window.location.href = targetUrl;
   }
 

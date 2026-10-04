@@ -101,7 +101,6 @@ window.ShoutGallery.getGalleryGridCoveredBottom = function (gridEl) {
   const PACKAGE_THRESHOLD = 5; 
   const PACKAGE_PRICE = 24900; 
   const CART_PAGE_PATH = "/cart";
-  const GALLERY_UPLOAD_NOTICE_KEY = "shout_gallery_upload_notice";
 
   const BUBBLE_EVENT_OBJ_API = "https://plp-62309.bubbleapps.io/api/1.1/obj/event/";
 
@@ -217,74 +216,6 @@ window.ShoutGallery.getGalleryGridCoveredBottom = function (gridEl) {
   }
   function getQueryParam(name) {
     return new URLSearchParams(window.location.search).get(name);
-  }
-
-  function consumeGalleryUploadNotice(eventCode) {
-    try {
-      const raw = sessionStorage.getItem(GALLERY_UPLOAD_NOTICE_KEY);
-      sessionStorage.removeItem(GALLERY_UPLOAD_NOTICE_KEY);
-      if (!raw) return null;
-
-      const payload = JSON.parse(raw);
-      const now = Date.now();
-      const completeAt = Number(payload && payload.completeAt);
-      const endAt = Number(payload && payload.endAt);
-      const expectedEventCode = String(payload && payload.eventCode || "").trim();
-      const currentEventCode = String(eventCode || "").trim();
-
-      if (!expectedEventCode || expectedEventCode !== currentEventCode) return null;
-      if (!Number.isFinite(completeAt) || now >= completeAt) return null;
-      if (Number.isFinite(endAt) && now >= endAt) return null;
-      return { completeAt };
-    } catch (error) {
-      console.warn("[Gallery] upload notice read failed:", error);
-      return null;
-    }
-  }
-
-  function showGalleryUploadNotice(eventCode) {
-    const payload = consumeGalleryUploadNotice(eventCode);
-    if (!payload || document.getElementById("gallery-upload-notice")) return;
-
-    const modal = document.createElement("section");
-    modal.id = "gallery-upload-notice";
-    modal.setAttribute("role", "dialog");
-    modal.setAttribute("aria-modal", "true");
-    modal.setAttribute("aria-labelledby", "gallery-upload-notice-title");
-    modal.innerHTML =
-      '<div class="gallery-upload-notice__panel">' +
-        '<p class="gallery-upload-notice__eyebrow">UPLOAD NOTICE</p>' +
-        '<h2 id="gallery-upload-notice-title">사진 업로드 진행 중</h2>' +
-        '<p class="gallery-upload-notice__desc">현재 촬영 사진을 순차적으로 업로드하고 있어요.<br>업로드가 완료되기 전까지 검색 결과에 모든 사진이 표시되지 않을 수 있습니다.</p>' +
-        '<button type="button" class="gallery-upload-notice__confirm">확인</button>' +
-      '</div>';
-
-    let closeTimer = null;
-    const closeNotice = () => {
-      if (closeTimer) window.clearTimeout(closeTimer);
-      closeTimer = null;
-      modal.remove();
-      document.body.classList.remove("has-gallery-upload-notice");
-      document.removeEventListener("keydown", onKeyDown);
-    };
-    const onKeyDown = (event) => {
-      if (event.key === "Escape") closeNotice();
-    };
-
-    modal.addEventListener("click", (event) => {
-      if (event.target === modal || event.target.closest(".gallery-upload-notice__confirm")) {
-        closeNotice();
-      }
-    });
-
-    document.body.appendChild(modal);
-    document.body.classList.add("has-gallery-upload-notice");
-    document.addEventListener("keydown", onKeyDown);
-    closeTimer = window.setTimeout(closeNotice, Math.max(0, payload.completeAt - Date.now()));
-    window.requestAnimationFrame(() => {
-      const confirmButton = modal.querySelector(".gallery-upload-notice__confirm");
-      if (confirmButton) confirmButton.focus();
-    });
   }
 
   async function fetchEventMeta(eventCode) {
@@ -2125,9 +2056,6 @@ function createCardEl(photo, sizeClass) {
     hydrateLocalSelectedFromGlobal(); 
     ensureModalUI();
 
-    const pageEventCode = getQueryParam("event_code");
-    showGalleryUploadNotice(pageEventCode);
-
     const mainEl = document.getElementById("galleryGrid");
     if (!mainEl) return;
 
@@ -2143,7 +2071,7 @@ function createCardEl(photo, sizeClass) {
     if (USE_TEST_IMAGES) {
       list = buildTestPhotos(TEST_COUNT);
     } else {
-      const eventCode = pageEventCode;
+      const eventCode = getQueryParam("event_code");
       const query = getQueryParam("q");
       const searchValue = String(query || "").trim();
 
