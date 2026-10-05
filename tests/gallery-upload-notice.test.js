@@ -11,9 +11,9 @@ const galleryRuntimeSource = fs.readFileSync(path.join(root, "02-Gallery-B.runti
 const galleryHeadSource = fs.readFileSync(path.join(root, "02-Gallery-H.css"), "utf8");
 
 assert.match(mainSource, /matchTerm:\s*"한경서울"/);
-assert.match(mainSource, /completeAt:\s*Date\.parse\("2026-10-05T12:30:00\+09:00"\)/);
+assert.match(mainSource, /completeAt:\s*Date\.parse\("2026-10-05T13:30:00\+09:00"\)/);
 assert.match(mainSource, /matchTerm:\s*"시흥"/);
-assert.match(mainSource, /completeAt:\s*Date\.parse\("2026-10-05T14:00:00\+09:00"\)/);
+assert.match(mainSource, /completeAt:\s*Date\.parse\("2026-10-05T15:00:00\+09:00"\)/);
 assert.match(mainSource, /matchTerm:\s*"강남"/);
 assert.match(mainSource, /completeAt:\s*Date\.parse\("2026-10-05T17:00:00\+09:00"\)/);
 assert.match(mainSource, /function showGalleryUploadNoticeBeforeNavigation\(eventCode, targetUrl\)/);
@@ -44,13 +44,13 @@ const context = {
       name: "2026 한경서울마라톤",
       matchTerm: "한경서울",
       startAt: Date.parse("2026-10-05T07:30:00+09:00"),
-      completeAt: Date.parse("2026-10-05T12:30:00+09:00")
+      completeAt: Date.parse("2026-10-05T13:30:00+09:00")
     },
     {
       name: "제12회 시흥시 전국하프마라톤",
       matchTerm: "시흥",
       startAt: Date.parse("2026-10-05T09:00:00+09:00"),
-      completeAt: Date.parse("2026-10-05T14:00:00+09:00")
+      completeAt: Date.parse("2026-10-05T15:00:00+09:00")
     },
     {
       name: "제23회 강남국제평화마라톤",
@@ -63,22 +63,22 @@ const context = {
 vm.runInNewContext(`${activeEventMatch[1]}\nthis.getActive = getActiveUploadNoticeEvent;`, context);
 
 assert.equal(
-  context.getActive("2026 한경서울마라톤", Date.parse("2026-10-05T12:29:59+09:00")).name,
+  context.getActive("2026 한경서울마라톤", Date.parse("2026-10-05T13:29:59+09:00")).name,
   "2026 한경서울마라톤"
 );
 assert.equal(
-  context.getActive("2026 한경서울마라톤", Date.parse("2026-10-05T12:30:00+09:00")),
+  context.getActive("2026 한경서울마라톤", Date.parse("2026-10-05T13:30:00+09:00")),
   null,
-  "Yeouido notice must stop at 12:30"
+  "Yeouido notice must stop at 13:30"
 );
 assert.equal(
-  context.getActive("제12회 시흥시 전국하프마라톤", Date.parse("2026-10-05T13:59:59+09:00")).name,
+  context.getActive("제12회 시흥시 전국하프마라톤", Date.parse("2026-10-05T14:59:59+09:00")).name,
   "제12회 시흥시 전국하프마라톤"
 );
 assert.equal(
-  context.getActive("제12회 시흥시 전국하프마라톤", Date.parse("2026-10-05T14:00:00+09:00")),
+  context.getActive("제12회 시흥시 전국하프마라톤", Date.parse("2026-10-05T15:00:00+09:00")),
   null,
-  "Siheung notice must stop at 14:00"
+  "Siheung notice must stop at 15:00"
 );
 assert.equal(
   context.getActive("제23회 강남국제평화마라톤", Date.parse("2026-10-05T16:59:59+09:00")).name,

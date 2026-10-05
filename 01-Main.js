@@ -10,14 +10,14 @@ try {
       name: "2026 한경서울마라톤",
       matchTerm: "한경서울",
       startAt: Date.parse("2026-10-05T07:30:00+09:00"),
-      completeAt: Date.parse("2026-10-05T12:30:00+09:00")
+      completeAt: Date.parse("2026-10-05T13:30:00+09:00")
     },
     {
       order: 2,
       name: "제12회 시흥시 전국하프마라톤",
       matchTerm: "시흥",
       startAt: Date.parse("2026-10-05T09:00:00+09:00"),
-      completeAt: Date.parse("2026-10-05T14:00:00+09:00")
+      completeAt: Date.parse("2026-10-05T15:00:00+09:00")
     },
     {
       order: 3,
