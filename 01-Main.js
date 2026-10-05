@@ -7,24 +7,10 @@ try {
   var UPLOAD_NOTICE_EVENTS = [
     {
       order: 1,
-      name: "2026 한경서울마라톤",
-      matchTerm: "한경서울",
-      startAt: Date.parse("2026-10-05T07:30:00+09:00"),
-      completeAt: Date.parse("2026-10-05T13:30:00+09:00")
-    },
-    {
-      order: 2,
-      name: "제12회 시흥시 전국하프마라톤",
-      matchTerm: "시흥",
-      startAt: Date.parse("2026-10-05T09:00:00+09:00"),
-      completeAt: Date.parse("2026-10-05T15:00:00+09:00")
-    },
-    {
-      order: 3,
       name: "제23회 강남국제평화마라톤",
       matchTerm: "강남",
       startAt: Date.parse("2026-10-05T09:00:00+09:00"),
-      completeAt: Date.parse("2026-10-05T17:00:00+09:00")
+      completeAt: Date.parse("2026-10-05T22:00:00+09:00")
     }
   ];
   var uploadNoticeEndTimer = null;
