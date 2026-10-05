@@ -9,7 +9,6 @@ try {
       order: 1,
       name: "2026 한경서울마라톤",
       matchTerm: "한경서울",
-      additionalUpload: true,
       startAt: Date.parse("2026-10-05T07:30:00+09:00"),
       completeAt: Date.parse("2026-10-05T13:30:00+09:00")
     },
@@ -52,26 +51,6 @@ try {
     return Math.max(0, Math.min(100, Math.round(
       ((now - event.startAt) / (event.completeAt - event.startAt)) * 100
     )));
-  }
-
-  function renderUploadNoticeEvent(event, now) {
-    var status;
-    var track = "";
-    if (event.additionalUpload) {
-      status = "추가 업로드 중";
-    } else {
-      var percent = getUploadNoticePercent(event, now);
-      status = percent >= 100 ? "업로드 완료" : percent + "% 업로드";
-      track = '<div class="shout-upload-notice-track" aria-label="' + event.name + ' 사진 업로드 진행률">' +
-        '<span class="shout-upload-notice-fill" style="width:' + percent + '%"></span>' +
-      '</div>';
-    }
-    return '<div class="shout-upload-notice-event">' +
-      '<div class="shout-upload-notice-event-head">' +
-        '<span class="shout-upload-notice-event-name">' + event.name + '</span>' +
-        '<span class="shout-upload-notice-event-status">' + status + '</span>' +
-      '</div>' + track +
-    '</div>';
   }
 
   function getActiveUploadNoticeEvent(eventName, now) {
@@ -125,7 +104,17 @@ try {
     if (!list) return false;
 
     list.innerHTML = activeEvents.map(function (event) {
-      return renderUploadNoticeEvent(event, now);
+      var percent = getUploadNoticePercent(event, now);
+      var status = percent >= 100 ? "업로드 완료" : percent + "% 업로드";
+      return '<div class="shout-upload-notice-event">' +
+        '<div class="shout-upload-notice-event-head">' +
+          '<span class="shout-upload-notice-event-name">' + event.name + '</span>' +
+          '<span class="shout-upload-notice-event-status">' + status + '</span>' +
+        '</div>' +
+        '<div class="shout-upload-notice-track" aria-label="' + event.name + ' 사진 업로드 진행률">' +
+          '<span class="shout-upload-notice-fill" style="width:' + percent + '%"></span>' +
+        '</div>' +
+      '</div>';
     }).join("");
     syncUploadNoticeSpacing();
     return true;

@@ -11,7 +11,6 @@ const galleryRuntimeSource = fs.readFileSync(path.join(root, "02-Gallery-B.runti
 const galleryHeadSource = fs.readFileSync(path.join(root, "02-Gallery-H.css"), "utf8");
 
 assert.match(mainSource, /matchTerm:\s*"한경서울"/);
-assert.match(mainSource, /additionalUpload:\s*true/);
 assert.match(mainSource, /completeAt:\s*Date\.parse\("2026-10-05T13:30:00\+09:00"\)/);
 assert.match(mainSource, /matchTerm:\s*"시흥"/);
 assert.match(mainSource, /completeAt:\s*Date\.parse\("2026-10-05T15:00:00\+09:00"\)/);
@@ -33,28 +32,6 @@ const activeEventMatch = mainSource.match(
   /(function getActiveUploadNoticeEvent\(eventName, now\) \{[\s\S]*?\n  \})\n\n  function syncUploadNoticeSpacing/
 );
 assert.ok(activeEventMatch, "active upload-event matcher must remain extractable");
-
-const renderEventMatch = mainSource.match(
-  /(function getUploadNoticePercent\(event, now\) \{[\s\S]*?\n  \})\n\n  (function renderUploadNoticeEvent\(event, now\) \{[\s\S]*?\n  \})\n\n  function getActiveUploadNoticeEvent/
-);
-assert.ok(renderEventMatch, "upload-event renderer must remain extractable");
-const renderContext = { Date, Math };
-vm.runInNewContext(`${renderEventMatch[1]}\n${renderEventMatch[2]}\nthis.renderEvent = renderUploadNoticeEvent;`, renderContext);
-const yeouidoHtml = renderContext.renderEvent(
-  { name: "2026 한경서울마라톤", additionalUpload: true },
-  Date.parse("2026-10-05T14:00:00+09:00")
-);
-assert.match(yeouidoHtml, /추가 업로드 중/);
-assert.doesNotMatch(yeouidoHtml, /shout-upload-notice-track|% 업로드|업로드 완료/);
-const siheungHtml = renderContext.renderEvent(
-  {
-    name: "제12회 시흥시 전국하프마라톤",
-    startAt: Date.parse("2026-10-05T09:00:00+09:00"),
-    completeAt: Date.parse("2026-10-05T15:00:00+09:00")
-  },
-  Date.parse("2026-10-05T14:00:00+09:00")
-);
-assert.match(siheungHtml, /shout-upload-notice-track|% 업로드/);
 
 const context = {
   Date,
