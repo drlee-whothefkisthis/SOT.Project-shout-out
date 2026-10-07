@@ -251,7 +251,7 @@
       minute: "2-digit",
       hour12: false,
     }).format(value);
-    return `${formatTime(start)}–${formatTime(finish)} · ${estimate.course} 기준`;
+    return `${formatTime(start)}–${formatTime(finish)}`;
   }
 
   function eventDateValue(value) {
