@@ -241,6 +241,76 @@ onReady(function () {
   let activeStandardImages = 0;
   const pendingStandardImages = [];
 
+  function ensureStandardLoadingStyle() {
+    if (document.getElementById("mp-standard-loading-style")) return;
+    const style = document.createElement("style");
+    style.id = "mp-standard-loading-style";
+    style.textContent = `
+      .mp-standard-placeholder {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        background: #edf1f5;
+        color: #617080;
+        font-size: 11px;
+        text-align: center;
+        pointer-events: none;
+      }
+      .mp-standard-spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid #cbd5df;
+        border-top-color: #42627f;
+        border-radius: 50%;
+        animation: mp-standard-spin .8s linear infinite;
+      }
+      .purchased-card.is-standard-pending .purchased-image::before,
+      .purchased-card.is-standard-pending .purchased-image::after,
+      .purchased-card.is-standard-pending .purchased-img-wrapper::before,
+      .purchased-card.is-standard-pending .purchased-img-wrapper::after {
+        opacity: 0 !important;
+      }
+      @keyframes mp-standard-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) {
+        .mp-standard-spinner { animation: none; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function showCardImageLoading(card) {
+    ensureStandardLoadingStyle();
+    card.classList.add("is-standard-pending");
+    const imgBox = card.querySelector(".purchased-image") || card.querySelector(".purchased-img-wrapper");
+    const target = imgBox || card;
+    target.style.position = "relative";
+    if (imgBox) imgBox.style.backgroundImage = "none";
+    const img = target.querySelector("img");
+    if (img) img.style.visibility = "hidden";
+
+    const placeholder = document.createElement("span");
+    placeholder.className = "mp-standard-placeholder";
+    const spinner = document.createElement("span");
+    spinner.className = "mp-standard-spinner";
+    spinner.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = "사진 불러오는 중";
+    placeholder.append(spinner, label);
+    target.appendChild(placeholder);
+  }
+
+  function showCardImageError(card) {
+    const placeholder = card.querySelector(".mp-standard-placeholder");
+    if (!placeholder) return;
+    placeholder.replaceChildren();
+    placeholder.textContent = "사진을 불러오지 못했습니다";
+  }
+
   function setCardImage(card, url) {
     if (!url) return;
     const imgBox = card.querySelector(".purchased-image") || card.querySelector(".purchased-img-wrapper");
@@ -251,8 +321,14 @@ onReady(function () {
       imgBox.style.backgroundRepeat = "no-repeat";
     } else {
       const img = card.querySelector("img");
-      if (img) img.src = url;
+      if (img) {
+        img.src = url;
+        img.style.visibility = "visible";
+      }
     }
+    const placeholder = card.querySelector(".mp-standard-placeholder");
+    if (placeholder) placeholder.remove();
+    card.classList.remove("is-standard-pending");
   }
 
   function isStandardImageUrl(value) {
@@ -290,7 +366,9 @@ onReady(function () {
             setCardImage(task.card, url);
           }
         } catch (err) {
-          // Keep the preview as a placeholder if signing or image loading fails.
+          if (task.generation === standardImageGeneration && task.card.isConnected) {
+            showCardImageError(task.card);
+          }
           console.warn("[MyPage] standard display unavailable", err);
         } finally {
           activeStandardImages -= 1;
@@ -364,7 +442,7 @@ onReady(function () {
         card.dataset.bib = String(purchase.searched_bib || "");
         card.dataset.fileName = fileName;
 
-        setCardImage(card, previewUrl);
+        showCardImageLoading(card);
         listEl.appendChild(card);
         if (standardImageObserver) standardImageObserver.observe(card);
         else queueStandardImage(card, fileName, generation);
