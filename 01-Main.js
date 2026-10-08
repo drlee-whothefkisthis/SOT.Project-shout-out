@@ -112,16 +112,10 @@ try {
       : "오늘 촬영 사진을 순차적으로 업로드하고 있어요.";
 
     list.innerHTML = activeEvents.map(function (event) {
-      if (event.progressStartAt && now < event.progressStartAt) {
-        return '<div class="shout-upload-notice-event">' +
-          '<div class="shout-upload-notice-event-head">' +
-            '<span class="shout-upload-notice-event-name">' + event.name + '</span>' +
-            '<span class="shout-upload-notice-event-status">업로드 대기중</span>' +
-          '</div>' +
-        '</div>';
-      }
       var percent = getUploadNoticePercent(event, now);
-      var status = percent >= 100 ? "업로드 완료" : percent + "% 업로드";
+      var waitingForEvent = event.progressStartAt && now < event.progressStartAt;
+      var status = waitingForEvent ? "업로드 대기중" :
+        (percent >= 100 ? "업로드 완료" : percent + "% 업로드");
       return '<div class="shout-upload-notice-event">' +
         '<div class="shout-upload-notice-event-head">' +
           '<span class="shout-upload-notice-event-name">' + event.name + '</span>' +

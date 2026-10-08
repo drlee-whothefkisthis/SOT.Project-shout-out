@@ -18,7 +18,7 @@ assert.match(mainSource, /startAt:\s*Date\.parse\("2026-10-09T08:00:00\+09:00"\)
 assert.match(mainSource, /progressStartAt:\s*Date\.parse\("2026-10-09T09:30:00\+09:00"\)/);
 assert.match(mainSource, /completeAt:\s*Date\.parse\("2026-10-09T13:00:00\+09:00"\)/);
 assert.match(mainSource, /UPLOAD_NOTICE_END_AT = Date\.parse\("2026-10-10T00:00:00\+09:00"\)/);
-assert.match(mainSource, /shout-upload-notice-event-status">업로드 대기중/);
+assert.match(mainSource, /waitingForEvent \? "업로드 대기중"/);
 assert.match(mainSource, /const waiting = activeEvent\.progressStartAt && Date\.now\(\) < activeEvent\.progressStartAt/);
 assert.match(mainSource, /function showGalleryUploadNoticeBeforeNavigation\(eventCode, targetUrl\)/);
 assert.match(mainSource, />확인<\/button>/);
@@ -107,5 +107,33 @@ assert.equal(percentContext.getPercent(hongseong, Date.parse("2026-10-09T09:30:0
 assert.equal(percentContext.getPercent(hongseong, Date.parse("2026-10-09T11:15:00+09:00")), 51);
 assert.equal(percentContext.getPercent(hongseong, Date.parse("2026-10-09T12:59:59+09:00")), 99);
 assert.equal(percentContext.getPercent(hongseong, Date.parse("2026-10-09T13:00:00+09:00")), 100);
+
+const updateMatch = mainSource.match(
+  /(function updateUploadNotice\(\) \{[\s\S]*?\n  \})\n\n  function createUploadNotice/
+);
+assert.ok(updateMatch, "upload notice renderer must remain extractable");
+let renderNow = Date.parse("2026-10-09T09:29:59+09:00");
+const elements = {
+  "shout-upload-notice-list": { innerHTML: "" },
+  "shout-upload-notice-title": { textContent: "" },
+  "shout-upload-notice-desc": { textContent: "" }
+};
+const renderContext = {
+  Date: { now: () => renderNow },
+  UPLOAD_NOTICE_EVENTS: context.UPLOAD_NOTICE_EVENTS,
+  document: { getElementById: (id) => elements[id] },
+  isUploadNoticeActive: () => true,
+  getUploadNoticePercent: percentContext.getPercent,
+  syncUploadNoticeSpacing: () => {}
+};
+vm.runInNewContext(`${updateMatch[1]}\nthis.update = updateUploadNotice;`, renderContext);
+renderContext.update();
+assert.match(elements["shout-upload-notice-list"].innerHTML, /shout-upload-notice-track/);
+assert.match(elements["shout-upload-notice-list"].innerHTML, /width:0%/);
+assert.match(elements["shout-upload-notice-list"].innerHTML, /업로드 대기중/);
+renderNow = Date.parse("2026-10-09T09:30:00+09:00");
+renderContext.update();
+assert.match(elements["shout-upload-notice-list"].innerHTML, /width:1%/);
+assert.match(elements["shout-upload-notice-list"].innerHTML, /1% 업로드/);
 
 console.log("main pre-navigation upload-notice regression checks passed");
