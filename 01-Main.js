@@ -3,18 +3,20 @@ try {
   var UPLOAD_NOTICE_ENABLED = true;
   var SEARCH_GUIDE_ENABLED = true;
   var SEARCH_GUIDE_END_AT = Date.parse("2026-09-24T00:00:00+09:00");
-  var UPLOAD_NOTICE_END_AT = Date.parse("2026-10-06T00:00:00+09:00");
+  var UPLOAD_NOTICE_END_AT = Date.parse("2026-10-10T00:00:00+09:00");
   var UPLOAD_NOTICE_EVENTS = [
     {
       order: 1,
-      name: "제23회 강남국제평화마라톤",
-      matchTerm: "강남",
-      startAt: Date.parse("2026-10-05T09:00:00+09:00"),
-      completeAt: Date.parse("2026-10-05T22:00:00+09:00")
+      name: "2026 제26회 홍성마라톤",
+      matchTerm: "홍성",
+      startAt: Date.parse("2026-10-09T08:00:00+09:00"),
+      progressStartAt: Date.parse("2026-10-09T09:30:00+09:00"),
+      completeAt: Date.parse("2026-10-09T13:00:00+09:00")
     }
   ];
   var uploadNoticeEndTimer = null;
   var uploadProgressTimer = null;
+  var uploadProgressStartTimer = null;
 
   function detectKakaoInApp() {
     return /KAKAOTALK/i.test(navigator.userAgent || "");
@@ -33,7 +35,14 @@ try {
   }
 
   function getUploadNoticePercent(event, now) {
+    var progressStartAt = event.progressStartAt || event.startAt;
+    if (now < progressStartAt) return 0;
     if (now >= event.completeAt) return 100;
+    if (event.progressStartAt) {
+      return Math.max(1, Math.min(99, 1 + Math.round(
+        ((now - progressStartAt) / (event.completeAt - progressStartAt)) * 99
+      )));
+    }
     return Math.max(0, Math.min(100, Math.round(
       ((now - event.startAt) / (event.completeAt - event.startAt)) * 100
     )));
@@ -53,6 +62,7 @@ try {
     return {
       name: event.name,
       startAt: event.startAt,
+      progressStartAt: event.progressStartAt,
       completeAt: event.completeAt,
       endAt: UPLOAD_NOTICE_END_AT
     };
@@ -73,6 +83,8 @@ try {
     uploadNoticeEndTimer = null;
     if (uploadProgressTimer) window.clearInterval(uploadProgressTimer);
     uploadProgressTimer = null;
+    if (uploadProgressStartTimer) window.clearTimeout(uploadProgressStartTimer);
+    uploadProgressStartTimer = null;
     window.removeEventListener("resize", syncUploadNoticeSpacing);
   }
 
@@ -89,7 +101,25 @@ try {
     var list = document.getElementById("shout-upload-notice-list");
     if (!list) return false;
 
+    var waiting = activeEvents.every(function (event) {
+      return event.progressStartAt && now < event.progressStartAt;
+    });
+    var title = document.getElementById("shout-upload-notice-title");
+    var desc = document.getElementById("shout-upload-notice-desc");
+    if (title) title.textContent = waiting ? "사진 업로드 대기중" : "사진 업로드 진행 중";
+    if (desc) desc.textContent = waiting
+      ? "대회 사진 업로드를 준비하고 있어요."
+      : "오늘 촬영 사진을 순차적으로 업로드하고 있어요.";
+
     list.innerHTML = activeEvents.map(function (event) {
+      if (event.progressStartAt && now < event.progressStartAt) {
+        return '<div class="shout-upload-notice-event">' +
+          '<div class="shout-upload-notice-event-head">' +
+            '<span class="shout-upload-notice-event-name">' + event.name + '</span>' +
+            '<span class="shout-upload-notice-event-status">업로드 대기중</span>' +
+          '</div>' +
+        '</div>';
+      }
       var percent = getUploadNoticePercent(event, now);
       var status = percent >= 100 ? "업로드 완료" : percent + "% 업로드";
       return '<div class="shout-upload-notice-event">' +
@@ -138,6 +168,13 @@ try {
       window.addEventListener("resize", syncUploadNoticeSpacing);
       uploadNoticeEndTimer = window.setTimeout(hideUploadNotice, UPLOAD_NOTICE_END_AT - Date.now());
       uploadProgressTimer = window.setInterval(updateUploadNotice, 60000);
+      var nextProgressStartAt = UPLOAD_NOTICE_EVENTS.reduce(function (next, event) {
+        return event.progressStartAt > Date.now() && event.progressStartAt < next
+          ? event.progressStartAt : next;
+      }, Infinity);
+      if (Number.isFinite(nextProgressStartAt)) {
+        uploadProgressStartTimer = window.setTimeout(updateUploadNotice, nextProgressStartAt - Date.now());
+      }
       document.addEventListener("visibilitychange", function () {
         updateUploadNotice();
       });
@@ -1063,11 +1100,14 @@ onReady(function () {
     modal.setAttribute("role", "dialog");
     modal.setAttribute("aria-modal", "true");
     modal.setAttribute("aria-labelledby", "main-gallery-upload-notice-title");
+    const waiting = activeEvent.progressStartAt && Date.now() < activeEvent.progressStartAt;
     modal.innerHTML =
       '<div class="main-gallery-upload-notice__panel">' +
         '<p class="main-gallery-upload-notice__eyebrow">UPLOAD NOTICE</p>' +
-        '<h2 id="main-gallery-upload-notice-title">사진 업로드 진행 중</h2>' +
-        '<p class="main-gallery-upload-notice__desc">현재 촬영 사진을 순차적으로 업로드하고 있어요.<br>업로드가 완료되기 전까지 검색 결과에 모든 사진이 표시되지 않을 수 있습니다.</p>' +
+        '<h2 id="main-gallery-upload-notice-title">' + (waiting ? '사진 업로드 대기중' : '사진 업로드 진행 중') + '</h2>' +
+        '<p class="main-gallery-upload-notice__desc">' +
+          (waiting ? '대회 사진 업로드를 준비하고 있어요.' : '현재 촬영 사진을 순차적으로 업로드하고 있어요.') +
+          '<br>업로드가 완료되기 전까지 검색 결과에 모든 사진이 표시되지 않을 수 있습니다.</p>' +
         '<button type="button" class="main-gallery-upload-notice__confirm">확인</button>' +
       '</div>';
 
