@@ -47,6 +47,7 @@ onReady(function () {
   const API_BASE = "https://plp-62309.bubbleapps.io/api/1.1";
   const WF_GET_PURCHASES = `${API_BASE}/wf/get_my_purchases`;
   const WF_SIGNED_URL = `${API_BASE}/wf/get_signed_download_url`;
+  const WF_SIGNED_STANDARD_URL = `${API_BASE}/wf/get_signed_standard_url`;
   const WF_SIGNED_ZIP_URL = `${API_BASE}/wf/get_signed_zip_url`; // ZIP WF
 
   const usersId = localStorage.getItem("shout_users_id");
@@ -235,9 +236,94 @@ onReady(function () {
   window.downloadFile = downloadFile;
 
   let __currentBib = "";
+  let standardImageObserver = null;
+  let standardImageGeneration = 0;
+  let activeStandardImages = 0;
+  const pendingStandardImages = [];
+
+  function setCardImage(card, url) {
+    if (!url) return;
+    const imgBox = card.querySelector(".purchased-image") || card.querySelector(".purchased-img-wrapper");
+    if (imgBox) {
+      imgBox.style.backgroundImage = `url(${JSON.stringify(url)})`;
+      imgBox.style.backgroundSize = "cover";
+      imgBox.style.backgroundPosition = "center";
+      imgBox.style.backgroundRepeat = "no-repeat";
+    } else {
+      const img = card.querySelector("img");
+      if (img) img.src = url;
+    }
+  }
+
+  function isStandardImageUrl(value) {
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === "https:" &&
+        parsed.hostname === "storage.googleapis.com" &&
+        decodeURIComponent(parsed.pathname).includes("/standard/");
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function pumpStandardImages() {
+    while (activeStandardImages < 4 && pendingStandardImages.length) {
+      const task = pendingStandardImages.shift();
+      if (task.generation !== standardImageGeneration || !task.card.isConnected) continue;
+      activeStandardImages += 1;
+      (async () => {
+        try {
+          const signed = await postJson(WF_SIGNED_STANDARD_URL, {
+            fileName: task.fileName,
+            users_id: usersId,
+            access_token: accessToken
+          });
+          const url = signed?.response?.signed_standard_url;
+          if (!isStandardImageUrl(url)) throw new Error("Standard display URL missing");
+          await new Promise((resolve, reject) => {
+            const image = new Image();
+            image.onload = resolve;
+            image.onerror = reject;
+            image.src = url;
+          });
+          if (task.generation === standardImageGeneration && task.card.isConnected) {
+            setCardImage(task.card, url);
+          }
+        } catch (err) {
+          // Keep the preview as a placeholder if signing or image loading fails.
+          console.warn("[MyPage] standard display unavailable", err);
+        } finally {
+          activeStandardImages -= 1;
+          pumpStandardImages();
+        }
+      })();
+    }
+  }
+
+  function queueStandardImage(card, fileName, generation) {
+    pendingStandardImages.push({ card, fileName, generation });
+    pumpStandardImages();
+  }
 
   function renderPurchaseList(purchases) {
+    standardImageGeneration += 1;
+    const generation = standardImageGeneration;
+    if (standardImageObserver) standardImageObserver.disconnect();
+    pendingStandardImages.length = 0;
     clearRenderedCards();
+
+    if ("IntersectionObserver" in window) {
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting) return;
+          observer.unobserve(entry.target);
+          queueStandardImage(entry.target, entry.target.dataset.fileName, generation);
+        });
+      }, { rootMargin: "400px" });
+      standardImageObserver = observer;
+    } else {
+      standardImageObserver = null;
+    }
 
     function normalizeUrlList(value) {
       if (Array.isArray(value)) return value;
@@ -247,24 +333,20 @@ onReady(function () {
 
     (purchases || []).forEach(purchase => {
       const previewUrls = normalizeUrlList(purchase.preview_urls || purchase.preview_url);
-      const standardUrls = normalizeUrlList(purchase.standard_urls || purchase.standard_url);
       const names = Array.isArray(purchase.purchased_files) ? purchase.purchased_files : [];
       const rawCodes = Array.isArray(purchase.event_codes) ? purchase.event_codes : [];
 
-      const totalCount = Math.max(previewUrls.length, standardUrls.length, names.length);
+      const totalCount = names.length;
 
       for (let i = 0; i < totalCount; i += 1) {
         const previewUrl = previewUrls[i] || "";
-        const standardUrl = standardUrls[i] || "";
-        const displayUrl = standardUrl || previewUrl;
         const fileName = names[i];
 
         if (!fileName) return;
-        if (!displayUrl) return;
 
         let effectiveCodes = rawCodes.slice();
         if (!effectiveCodes.length) {
-          const parsed = extractEventCodeFromPath(fileName) || extractEventCodeFromPath(displayUrl);
+          const parsed = extractEventCodeFromPath(fileName) || extractEventCodeFromPath(previewUrl);
           if (parsed) effectiveCodes = [parsed];
         }
 
@@ -282,18 +364,10 @@ onReady(function () {
         card.dataset.bib = String(purchase.searched_bib || "");
         card.dataset.fileName = fileName;
 
-        const imgBox = card.querySelector(".purchased-image") || card.querySelector(".purchased-img-wrapper");
-        if (imgBox) {
-          imgBox.style.backgroundImage = `url("${displayUrl}")`;
-          imgBox.style.backgroundSize = "cover";
-          imgBox.style.backgroundPosition = "center";
-          imgBox.style.backgroundRepeat = "no-repeat";
-        } else {
-          const img = card.querySelector("img");
-          if (img) img.src = displayUrl;
-        }
-
+        setCardImage(card, previewUrl);
         listEl.appendChild(card);
+        if (standardImageObserver) standardImageObserver.observe(card);
+        else queueStandardImage(card, fileName, generation);
       }
     });
 
