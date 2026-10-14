@@ -13,6 +13,14 @@
 .sot-contact__row{display:grid;grid-template-columns:1fr;gap:22px}
 .sot-contact label{display:block;min-width:0;font-size:14px;font-weight:650}
 .sot-contact__required{color:#c84646}.sot-contact__optional{color:#999;font-size:12px;font-weight:400}
+.sot-contact__kind{min-width:0;margin:0;padding:0;border:0}
+.sot-contact__kind legend{padding:0;font-size:14px;font-weight:650}
+.sot-contact__choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:8px}
+.sot-contact .sot-contact__choice{position:relative;display:block;cursor:pointer}
+.sot-contact .sot-contact__choice input{position:absolute;width:1px;height:1px;min-height:0;margin:0;padding:0;opacity:0;pointer-events:none}
+.sot-contact__choice span{display:flex;align-items:center;justify-content:center;min-height:56px;padding:10px;border:1px solid #d6d6d6;border-radius:8px;background:#fff;color:#333;text-align:center;font-size:15px}
+.sot-contact__choice input:checked+span{border-color:#191919;background:#191919;color:#fff}
+.sot-contact__choice input:focus-visible+span{outline:2px solid #111;outline-offset:3px}
 .sot-contact input,.sot-contact select,.sot-contact textarea{display:block;width:100%;min-width:0;min-height:48px;margin-top:8px;padding:12px 14px;border:1px solid #d6d6d6;border-radius:8px;background:#fff;color:#171717;font:inherit;font-size:15px;font-weight:400;outline:none;box-shadow:none;appearance:none}
 .sot-contact input:focus,.sot-contact select:focus,.sot-contact textarea:focus{border-color:#333;box-shadow:0 0 0 2px #e5e5e5}
 .sot-contact select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpath d='m5 7.5 5 5 5-5' fill='none' stroke='%23333' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:44px}
