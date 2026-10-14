@@ -9,6 +9,7 @@
 .sot-contact__content{display:block}
 .sot-contact__form{display:grid;gap:22px}
 .sot-contact__step[hidden],.sot-contact__retry[hidden]{display:none!important}
+.sot-contact [data-field][hidden]{display:none!important}
 .sot-contact__row{display:grid;grid-template-columns:1fr;gap:22px}
 .sot-contact label{display:block;min-width:0;font-size:14px;font-weight:650}
 .sot-contact__required{color:#c84646}.sot-contact__optional{color:#999;font-size:12px;font-weight:400}
