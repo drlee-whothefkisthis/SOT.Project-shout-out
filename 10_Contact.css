@@ -1,18 +1,12 @@
 .sot-contact,.sot-contact *{box-sizing:border-box}
 .sot-contact{padding:64px 20px 112px;background:#fff;color:#171717;font-family:inherit}
-.sot-contact__inner{width:min(100%,1060px);margin:auto}
+.sot-contact__inner{width:min(100%,680px);margin:auto}
 .sot-contact__heading{margin-bottom:36px}
 .sot-contact__eyebrow{margin:0 0 12px;color:#777;font-size:11px;font-weight:700;letter-spacing:.16em}
 .sot-contact h1{margin:0;font-size:clamp(36px,9vw,56px);line-height:1.12;letter-spacing:-.05em;font-weight:750}
 .sot-contact__dot{color:#777}
 .sot-contact__heading>p:last-child{margin:16px 0 0;color:#666;font-size:15px;line-height:1.7;word-break:keep-all}
-.sot-contact__content{display:flex;flex-direction:column;gap:56px}
-.sot-contact__form-wrap{order:1}.sot-contact__info{order:2}
-.sot-contact__details{display:grid;gap:16px}
-.sot-contact__details a,.sot-contact__details p{display:flex;align-items:flex-start;gap:14px;margin:0;color:#222;font-size:14px;line-height:1.6;text-decoration:none;word-break:keep-all}
-.sot-contact__details a span:last-child{text-decoration:underline;text-underline-offset:3px}
-.sot-contact__icon{display:grid;place-items:center;flex:none;width:22px;height:22px;border:1px solid #555;border-radius:50%;font-size:14px;line-height:1}
-.sot-contact__map{display:none;width:100%;max-width:360px;aspect-ratio:1.12;object-fit:cover;margin-top:36px;background:#f2f2f2}
+.sot-contact__content{display:block}
 .sot-contact__form{display:grid;gap:22px}
 .sot-contact__step[hidden],.sot-contact__retry[hidden]{display:none!important}
 .sot-contact__row{display:grid;grid-template-columns:1fr;gap:22px}
@@ -31,4 +25,4 @@
 .sot-contact :focus-visible{outline:2px solid #111;outline-offset:3px}
 .sot-contact__after a{color:#222;text-decoration:underline;text-underline-offset:2px}
 @media(min-width:600px){.sot-contact__row{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}}
-@media(min-width:768px){.sot-contact{padding:112px 40px 150px}.sot-contact__heading{margin-bottom:40px}.sot-contact__content{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:clamp(56px,9vw,120px)}.sot-contact__info{order:0}.sot-contact__form-wrap{order:0}.sot-contact__details{margin-top:8px}.sot-contact__map{display:block;margin-top:44px}.sot-contact__form{gap:24px}}
+@media(min-width:768px){.sot-contact{padding:112px 40px 150px}.sot-contact__heading{margin-bottom:40px}.sot-contact__form{gap:24px}}
