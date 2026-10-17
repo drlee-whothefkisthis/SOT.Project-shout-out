@@ -3,20 +3,15 @@ try {
   var UPLOAD_NOTICE_ENABLED = true;
   var SEARCH_GUIDE_ENABLED = true;
   var SEARCH_GUIDE_END_AT = Date.parse("2026-09-24T00:00:00+09:00");
-  var UPLOAD_NOTICE_END_AT = Date.parse("2026-10-10T00:00:00+09:00");
-  var UPLOAD_NOTICE_EVENTS = [
-    {
-      order: 1,
-      name: "2026 제26회 홍성마라톤",
-      matchTerm: "홍성",
-      startAt: Date.parse("2026-10-09T08:00:00+09:00"),
-      progressStartAt: Date.parse("2026-10-09T09:30:00+09:00"),
-      completeAt: Date.parse("2026-10-09T13:00:00+09:00")
-    }
-  ];
-  var uploadNoticeEndTimer = null;
-  var uploadProgressTimer = null;
-  var uploadProgressStartTimer = null;
+  var UPLOAD_NOTICE_EVENTS_ENDPOINT = "https://plp-62309.bubbleapps.io/api/1.1/obj/event";
+  var UPLOAD_NOTICE_REFRESH_MS = 5 * 60 * 1000;
+  var HOUR_MS = 60 * 60 * 1000;
+  var DAY_MS = 24 * HOUR_MS;
+  var KST_OFFSET_MS = 9 * HOUR_MS;
+  var UPLOAD_EXTRA_HOURS = 3;
+  var UPLOAD_NOTICE_EVENTS = [];
+  var uploadNoticeTickTimer = null;
+  var uploadNoticeFetchInFlight = false;
 
   function detectKakaoInApp() {
     return /KAKAOTALK/i.test(navigator.userAgent || "");
@@ -28,34 +23,66 @@ try {
     return isKakao;
   }
 
-  function isUploadNoticeActive() {
-    var now = Date.now();
-    return UPLOAD_NOTICE_ENABLED && now < UPLOAD_NOTICE_END_AT &&
-      UPLOAD_NOTICE_EVENTS.some(function (event) { return now >= event.startAt; });
+  function getCourseDurationHours(courses) {
+    var names = (Array.isArray(courses) ? courses : []).map(function (course) {
+      return String(course || "").trim().toLowerCase().replace(/\s+/g, "");
+    });
+    if (names.some(function (name) { return /full|풀|42(?:\.195)?k?/.test(name); })) return 5;
+    if (names.some(function (name) { return /half|하프|21(?:\.0975)?k?/.test(name); })) return 3;
+    if (names.some(function (name) { return /(?:10|5)(?:k|km|킬로|키로)/.test(name); })) return 2;
+    return null;
+  }
+
+  function nextKstMidnight(timestamp) {
+    return (Math.floor((timestamp + KST_OFFSET_MS) / DAY_MS) + 1) * DAY_MS - KST_OFFSET_MS;
+  }
+
+  function buildUploadNoticeEvent(item, now) {
+    if (!item || item.is_public !== true || item.home_visible === false) return null;
+    var startAt = Date.parse(item.event_date || "");
+    var publishAt = item.publish_at ? Date.parse(item.publish_at) : NaN;
+    var courseHours = getCourseDurationHours(item.course);
+    var name = String(item.event_display_name || item.name || "").trim();
+    var id = String(item.event_code || item.slug || "").trim();
+    if (!id || !name || !Number.isFinite(startAt) || !courseHours) return null;
+    if (Number.isFinite(publishAt) && publishAt > now) return null;
+    // A date-only Event value appears as midnight KST; it is not a verified race start time.
+    if ((startAt + KST_OFFSET_MS) % DAY_MS === 0) return null;
+    var completeAt = startAt + (courseHours + UPLOAD_EXTRA_HOURS) * HOUR_MS;
+    return {
+      id: id,
+      name: name,
+      startAt: startAt,
+      progressStartAt: startAt + HOUR_MS,
+      completeAt: completeAt,
+      endAt: Math.max(nextKstMidnight(startAt), completeAt + HOUR_MS)
+    };
+  }
+
+  function isUploadNoticeActive(now) {
+    return UPLOAD_NOTICE_ENABLED && UPLOAD_NOTICE_EVENTS.some(function (event) {
+      return now >= event.startAt && now < event.endAt;
+    });
   }
 
   function getUploadNoticePercent(event, now) {
-    var progressStartAt = event.progressStartAt || event.startAt;
-    if (now < progressStartAt) return 0;
+    if (now < event.startAt) return 0;
+    if (now <= event.progressStartAt) return 1;
     if (now >= event.completeAt) return 100;
-    if (event.progressStartAt) {
-      return Math.max(1, Math.min(99, 1 + Math.round(
-        ((now - progressStartAt) / (event.completeAt - progressStartAt)) * 99
-      )));
-    }
-    return Math.max(0, Math.min(100, Math.round(
-      ((now - event.startAt) / (event.completeAt - event.startAt)) * 100
+    return Math.max(1, Math.min(99, 1 + Math.round(
+      ((now - event.progressStartAt) / (event.completeAt - event.progressStartAt)) * 99
     )));
   }
 
-  function getActiveUploadNoticeEvent(eventName, now) {
+  function getActiveUploadNoticeEvent(race, now) {
     var current = Number.isFinite(now) ? now : Date.now();
-    var name = String(eventName || "").replace(/\s+/g, "");
-    if (!UPLOAD_NOTICE_ENABLED || current >= UPLOAD_NOTICE_END_AT) return null;
+    if (!UPLOAD_NOTICE_ENABLED || !race) return null;
+    var id = String(race.id || race.event_code || "").trim();
+    var name = String(race.name || race.event_display_name || race || "").replace(/\s+/g, "");
 
     var event = UPLOAD_NOTICE_EVENTS.find(function (item) {
-      var term = String(item.matchTerm || item.name || "").replace(/\s+/g, "");
-      return term && name.indexOf(term) !== -1 && current >= item.startAt && current < item.completeAt;
+      var matches = id ? item.id === id : item.name.replace(/\s+/g, "") === name;
+      return matches && current >= item.startAt && current < item.completeAt;
     });
 
     if (!event) return null;
@@ -64,8 +91,14 @@ try {
       startAt: event.startAt,
       progressStartAt: event.progressStartAt,
       completeAt: event.completeAt,
-      endAt: UPLOAD_NOTICE_END_AT
+      endAt: event.endAt
     };
+  }
+
+  function escapeUploadNoticeHtml(value) {
+    return String(value).replace(/[&<>"']/g, function (char) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char];
+    });
   }
 
   function syncUploadNoticeSpacing() {
@@ -79,54 +112,58 @@ try {
     if (banner) banner.remove();
     document.body.classList.remove("has-shout-upload-notice");
     document.body.style.removeProperty("--shout-upload-notice-height");
-    if (uploadNoticeEndTimer) window.clearTimeout(uploadNoticeEndTimer);
-    uploadNoticeEndTimer = null;
-    if (uploadProgressTimer) window.clearInterval(uploadProgressTimer);
-    uploadProgressTimer = null;
-    if (uploadProgressStartTimer) window.clearTimeout(uploadProgressStartTimer);
-    uploadProgressStartTimer = null;
     window.removeEventListener("resize", syncUploadNoticeSpacing);
   }
 
+  function scheduleNextUploadNoticeUpdate(now, activeEvents) {
+    if (uploadNoticeTickTimer) window.clearTimeout(uploadNoticeTickTimer);
+    var next = Infinity;
+    UPLOAD_NOTICE_EVENTS.forEach(function (event) {
+      [event.startAt, event.progressStartAt, event.completeAt, event.endAt].forEach(function (time) {
+        if (time > now && time < next) next = time;
+      });
+    });
+    if (activeEvents.some(function (event) { return now < event.completeAt; })) {
+      next = Math.min(next, Math.floor(now / 60000) * 60000 + 60000);
+    }
+    if (Number.isFinite(next)) {
+      uploadNoticeTickTimer = window.setTimeout(updateUploadNotice, Math.min(next - now, 2147483647));
+    }
+  }
+
   function updateUploadNotice() {
-    if (!isUploadNoticeActive()) {
+    var now = Date.now();
+    var activeEvents = UPLOAD_NOTICE_EVENTS.filter(function (event) {
+      return now >= event.startAt && now < event.endAt;
+    }).sort(function (left, right) {
+      return left.startAt - right.startAt || left.name.localeCompare(right.name, "ko");
+    });
+    if (!isUploadNoticeActive(now) || !activeEvents.length) {
       hideUploadNotice();
+      scheduleNextUploadNoticeUpdate(now, activeEvents);
       return false;
     }
 
-    var now = Date.now();
-    var activeEvents = UPLOAD_NOTICE_EVENTS.filter(function (event) {
-      return now >= event.startAt;
-    }).sort(function (left, right) { return left.order - right.order; });
+    createUploadNotice();
     var list = document.getElementById("shout-upload-notice-list");
     if (!list) return false;
 
-    var waiting = activeEvents.every(function (event) {
-      return event.progressStartAt && now < event.progressStartAt;
-    });
-    var title = document.getElementById("shout-upload-notice-title");
-    var desc = document.getElementById("shout-upload-notice-desc");
-    if (title) title.textContent = waiting ? "사진 업로드 대기중" : "사진 업로드 진행 중";
-    if (desc) desc.textContent = waiting
-      ? "대회 사진 업로드를 준비하고 있어요."
-      : "오늘 촬영 사진을 순차적으로 업로드하고 있어요.";
-
     list.innerHTML = activeEvents.map(function (event) {
       var percent = getUploadNoticePercent(event, now);
-      var waitingForEvent = event.progressStartAt && now < event.progressStartAt;
-      var status = waitingForEvent ? "업로드 대기중" :
-        (percent >= 100 ? "업로드 완료" : percent + "% 업로드");
+      var status = percent >= 100 ? "업로드 완료" : percent + "% 업로드";
+      var name = escapeUploadNoticeHtml(event.name);
       return '<div class="shout-upload-notice-event">' +
         '<div class="shout-upload-notice-event-head">' +
-          '<span class="shout-upload-notice-event-name">' + event.name + '</span>' +
+          '<span class="shout-upload-notice-event-name">' + name + '</span>' +
           '<span class="shout-upload-notice-event-status">' + status + '</span>' +
         '</div>' +
-        '<div class="shout-upload-notice-track" aria-label="' + event.name + ' 사진 업로드 진행률">' +
+        '<div class="shout-upload-notice-track" aria-label="' + name + ' 사진 업로드 진행률">' +
           '<span class="shout-upload-notice-fill" style="width:' + percent + '%"></span>' +
         '</div>' +
       '</div>';
     }).join("");
     syncUploadNoticeSpacing();
+    scheduleNextUploadNoticeUpdate(now, activeEvents);
     return true;
   }
 
@@ -147,31 +184,40 @@ try {
       '</div>';
 
     document.body.appendChild(banner);
-    updateUploadNotice();
+    document.body.classList.add("has-shout-upload-notice");
+    window.addEventListener("resize", syncUploadNoticeSpacing);
   }
 
-  function showUploadNotice() {
-    if (!isUploadNoticeActive()) {
-      hideUploadNotice();
-      return;
-    }
-    createUploadNotice();
-    if (document.getElementById("shout-upload-notice")) {
-      document.body.classList.add("has-shout-upload-notice");
-      syncUploadNoticeSpacing();
-      window.addEventListener("resize", syncUploadNoticeSpacing);
-      uploadNoticeEndTimer = window.setTimeout(hideUploadNotice, UPLOAD_NOTICE_END_AT - Date.now());
-      uploadProgressTimer = window.setInterval(updateUploadNotice, 60000);
-      var nextProgressStartAt = UPLOAD_NOTICE_EVENTS.reduce(function (next, event) {
-        return event.progressStartAt > Date.now() && event.progressStartAt < next
-          ? event.progressStartAt : next;
-      }, Infinity);
-      if (Number.isFinite(nextProgressStartAt)) {
-        uploadProgressStartTimer = window.setTimeout(updateUploadNotice, nextProgressStartAt - Date.now());
-      }
-      document.addEventListener("visibilitychange", function () {
-        updateUploadNotice();
-      });
+  async function refreshUploadNoticeEvents() {
+    if (uploadNoticeFetchInFlight) return;
+    uploadNoticeFetchInFlight = true;
+    try {
+      var results = [];
+      var cursor = 0;
+      var remaining;
+      do {
+        var response = await fetch(UPLOAD_NOTICE_EVENTS_ENDPOINT + "?limit=100&cursor=" + cursor, {
+          method: "GET",
+          cache: "no-store"
+        });
+        if (!response.ok) throw new Error("Event fetch failed: " + response.status);
+        var page = (await response.json()).response || {};
+        var batch = Array.isArray(page.results) ? page.results : [];
+        results = results.concat(batch);
+        cursor += batch.length;
+        remaining = Number(page.remaining) || 0;
+        if (remaining > 0 && !batch.length) throw new Error("Event pagination did not advance");
+      } while (remaining > 0);
+
+      var now = Date.now();
+      UPLOAD_NOTICE_EVENTS = results.map(function (item) {
+        return buildUploadNoticeEvent(item, now);
+      }).filter(Boolean);
+      updateUploadNotice();
+    } catch (error) {
+      console.error("[main] upload notice event refresh failed", error);
+    } finally {
+      uploadNoticeFetchInFlight = false;
     }
   }
 
@@ -226,8 +272,14 @@ try {
 
   function init() {
     initKakaoInAppFlag();
-
-    showUploadNotice();
+    refreshUploadNoticeEvents();
+    window.setInterval(refreshUploadNoticeEvents, UPLOAD_NOTICE_REFRESH_MS);
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) {
+        updateUploadNotice();
+        refreshUploadNoticeEvents();
+      }
+    });
   }
 
   window.ShoutSearchGuide = {
@@ -1081,7 +1133,7 @@ onReady(function () {
     const race = getRaceByCode(eventCode);
     const notice = window.ShoutUploadNotice;
     const activeEvent = notice && typeof notice.getActiveEvent === "function"
-      ? notice.getActiveEvent(race && race.name)
+      ? notice.getActiveEvent(race)
       : null;
 
     if (!activeEvent) return false;
@@ -1094,14 +1146,11 @@ onReady(function () {
     modal.setAttribute("role", "dialog");
     modal.setAttribute("aria-modal", "true");
     modal.setAttribute("aria-labelledby", "main-gallery-upload-notice-title");
-    const waiting = activeEvent.progressStartAt && Date.now() < activeEvent.progressStartAt;
     modal.innerHTML =
       '<div class="main-gallery-upload-notice__panel">' +
         '<p class="main-gallery-upload-notice__eyebrow">UPLOAD NOTICE</p>' +
-        '<h2 id="main-gallery-upload-notice-title">' + (waiting ? '사진 업로드 대기중' : '사진 업로드 진행 중') + '</h2>' +
-        '<p class="main-gallery-upload-notice__desc">' +
-          (waiting ? '대회 사진 업로드를 준비하고 있어요.' : '현재 촬영 사진을 순차적으로 업로드하고 있어요.') +
-          '<br>업로드가 완료되기 전까지 검색 결과에 모든 사진이 표시되지 않을 수 있습니다.</p>' +
+        '<h2 id="main-gallery-upload-notice-title">사진 업로드 진행 중</h2>' +
+        '<p class="main-gallery-upload-notice__desc">현재 촬영 사진을 순차적으로 업로드하고 있어요.<br>업로드가 완료되기 전까지 검색 결과에 모든 사진이 표시되지 않을 수 있습니다.</p>' +
         '<button type="button" class="main-gallery-upload-notice__confirm">확인</button>' +
       '</div>';
 

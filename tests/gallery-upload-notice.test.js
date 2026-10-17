@@ -10,130 +10,120 @@ const galleryBodySource = fs.readFileSync(path.join(root, "02-Gallery-B.js"), "u
 const galleryRuntimeSource = fs.readFileSync(path.join(root, "02-Gallery-B.runtime.js"), "utf8");
 const galleryHeadSource = fs.readFileSync(path.join(root, "02-Gallery-H.css"), "utf8");
 
-assert.doesNotMatch(mainSource, /matchTerm:\s*"한경서울"/);
-assert.doesNotMatch(mainSource, /matchTerm:\s*"시흥"/);
-assert.doesNotMatch(mainSource, /matchTerm:\s*"강남"/);
-assert.match(mainSource, /matchTerm:\s*"홍성"/);
-assert.match(mainSource, /startAt:\s*Date\.parse\("2026-10-09T08:00:00\+09:00"\)/);
-assert.match(mainSource, /progressStartAt:\s*Date\.parse\("2026-10-09T09:30:00\+09:00"\)/);
-assert.match(mainSource, /completeAt:\s*Date\.parse\("2026-10-09T13:00:00\+09:00"\)/);
-assert.match(mainSource, /UPLOAD_NOTICE_END_AT = Date\.parse\("2026-10-10T00:00:00\+09:00"\)/);
-assert.match(mainSource, /waitingForEvent \? "업로드 대기중"/);
-assert.match(mainSource, /const waiting = activeEvent\.progressStartAt && Date\.now\(\) < activeEvent\.progressStartAt/);
+function extractFunction(name) {
+  const match = mainSource.match(new RegExp(`(function ${name}\\([^]*?\\n  \\})`));
+  assert.ok(match, `${name} must remain extractable`);
+  return match[1];
+}
+
+assert.match(mainSource, /UPLOAD_EXTRA_HOURS = 3/);
+assert.match(mainSource, /UPLOAD_NOTICE_EVENTS = \[\]/);
+assert.doesNotMatch(mainSource, /2026-10-09T(?:08|09|13):/);
+assert.match(mainSource, /limit=100&cursor=/);
+assert.match(mainSource, /setInterval\(refreshUploadNoticeEvents, UPLOAD_NOTICE_REFRESH_MS\)/);
+assert.match(mainSource, /notice\.getActiveEvent\(race\)/);
 assert.match(mainSource, /function showGalleryUploadNoticeBeforeNavigation\(eventCode, targetUrl\)/);
 assert.match(mainSource, />확인<\/button>/);
 assert.match(mainSource, /if \(showGalleryUploadNoticeBeforeNavigation\(eventId, targetUrl\)\) return;/);
-assert.doesNotMatch(mainSource, /shout_gallery_upload_notice/);
+assert.doesNotMatch(mainSource, /shout_gallery_upload_notice|업로드 대기중/);
 assert.match(mainCssSource, /#main-gallery-upload-notice/);
 assert.match(mainCssSource, /@media \(max-width:767px\)/);
 
 for (const source of [galleryBodySource, galleryRuntimeSource, galleryHeadSource]) {
-  assert.doesNotMatch(source, /gallery-upload-notice/);
-  assert.doesNotMatch(source, /shout_gallery_upload_notice/);
+  assert.doesNotMatch(source, /gallery-upload-notice|shout_gallery_upload_notice/);
 }
 
-const activeEventMatch = mainSource.match(
-  /(function getActiveUploadNoticeEvent\(eventName, now\) \{[\s\S]*?\n  \})\n\n  function syncUploadNoticeSpacing/
-);
-assert.ok(activeEventMatch, "active upload-event matcher must remain extractable");
-
 const context = {
+  Array,
   Date,
+  Math,
   Number,
   String,
+  HOUR_MS: 60 * 60 * 1000,
+  DAY_MS: 24 * 60 * 60 * 1000,
+  KST_OFFSET_MS: 9 * 60 * 60 * 1000,
+  UPLOAD_EXTRA_HOURS: 3,
   UPLOAD_NOTICE_ENABLED: true,
-  UPLOAD_NOTICE_END_AT: Date.parse("2026-10-10T00:00:00+09:00"),
-  UPLOAD_NOTICE_EVENTS: [
-    {
-      name: "2026 제26회 홍성마라톤",
-      matchTerm: "홍성",
-      startAt: Date.parse("2026-10-09T08:00:00+09:00"),
-      progressStartAt: Date.parse("2026-10-09T09:30:00+09:00"),
-      completeAt: Date.parse("2026-10-09T13:00:00+09:00")
-    }
-  ]
+  UPLOAD_NOTICE_EVENTS: []
 };
-vm.runInNewContext(`${activeEventMatch[1]}\nthis.getActive = getActiveUploadNoticeEvent;`, context);
+const names = [
+  "getCourseDurationHours",
+  "nextKstMidnight",
+  "buildUploadNoticeEvent",
+  "isUploadNoticeActive",
+  "getUploadNoticePercent",
+  "getActiveUploadNoticeEvent"
+];
+vm.runInNewContext(`${names.map(extractFunction).join("\n")}\n${names.map(name => `this.${name} = ${name};`).join("\n")}`, context);
 
-assert.equal(
-  context.getActive("2026 한경서울마라톤", Date.parse("2026-10-09T10:00:00+09:00")),
-  null,
-  "Yeouido notice must be removed"
-);
-assert.equal(
-  context.getActive("제12회 시흥시 전국하프마라톤", Date.parse("2026-10-09T10:00:00+09:00")),
-  null,
-  "Siheung notice must be removed"
-);
-assert.equal(
-  context.getActive("제23회 강남국제평화마라톤", Date.parse("2026-10-09T10:00:00+09:00")),
-  null,
-  "Gangnam notice must be removed"
-);
-assert.equal(
-  context.getActive("2026 제26회 홍성마라톤", Date.parse("2026-10-09T07:59:59+09:00")),
-  null,
-  "Hongseong notice must not begin before race start"
-);
-assert.equal(
-  context.getActive("2026 제26회 홍성마라톤", Date.parse("2026-10-09T08:00:00+09:00")).progressStartAt,
-  Date.parse("2026-10-09T09:30:00+09:00"),
-  "Hongseong notice must include its waiting cutoff"
-);
-assert.equal(
-  context.getActive("2026 제26회 홍성마라톤", Date.parse("2026-10-09T12:59:59+09:00")).name,
-  "2026 제26회 홍성마라톤"
-);
-assert.equal(
-  context.getActive("2026 제26회 홍성마라톤", Date.parse("2026-10-09T13:00:00+09:00")),
-  null,
-  "Hongseong gallery notice must stop at 13:00"
-);
-assert.equal(
-  context.getActive("다른 대회", Date.parse("2026-10-09T12:00:00+09:00")),
-  null,
-  "notice must not show for another event"
-);
-
-const percentMatch = mainSource.match(
-  /(function getUploadNoticePercent\(event, now\) \{[\s\S]*?\n  \})\n\n  function getActiveUploadNoticeEvent/
-);
-assert.ok(percentMatch, "upload percentage function must remain extractable");
-const percentContext = { Math };
-vm.runInNewContext(`${percentMatch[1]}\nthis.getPercent = getUploadNoticePercent;`, percentContext);
-const hongseong = context.UPLOAD_NOTICE_EVENTS[0];
-assert.equal(percentContext.getPercent(hongseong, Date.parse("2026-10-09T09:29:59+09:00")), 0);
-assert.equal(percentContext.getPercent(hongseong, Date.parse("2026-10-09T09:30:00+09:00")), 1);
-assert.equal(percentContext.getPercent(hongseong, Date.parse("2026-10-09T11:15:00+09:00")), 51);
-assert.equal(percentContext.getPercent(hongseong, Date.parse("2026-10-09T12:59:59+09:00")), 99);
-assert.equal(percentContext.getPercent(hongseong, Date.parse("2026-10-09T13:00:00+09:00")), 100);
-
-const updateMatch = mainSource.match(
-  /(function updateUploadNotice\(\) \{[\s\S]*?\n  \})\n\n  function createUploadNotice/
-);
-assert.ok(updateMatch, "upload notice renderer must remain extractable");
-let renderNow = Date.parse("2026-10-09T09:29:59+09:00");
-const elements = {
-  "shout-upload-notice-list": { innerHTML: "" },
-  "shout-upload-notice-title": { textContent: "" },
-  "shout-upload-notice-desc": { textContent: "" }
+const start = Date.parse("2026-10-18T07:30:00+09:00");
+const fixture = {
+  event_code: "261018-ghm",
+  event_display_name: "2026 아시아 오픈 마라톤대회",
+  event_date: "2026-10-17T22:30:00.000Z",
+  publish_at: "2026-10-17T21:00:00.000Z",
+  course: ["Half", "10K"],
+  is_public: true
 };
+const event = context.buildUploadNoticeEvent(fixture, start);
+assert.ok(event);
+assert.equal(event.startAt, start);
+assert.equal(event.progressStartAt, Date.parse("2026-10-18T08:30:00+09:00"));
+assert.equal(event.completeAt, Date.parse("2026-10-18T13:30:00+09:00"));
+assert.equal(event.endAt, Date.parse("2026-10-19T00:00:00+09:00"));
+
+assert.equal(context.getUploadNoticePercent(event, start), 1);
+assert.equal(context.getUploadNoticePercent(event, start + 60 * 60 * 1000 - 1), 1);
+assert.equal(context.getUploadNoticePercent(event, start + 60 * 60 * 1000), 1);
+assert.equal(context.getUploadNoticePercent(event, Date.parse("2026-10-18T11:00:00+09:00")), 51);
+assert.equal(context.getUploadNoticePercent(event, event.completeAt - 1), 99);
+assert.equal(context.getUploadNoticePercent(event, event.completeAt), 100);
+
+context.UPLOAD_NOTICE_EVENTS = [event];
+assert.equal(context.isUploadNoticeActive(start - 1), false);
+assert.equal(context.isUploadNoticeActive(start), true);
+assert.equal(context.isUploadNoticeActive(event.endAt - 1), true);
+assert.equal(context.isUploadNoticeActive(event.endAt), false);
+assert.equal(context.getActiveUploadNoticeEvent({ id: event.id }, start - 1), null);
+assert.equal(context.getActiveUploadNoticeEvent({ id: event.id }, event.completeAt - 1).name, event.name);
+assert.equal(context.getActiveUploadNoticeEvent({ id: event.id }, event.completeAt), null);
+assert.equal(context.getActiveUploadNoticeEvent({ id: "another-event" }, start), null);
+
+const full = context.buildUploadNoticeEvent({ ...fixture, course: ["Full", "Half"] }, start);
+assert.equal(full.completeAt, Date.parse("2026-10-18T15:30:00+09:00"));
+const short = context.buildUploadNoticeEvent({ ...fixture, course: ["10K", "5K"] }, start);
+assert.equal(short.completeAt, Date.parse("2026-10-18T12:30:00+09:00"));
+assert.equal(context.buildUploadNoticeEvent({ ...fixture, is_public: false }, start), null);
+assert.equal(context.buildUploadNoticeEvent({ ...fixture, home_visible: false }, start), null);
+assert.equal(context.buildUploadNoticeEvent({ ...fixture, publish_at: "2026-10-18T00:00:00.000Z" }, start), null);
+assert.equal(context.buildUploadNoticeEvent({ ...fixture, course: ["Unknown"] }, start), null);
+assert.equal(context.buildUploadNoticeEvent({ ...fixture, event_date: "2026-10-17T15:00:00.000Z" }, start), null);
+
+let renderNow = start;
+let hidden = false;
+const elements = { "shout-upload-notice-list": { innerHTML: "" } };
 const renderContext = {
   Date: { now: () => renderNow },
-  UPLOAD_NOTICE_EVENTS: context.UPLOAD_NOTICE_EVENTS,
-  document: { getElementById: (id) => elements[id] },
-  isUploadNoticeActive: () => true,
-  getUploadNoticePercent: percentContext.getPercent,
-  syncUploadNoticeSpacing: () => {}
+  UPLOAD_NOTICE_EVENTS: [event],
+  document: { getElementById: id => elements[id] },
+  createUploadNotice: () => {},
+  hideUploadNotice: () => { hidden = true; },
+  isUploadNoticeActive: now => context.isUploadNoticeActive(now),
+  getUploadNoticePercent: context.getUploadNoticePercent,
+  escapeUploadNoticeHtml: value => value,
+  syncUploadNoticeSpacing: () => {},
+  scheduleNextUploadNoticeUpdate: () => {}
 };
-vm.runInNewContext(`${updateMatch[1]}\nthis.update = updateUploadNotice;`, renderContext);
+vm.runInNewContext(`${extractFunction("updateUploadNotice")}\nthis.update = updateUploadNotice;`, renderContext);
 renderContext.update();
-assert.match(elements["shout-upload-notice-list"].innerHTML, /shout-upload-notice-track/);
-assert.match(elements["shout-upload-notice-list"].innerHTML, /width:0%/);
-assert.match(elements["shout-upload-notice-list"].innerHTML, /업로드 대기중/);
-renderNow = Date.parse("2026-10-09T09:30:00+09:00");
-renderContext.update();
-assert.match(elements["shout-upload-notice-list"].innerHTML, /width:1%/);
 assert.match(elements["shout-upload-notice-list"].innerHTML, /1% 업로드/);
+assert.match(elements["shout-upload-notice-list"].innerHTML, /width:1%/);
+renderNow = event.completeAt;
+renderContext.update();
+assert.match(elements["shout-upload-notice-list"].innerHTML, /업로드 완료/);
+assert.match(elements["shout-upload-notice-list"].innerHTML, /width:100%/);
+renderNow = event.endAt;
+renderContext.update();
+assert.equal(hidden, true);
 
-console.log("main pre-navigation upload-notice regression checks passed");
+console.log("automatic main upload-notice and pre-navigation regression checks passed");
