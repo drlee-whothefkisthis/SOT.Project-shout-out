@@ -529,6 +529,37 @@ onShoutCartReady(function() {
     if (paymentModalPlannedAmountEl) paymentModalPlannedAmountEl.textContent = formatKRW(amountValue);
   }
 
+  function hasPaymentLogin() {
+    return !!String(localStorage.getItem("shout_users_id") || "").trim() &&
+      !!String(sessionStorage.getItem("shout_access_token") || "").trim();
+  }
+
+  function getCartAgreementSnapshot() {
+    if (!agreeCheckbox || !agreeCheckbox.checked) return null;
+    const allItems = (window.ShoutCart && typeof window.ShoutCart.getItems === "function") ? window.ShoutCart.getItems() : cartItems;
+    const ids = getSelectedItemsFrom(allItems).map(getItemId).filter(Boolean).sort();
+    return {
+      version: 1,
+      photo_ids: ids,
+      amount: getSelectedCheckoutAmount()
+    };
+  }
+
+  function restoreCartAgreement(intent) {
+    const saved = intent && intent.cart_agreement;
+    const createdAt = Number(intent && intent.created_at);
+    const age = Date.now() - createdAt;
+    if (!agreeCheckbox || !saved || saved.version !== 1 ||
+        !Number.isFinite(createdAt) || age < 0 || age > AUTH_INTENT_TTL_MS) return;
+    const allItems = (window.ShoutCart && typeof window.ShoutCart.getItems === "function") ? window.ShoutCart.getItems() : cartItems;
+    const ids = getSelectedItemsFrom(allItems).map(getItemId).filter(Boolean).sort();
+    if (!ids.length || JSON.stringify(ids) !== JSON.stringify(saved.photo_ids) ||
+        getSelectedCheckoutAmount() !== saved.amount) return;
+    agreeCheckbox.checked = true;
+    checkoutLocked = false;
+    agreeCheckbox.classList.remove("is-attn");
+  }
+
   function canOpenPaymentModalWithPrecheck() {
     if (agreeCheckbox && !agreeCheckbox.checked) {
       nudgeAgreeCheckbox();
@@ -543,14 +574,14 @@ onShoutCartReady(function() {
       return false;
     }
 
-    const userId = String(localStorage.getItem("shout_users_id") || "").trim();
-    if (!userId) {
+    if (!hasPaymentLogin()) {
       try {
         const returnTo = String(window.location.href || (window.location.origin + "/cart")).trim() || (window.location.origin + "/cart");
         sessionStorage.setItem(AUTH_INTENT_KEY, JSON.stringify({
           after: "start_payment",
           return_to: returnTo,
           fallback_to: window.location.origin + "/gallery",
+          cart_agreement: getCartAgreementSnapshot(),
           created_at: Date.now()
         }));
         localStorage.setItem("shout_cart_sync_needed", "true");
@@ -749,14 +780,15 @@ onShoutCartReady(function() {
         alert("약관에 동의해 주세요.");
         return;
       }
-      const userId = localStorage.getItem("shout_users_id");
-      const accessToken = sessionStorage.getItem("shout_access_token") || "";
-      if (!userId || !accessToken) {
+      const userId = String(localStorage.getItem("shout_users_id") || "").trim();
+      const accessToken = String(sessionStorage.getItem("shout_access_token") || "").trim();
+      if (!hasPaymentLogin()) {
         try {
           sessionStorage.setItem(AUTH_INTENT_KEY, JSON.stringify({
             after: "start_payment",
             return_to: window.location.origin + "/cart",
             fallback_to: window.location.origin + "/gallery",
+            cart_agreement: getCartAgreementSnapshot(),
             created_at: Date.now()
           }));
         } catch (e) { warn("silent catch: auth.intent.store", e); }
@@ -2355,8 +2387,8 @@ function renderThumbs() {
           const data = JSON.parse(intent);
           const createdAt = Number(data && data.created_at);
           const isFreshIntent = !createdAt || (Number.isFinite(createdAt) && Date.now() - createdAt <= AUTH_INTENT_TTL_MS);
-          if (data && data.after === "start_payment" && isFreshIntent && localStorage.getItem(
-            "shout_users_id")) {
+          if (data && data.after === "start_payment" && isFreshIntent && hasPaymentLogin()) {
+            restoreCartAgreement(data);
             sessionStorage.removeItem(AUTH_INTENT_KEY);
             setTimeout(function() {
               if (!canOpenPaymentModalWithPrecheck()) return;

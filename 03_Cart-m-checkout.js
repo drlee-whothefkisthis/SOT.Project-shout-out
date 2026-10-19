@@ -602,26 +602,34 @@ onReady(function () {
     }
   }
 
+  function hasCheckoutLogin() {
+    return !!String(localStorage.getItem("shout_users_id") || "").trim() &&
+      !!String(sessionStorage.getItem("shout_access_token") || "").trim();
+  }
+
+  function requireCheckoutLogin() {
+    if (hasCheckoutLogin()) return true;
+    try {
+      sessionStorage.setItem(AUTH_INTENT_KEY, JSON.stringify({
+        after: "checkout_payment",
+        return_to: appendShoutTrackingToUrl("/checkout"),
+        fallback_to: appendShoutTrackingToUrl("/cart"),
+        created_at: Date.now()
+      }));
+    } catch (e) {
+      warn("auth.intent.store", e);
+    }
+    window.location.href = AUTH_LOGIN_URL;
+    return false;
+  }
+
   async function startPayment() {
     try {
       const tracking = getShoutTrackingContext();
 
+      if (!requireCheckoutLogin()) return;
       const userId = String(localStorage.getItem("shout_users_id") || "").trim();
-      const accessToken = sessionStorage.getItem("shout_access_token") || "";
-      if (!userId || !accessToken) {
-        try {
-          sessionStorage.setItem(AUTH_INTENT_KEY, JSON.stringify({
-            after: "checkout_payment",
-            return_to: appendShoutTrackingToUrl("/checkout"),
-            fallback_to: appendShoutTrackingToUrl("/cart"),
-            created_at: Date.now()
-          }));
-        } catch (e) {
-          warn("auth.intent.store", e);
-        }
-        window.location.href = AUTH_LOGIN_URL;
-        return;
-      }
+      const accessToken = String(sessionStorage.getItem("shout_access_token") || "").trim();
 
       const items = getSelectedItems();
       if (!items || items.length === 0) {
@@ -838,7 +846,7 @@ onReady(function () {
 
       const createdAt = Number(intent.created_at);
       const isFreshIntent = !createdAt || (Number.isFinite(createdAt) && Date.now() - createdAt <= AUTH_INTENT_TTL_MS);
-      if (!isFreshIntent || String(localStorage.getItem("shout_users_id") || "").trim()) {
+      if (!isFreshIntent || hasCheckoutLogin()) {
         sessionStorage.removeItem(AUTH_INTENT_KEY);
       }
     } catch (e) {
@@ -847,6 +855,7 @@ onReady(function () {
   }
 
   function bootstrap() {
+    if (!requireCheckoutLogin()) return;
     if (typeof TossPayments !== "function") {
       renderErrorState("결제 모듈을 불러오지 못했습니다.");
       return;
