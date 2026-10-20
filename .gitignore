@@ -1,0 +1,6 @@
+# Public distribution checkout: browser assets and minimal metadata only.
+*
+!/[0-9][0-9]-*.js
+!/[0-9][0-9]-*.css
+!/README.md
+!/.gitignore
