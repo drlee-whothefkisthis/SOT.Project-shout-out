@@ -231,22 +231,8 @@ onReady(function () {
 
   const pageLoader = document.getElementById("ids-loading");
 
-  if (listEl && !document.getElementById("sh-mypage-logout")) {
-    const row = document.createElement("div");
-    row.className = "sh-mypage-logout-row";
-    row.style.cssText = "display:flex;justify-content:flex-end;margin:12px 0";
-    const button = document.createElement("button");
-    button.id = "sh-mypage-logout";
-    button.type = "button";
-    button.textContent = "로그아웃";
-    button.style.cssText = "padding:8px 14px;border:1px solid currentColor;border-radius:6px;background:transparent;color:inherit;cursor:pointer";
-    button.addEventListener("click", window.ShoutAuth.logout);
-    row.appendChild(button);
-    listEl.parentNode.insertBefore(row, listEl);
-  }
-
   // Webflow collapses this navbar at 991px (data-collapse="medium").
-  // Reuse About's classes so Logout follows the same desktop/mobile typography.
+  // Logout is available only inside the mobile menu, with About's typography.
   const aboutLink = document.querySelector(".w-nav-menu .link-about");
   if (aboutLink && !document.getElementById("sh-mobile-menu-logout")) {
     const menuLogout = aboutLink.cloneNode(false);
@@ -274,7 +260,6 @@ onReady(function () {
       #sh-mobile-menu-logout { display: none !important; }
       @media screen and (max-width: 991px) {
         #sh-mobile-menu-logout { display: block !important; }
-        .sh-mypage-logout-row { display: none !important; }
       }
     `;
     document.head.appendChild(menuStyle);
