@@ -19,7 +19,7 @@
 <script src="https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/00-Global.js"></script>
 ```
 
-## Home — /index
+## Home — /
 
 ### Inside `<head>`
 

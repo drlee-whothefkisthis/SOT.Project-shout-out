@@ -10,4 +10,4 @@
 - All original SVG/archived Embeds and generated Webflow HTML/CSS/JS are versioned in `originals` / `embeds`. Archived Weglot examples were preserved, not activated.
 - This is a frontend code delivery migration. Webflow settings/Publish and Bubble were not changed.
 
-The release tag CDN is checked after pushing the tag. Final results are recorded in the delivery evidence and subsequent verification commit; the tag is never moved.
+Release CDN verification completed: all 33 v1.0.0 root assets returned HTTP 200 and match local SHA-256 hashes. Tag commit: `f7e293ea9199221e7fe94ff8406b9fbe7ff2ac4a`. See `evidence/release-cdn-verification.json`. The tag was not moved.

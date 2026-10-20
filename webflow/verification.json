@@ -40,6 +40,14 @@
     "gitPrepared": true,
     "webflowSettingsChanged": false,
     "webflowPublished": false,
-    "bubbleChanged": false
+    "bubbleChanged": false,
+    "gitPushed": true
+  },
+  "releaseCdn": {
+    "tag": "v1.0.0",
+    "commit": "f7e293ea9199221e7fe94ff8406b9fbe7ff2ac4a",
+    "files": 33,
+    "allHttp200": true,
+    "allMatchLocal": true
   }
 }

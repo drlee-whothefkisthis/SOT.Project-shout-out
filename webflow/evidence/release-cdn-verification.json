@@ -1,0 +1,266 @@
+[
+  {
+    "file": "00-Auth.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/00-Auth.js",
+    "status": 200,
+    "sha256": "0b64911d07d4a631d777e1a339b39c0cf003403bb28142694104fe0a66c526b3",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "00-Global-Head.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/00-Global-Head.js",
+    "status": 200,
+    "sha256": "fd7b17026dff9319578fa84cf5903fb7abcb0389213fd8dac5b6ccf5bd1711ec",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "00-Global.css",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/00-Global.css",
+    "status": 200,
+    "sha256": "05af596d78bc92581796c2aeb6cb189facdc8de63ff12387c2a80704918901de",
+    "matchesLocal": true,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "file": "00-Global.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/00-Global.js",
+    "status": 200,
+    "sha256": "7a86eef2a515ac6f946856c2118efd2f10db25d1d03537b3b330f9366a152a3c",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "01-Main.css",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/01-Main.css",
+    "status": 200,
+    "sha256": "cb344e3442b25f23daeeb8b3d79852f5273be7359aff97eb4df1f3773119ac14",
+    "matchesLocal": true,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "file": "01-Main.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/01-Main.js",
+    "status": 200,
+    "sha256": "5e883b6950d2bb1e2ea0b875e36d9af8c18db03426669182bd8745b9828abadc",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "02-Gallery.css",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/02-Gallery.css",
+    "status": 200,
+    "sha256": "889a76c27db56a3b301a98ff0a20950a0e3d52e2e8ee8f7fff74d5ce701568b5",
+    "matchesLocal": true,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "file": "02-Gallery.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/02-Gallery.js",
+    "status": 200,
+    "sha256": "f2767851b04fb2ed59ab8e5e886f3921ee3578bcaabd8eff2245125e112057e3",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "03-Cart.css",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/03-Cart.css",
+    "status": 200,
+    "sha256": "5381d4e88cb0183dc364f30eb49ca5507f96300011b49b40740ef6f93e8b5e78",
+    "matchesLocal": true,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "file": "03-Cart.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/03-Cart.js",
+    "status": 200,
+    "sha256": "72f5cedd36c4211a388d4e08254dc681590ecfff406821901e4e8a32e1a8dfad",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "03-Checkout.css",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/03-Checkout.css",
+    "status": 200,
+    "sha256": "503866de91a7e5ec4658656835e2dcf491d6357de375ac6c71c46139f539246f",
+    "matchesLocal": true,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "file": "03-Checkout.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/03-Checkout.js",
+    "status": 200,
+    "sha256": "639522ba92a0dc47d4aada52465a1ef31728c04d6a1bdd98bbc5c647f05d10d5",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "04-MyPage-Head.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/04-MyPage-Head.js",
+    "status": 200,
+    "sha256": "38087a06510078b2289e2447d1c7ea3b91a653bc0c1e7fba1de023cadc2caa9c",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "04-MyPage.css",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/04-MyPage.css",
+    "status": 200,
+    "sha256": "e1c6392e49fb7de7d3a80632e7e8ef4e40421fa088ccdbdc6f7947d1498dfbee",
+    "matchesLocal": true,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "file": "04-MyPage.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/04-MyPage.js",
+    "status": 200,
+    "sha256": "22d0cf89e80525a59ec8c938bf9bbd999c58bc82269ae911b01d90fa0d5c7f7f",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "05-Login.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/05-Login.js",
+    "status": 200,
+    "sha256": "4db626d37b207964fa24391d1fabf3e6156a6464c6ef021be5b7163f514599ae",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "06-Admin.css",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/06-Admin.css",
+    "status": 200,
+    "sha256": "8c71487f491475b528aea3d82583f775b2e6955ca593af2ed637603373e70c89",
+    "matchesLocal": true,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "file": "06-Admin.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/06-Admin.js",
+    "status": 200,
+    "sha256": "8be3c9ee14b786fa44984939bdb4be2c1a76cea21f977122e9fbd02d437d94df",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "06-AdminGate.css",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/06-AdminGate.css",
+    "status": 200,
+    "sha256": "b656a4e52eb868ae77fcebab7a835d8fc4780ab7747cd433625577df32d0af62",
+    "matchesLocal": true,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "file": "06-AdminGate.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/06-AdminGate.js",
+    "status": 200,
+    "sha256": "af912833e45d3b1eef9cc248c040f877c283cb4f2363a1877c33086b6ff912df",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "07-GeneralLog.css",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/07-GeneralLog.css",
+    "status": 200,
+    "sha256": "0977b1a19150b81b23037ba74e4eba2de74a80c5add2020cf9fb6f2510137fec",
+    "matchesLocal": true,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "file": "07-GeneralLog.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/07-GeneralLog.js",
+    "status": 200,
+    "sha256": "36975eb8e46379af2a0ffbd75e0c99c1c3deccb49ecb59a95a72223808053b68",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "07-PhotoLog.css",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/07-PhotoLog.css",
+    "status": 200,
+    "sha256": "448d7ef7dded6f6070ab31f2025fcde266a5cbd887081c14b7f55d62a25fb059",
+    "matchesLocal": true,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "file": "07-PhotoLog.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/07-PhotoLog.js",
+    "status": 200,
+    "sha256": "c954cdb92866f521642210b0f7c82d225a77149ee8b285ac6a5015606723fb53",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "08-Payment-Loader.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/08-Payment-Loader.js",
+    "status": 200,
+    "sha256": "877b77863530a710082ad21da22f1427bc02fa8c028714b7decc039ed187c230",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "08-Payment.css",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/08-Payment.css",
+    "status": 200,
+    "sha256": "d451c1a951ccca0d9c231cfefc15c6b00cc971a8d4f8fb66f143b8d11bae013c",
+    "matchesLocal": true,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "file": "08-Payment.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/08-Payment.js",
+    "status": 200,
+    "sha256": "84faa1e71c8aeb2016cf58eaf856369490230c0b947edff4a472e8fb6ab30078",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "09-FAQ.css",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/09-FAQ.css",
+    "status": 200,
+    "sha256": "1735e514f5999774b5d7f7bbe502bd1cec1ea747d8f6be2b913758a4e36d5e69",
+    "matchesLocal": true,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "file": "09-FAQ.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/09-FAQ.js",
+    "status": 200,
+    "sha256": "82bdafd7502b44c0eb78978437829088c09d4a8c3327ba8e5ce5bcfa18562871",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "10-Contact.css",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/10-Contact.css",
+    "status": 200,
+    "sha256": "63960afb50d661d500fb9f0d93454cc0803baf1b5d4b627876dbd2bebab53937",
+    "matchesLocal": true,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "file": "10-Contact.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/10-Contact.js",
+    "status": 200,
+    "sha256": "66ce59688f38e901bcbfa10879d40553083cd8f080e527d62ab7c116a698220c",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "file": "90-CartArchive.css",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/90-CartArchive.css",
+    "status": 200,
+    "sha256": "54e5ef98edfafb737c5ae685fa704da9d5e0cb5c8b898caa658e94d78b97854f",
+    "matchesLocal": true,
+    "contentType": "text/css; charset=utf-8"
+  },
+  {
+    "file": "90-CartArchive.js",
+    "url": "https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/90-CartArchive.js",
+    "status": 200,
+    "sha256": "9fd19a292678bd03474c195ede0ab8bfeedcfe6d5d043757f9ec29dd202fd582",
+    "matchesLocal": true,
+    "contentType": "application/javascript; charset=utf-8"
+  }
+]
