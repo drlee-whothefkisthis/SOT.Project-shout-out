@@ -1,0 +1,2284 @@
+{
+  "version": "v1.0.0",
+  "owner": "project01-SOT",
+  "sources": [
+    {
+      "file": "01-Main.js",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@8a5884c85637b3ba98fb689ce6da05474a78f7f1/01-Main.js",
+      "sourceCommit": "8a5884c85637b3ba98fb689ce6da05474a78f7f1",
+      "sourceFile": "01-Main.js",
+      "sourceSha256": "5e883b6950d2bb1e2ea0b875e36d9af8c18db03426669182bd8745b9828abadc",
+      "sha256": "5e883b6950d2bb1e2ea0b875e36d9af8c18db03426669182bd8745b9828abadc",
+      "transformation": "rename only"
+    },
+    {
+      "file": "01-Main.css",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@76c72a5e5f343ef2db13db6d852c899d9090e7cf/01-Main.css",
+      "sourceCommit": "76c72a5e5f343ef2db13db6d852c899d9090e7cf",
+      "sourceFile": "01-Main.css",
+      "sourceSha256": "cb344e3442b25f23daeeb8b3d79852f5273be7359aff97eb4df1f3773119ac14",
+      "sha256": "cb344e3442b25f23daeeb8b3d79852f5273be7359aff97eb4df1f3773119ac14",
+      "transformation": "rename only"
+    },
+    {
+      "file": "02-Gallery.js",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@8828126be3a2aa6763edd5c8426add16c6b352a0/02-Gallery-B.runtime.js",
+      "sourceCommit": "8828126be3a2aa6763edd5c8426add16c6b352a0",
+      "sourceFile": "02-Gallery-B.runtime.js",
+      "sourceSha256": "f2767851b04fb2ed59ab8e5e886f3921ee3578bcaabd8eff2245125e112057e3",
+      "sha256": "f2767851b04fb2ed59ab8e5e886f3921ee3578bcaabd8eff2245125e112057e3",
+      "transformation": "rename only"
+    },
+    {
+      "file": "02-Gallery.css",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@8828126be3a2aa6763edd5c8426add16c6b352a0/02-Gallery-H.css",
+      "sourceCommit": "8828126be3a2aa6763edd5c8426add16c6b352a0",
+      "sourceFile": "02-Gallery-H.css",
+      "sourceSha256": "889a76c27db56a3b301a98ff0a20950a0e3d52e2e8ee8f7fff74d5ce701568b5",
+      "sha256": "889a76c27db56a3b301a98ff0a20950a0e3d52e2e8ee8f7fff74d5ce701568b5",
+      "transformation": "rename only"
+    },
+    {
+      "file": "03-Cart.js",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@7cbe9145a71058da55591009391ba92bb18d5bb8/03_Cart-v1-260616-2.js",
+      "sourceCommit": "7cbe9145a71058da55591009391ba92bb18d5bb8",
+      "sourceFile": "03_Cart-v1-260616-2.js",
+      "sourceSha256": "72f5cedd36c4211a388d4e08254dc681590ecfff406821901e4e8a32e1a8dfad",
+      "sha256": "72f5cedd36c4211a388d4e08254dc681590ecfff406821901e4e8a32e1a8dfad",
+      "transformation": "rename only"
+    },
+    {
+      "file": "03-Cart.css",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@c9a4fba66faae4cdeaf9792d7face4cc5157788e/03_Cart-H.css",
+      "sourceCommit": "c9a4fba66faae4cdeaf9792d7face4cc5157788e",
+      "sourceFile": "03_Cart-H.css",
+      "sourceSha256": "5381d4e88cb0183dc364f30eb49ca5507f96300011b49b40740ef6f93e8b5e78",
+      "sha256": "5381d4e88cb0183dc364f30eb49ca5507f96300011b49b40740ef6f93e8b5e78",
+      "transformation": "rename only"
+    },
+    {
+      "file": "03-Checkout.js",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@7cbe9145a71058da55591009391ba92bb18d5bb8/03_Cart-m-checkout.runtime.js",
+      "sourceCommit": "7cbe9145a71058da55591009391ba92bb18d5bb8",
+      "sourceFile": "03_Cart-m-checkout.runtime.js",
+      "sourceSha256": "639522ba92a0dc47d4aada52465a1ef31728c04d6a1bdd98bbc5c647f05d10d5",
+      "sha256": "639522ba92a0dc47d4aada52465a1ef31728c04d6a1bdd98bbc5c647f05d10d5",
+      "transformation": "rename only"
+    },
+    {
+      "file": "04-MyPage.js",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@2914d6cd73f6e206018466a12ca5befdc45e1adc/04_MyPage-B.runtime.js",
+      "sourceCommit": "2914d6cd73f6e206018466a12ca5befdc45e1adc",
+      "sourceFile": "04_MyPage-B.runtime.js",
+      "sourceSha256": "22d0cf89e80525a59ec8c938bf9bbd999c58bc82269ae911b01d90fa0d5c7f7f",
+      "sha256": "22d0cf89e80525a59ec8c938bf9bbd999c58bc82269ae911b01d90fa0d5c7f7f",
+      "transformation": "rename only"
+    },
+    {
+      "file": "05-Login.js",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@7cbe9145a71058da55591009391ba92bb18d5bb8/05_Login.runtime.js",
+      "sourceCommit": "7cbe9145a71058da55591009391ba92bb18d5bb8",
+      "sourceFile": "05_Login.runtime.js",
+      "sourceSha256": "4db626d37b207964fa24391d1fabf3e6156a6464c6ef021be5b7163f514599ae",
+      "sha256": "4db626d37b207964fa24391d1fabf3e6156a6464c6ef021be5b7163f514599ae",
+      "transformation": "rename only"
+    },
+    {
+      "file": "06-Admin.js",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@7cbe9145a71058da55591009391ba92bb18d5bb8/06_Admin-B.js",
+      "sourceCommit": "7cbe9145a71058da55591009391ba92bb18d5bb8",
+      "sourceFile": "06_Admin-B.js",
+      "sourceSha256": "8be3c9ee14b786fa44984939bdb4be2c1a76cea21f977122e9fbd02d437d94df",
+      "sha256": "8be3c9ee14b786fa44984939bdb4be2c1a76cea21f977122e9fbd02d437d94df",
+      "transformation": "rename only"
+    },
+    {
+      "file": "06-Admin.css",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@bcf587844aee366bfa44651ace567d6c6f1ce407/06_Admin-H.css",
+      "sourceCommit": "bcf587844aee366bfa44651ace567d6c6f1ce407",
+      "sourceFile": "06_Admin-H.css",
+      "sourceSha256": "17e63334d73fe018c533e77dd17e4561c3aea5f1ed9272b03ccd537a205b911c",
+      "sha256": "8c71487f491475b528aea3d82583f775b2e6955ca593af2ed637603373e70c89",
+      "transformation": "base stylesheet plus same mobile style previously fetched by runtime"
+    },
+    {
+      "file": "07-PhotoLog.js",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@c2ca8855b1fd09a8e44a588f6fd4478abb6aa79a/07_PhotoLog.js",
+      "sourceCommit": "c2ca8855b1fd09a8e44a588f6fd4478abb6aa79a",
+      "sourceFile": "07_PhotoLog.js",
+      "sourceSha256": "c954cdb92866f521642210b0f7c82d225a77149ee8b285ac6a5015606723fb53",
+      "sha256": "c954cdb92866f521642210b0f7c82d225a77149ee8b285ac6a5015606723fb53",
+      "transformation": "rename only"
+    },
+    {
+      "file": "07-PhotoLog.css",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@ea6898a72aced7dc9846e1e4528f1d4c2c24b344/07_PhotoLog.css",
+      "sourceCommit": "ea6898a72aced7dc9846e1e4528f1d4c2c24b344",
+      "sourceFile": "07_PhotoLog.css",
+      "sourceSha256": "448d7ef7dded6f6070ab31f2025fcde266a5cbd887081c14b7f55d62a25fb059",
+      "sha256": "448d7ef7dded6f6070ab31f2025fcde266a5cbd887081c14b7f55d62a25fb059",
+      "transformation": "rename only"
+    },
+    {
+      "file": "08-Payment.js",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@7cbe9145a71058da55591009391ba92bb18d5bb8/Payment-success-B.runtime.js",
+      "sourceCommit": "7cbe9145a71058da55591009391ba92bb18d5bb8",
+      "sourceFile": "Payment-success-B.runtime.js",
+      "sourceSha256": "84faa1e71c8aeb2016cf58eaf856369490230c0b947edff4a472e8fb6ab30078",
+      "sha256": "84faa1e71c8aeb2016cf58eaf856369490230c0b947edff4a472e8fb6ab30078",
+      "transformation": "rename only"
+    },
+    {
+      "file": "09-FAQ.js",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@dd57e496ee2df16995b64dc7303e00641ae93b7d/09_FAQ.js",
+      "sourceCommit": "dd57e496ee2df16995b64dc7303e00641ae93b7d",
+      "sourceFile": "09_FAQ.js",
+      "sourceSha256": "82bdafd7502b44c0eb78978437829088c09d4a8c3327ba8e5ce5bcfa18562871",
+      "sha256": "82bdafd7502b44c0eb78978437829088c09d4a8c3327ba8e5ce5bcfa18562871",
+      "transformation": "rename only"
+    },
+    {
+      "file": "09-FAQ.css",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@dd57e496ee2df16995b64dc7303e00641ae93b7d/09_FAQ.css",
+      "sourceCommit": "dd57e496ee2df16995b64dc7303e00641ae93b7d",
+      "sourceFile": "09_FAQ.css",
+      "sourceSha256": "1735e514f5999774b5d7f7bbe502bd1cec1ea747d8f6be2b913758a4e36d5e69",
+      "sha256": "1735e514f5999774b5d7f7bbe502bd1cec1ea747d8f6be2b913758a4e36d5e69",
+      "transformation": "rename only"
+    },
+    {
+      "file": "10-Contact.js",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@a8ea66efafbbe1e48017cfb5e834713fb4f542de/10_Contact.js",
+      "sourceCommit": "a8ea66efafbbe1e48017cfb5e834713fb4f542de",
+      "sourceFile": "10_Contact.js",
+      "sourceSha256": "66ce59688f38e901bcbfa10879d40553083cd8f080e527d62ab7c116a698220c",
+      "sha256": "66ce59688f38e901bcbfa10879d40553083cd8f080e527d62ab7c116a698220c",
+      "transformation": "rename only"
+    },
+    {
+      "file": "10-Contact.css",
+      "sourceUrl": "https://cdn.jsdelivr.net/gh/drlee-whothefkisthis/SOT.Project-shout-out@a8ea66efafbbe1e48017cfb5e834713fb4f542de/10_Contact.css",
+      "sourceCommit": "a8ea66efafbbe1e48017cfb5e834713fb4f542de",
+      "sourceFile": "10_Contact.css",
+      "sourceSha256": "63960afb50d661d500fb9f0d93454cc0803baf1b5d4b627876dbd2bebab53937",
+      "sha256": "63960afb50d661d500fb9f0d93454cc0803baf1b5d4b627876dbd2bebab53937",
+      "transformation": "rename only"
+    }
+  ],
+  "pages": [
+    {
+      "name": "Home",
+      "path": "index.html",
+      "head": "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/01-Main.css\">",
+      "body": "<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/01-Main.js\"></script>"
+    },
+    {
+      "name": "Gallery",
+      "path": "gallery.html",
+      "head": "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/02-Gallery.css\">",
+      "body": "<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/02-Gallery.js\"></script>"
+    },
+    {
+      "name": "Cart",
+      "path": "cart.html",
+      "head": "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/03-Cart.css\">",
+      "body": "<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/03-Cart.js\"></script>"
+    },
+    {
+      "name": "Checkout",
+      "path": "checkout.html",
+      "head": "<script src=\"https://js.tosspayments.com/v2/standard\"></script>\n<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/03-Checkout.css\">",
+      "body": "<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/03-Checkout.js\"></script>"
+    },
+    {
+      "name": "Mypage",
+      "path": "mypage.html",
+      "head": "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/04-MyPage.css\">\n<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/04-MyPage-Head.js\"></script>",
+      "body": "<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/04-MyPage.js\"></script>"
+    },
+    {
+      "name": "Login",
+      "path": "login.html",
+      "head": "<script src=\"https://developers.kakao.com/sdk/js/kakao.js\"></script>\n",
+      "body": "<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/05-Login.js\"></script>"
+    },
+    {
+      "name": "Admin",
+      "path": "admin.html",
+      "head": "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/06-Admin.css\">",
+      "body": "<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/06-Admin.js\" defer></script>"
+    },
+    {
+      "name": "PhotoLog",
+      "path": "event-photographer-log.html",
+      "head": "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/07-PhotoLog.css\">",
+      "body": "<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/07-PhotoLog.js\"></script>"
+    },
+    {
+      "name": "Payment Success",
+      "path": "payments-results/success.html",
+      "head": "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/08-Payment.css\">\n<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/08-Payment-Loader.js\"></script>",
+      "body": "<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/08-Payment.js\"></script>"
+    },
+    {
+      "name": "FAQ",
+      "path": "menu/faq.html",
+      "head": "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/09-FAQ.css\">",
+      "body": "<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/09-FAQ.js\"></script>"
+    },
+    {
+      "name": "Contact",
+      "path": "menu/contact.html",
+      "head": "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/10-Contact.css\">",
+      "body": "<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/10-Contact.js\"></script>"
+    },
+    {
+      "name": "AdminGate",
+      "path": "admingate.html",
+      "head": "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/06-AdminGate.css\">",
+      "body": "<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/06-AdminGate.js\"></script>"
+    },
+    {
+      "name": "GeneralLog",
+      "path": "general-shooting-log.html",
+      "head": "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/07-GeneralLog.css\">",
+      "body": "<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/07-GeneralLog.js\"></script>"
+    },
+    {
+      "name": "Untitled",
+      "path": "archive/untitled.html",
+      "head": "",
+      "body": ""
+    },
+    {
+      "name": "Cart Copy",
+      "path": "archive/cart-copy.html",
+      "head": "<script src=\"https://js.tosspayments.com/v1/payment\"></script>\n<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/90-CartArchive.css\">",
+      "body": "<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/90-CartArchive.js\"></script>"
+    },
+    {
+      "name": "Payment Fail",
+      "path": "payments-results/fail.html",
+      "head": "",
+      "body": ""
+    },
+    {
+      "name": "About",
+      "path": "menu/about.html",
+      "head": "",
+      "body": ""
+    },
+    {
+      "name": "Policy",
+      "path": "menu/terms-of-service-copy.html",
+      "head": "",
+      "body": ""
+    },
+    {
+      "name": "Terms-of-service",
+      "path": "terms-of-service.html",
+      "head": "",
+      "body": ""
+    }
+  ],
+  "embeds": [
+    {
+      "page": "admin",
+      "index": 1,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/admin/01.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "admin",
+      "index": 2,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/admin/02.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/cart-copy",
+      "index": 1,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/cart-copy/01.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 1,
+      "class": "global-styles w-embed",
+      "file": "webflow/embeds/archive/untitled/01.html",
+      "hasScript": false,
+      "hasStyle": true
+    },
+    {
+      "page": "archive/untitled",
+      "index": 2,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/02.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 3,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/03.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 4,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/04.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 5,
+      "class": "icon-embed-xxsmall w-embed",
+      "file": "webflow/embeds/archive/untitled/05.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 6,
+      "class": "icon-embed-xxsmall w-embed",
+      "file": "webflow/embeds/archive/untitled/06.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 7,
+      "class": "icon-embed-xxsmall w-embed",
+      "file": "webflow/embeds/archive/untitled/07.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 8,
+      "class": "button-icon is-icon-large w-embed",
+      "file": "webflow/embeds/archive/untitled/08.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 9,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/09.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 10,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/10.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 11,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/11.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 12,
+      "class": "button-icon is-icon-large w-embed",
+      "file": "webflow/embeds/archive/untitled/12.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 13,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/13.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 14,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/14.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 15,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/15.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 16,
+      "class": "button-icon is-icon-large w-embed",
+      "file": "webflow/embeds/archive/untitled/16.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 17,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/17.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 18,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/18.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 19,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/19.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 20,
+      "class": "button-icon is-icon-large w-embed",
+      "file": "webflow/embeds/archive/untitled/20.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 21,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/21.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 22,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/22.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 23,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/23.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 24,
+      "class": "button-icon is-icon-large w-embed",
+      "file": "webflow/embeds/archive/untitled/24.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 25,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/25.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 26,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/26.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 27,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/27.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 28,
+      "class": "button-icon is-icon-large w-embed",
+      "file": "webflow/embeds/archive/untitled/28.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 29,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/29.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 30,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/30.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 31,
+      "class": "button-icon is-icon-large w-embed",
+      "file": "webflow/embeds/archive/untitled/31.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 32,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/32.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 33,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/33.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 34,
+      "class": "button-icon is-icon-large w-embed",
+      "file": "webflow/embeds/archive/untitled/34.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 35,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/35.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 36,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/36.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 37,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/37.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 38,
+      "class": "button-icon is-icon-large w-embed",
+      "file": "webflow/embeds/archive/untitled/38.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 39,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/39.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 40,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/40.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 41,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/41.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 42,
+      "class": "button-icon is-icon-large w-embed",
+      "file": "webflow/embeds/archive/untitled/42.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 43,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/43.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 44,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/44.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 45,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/45.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 46,
+      "class": "button-icon is-icon-large w-embed",
+      "file": "webflow/embeds/archive/untitled/46.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 47,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/47.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 48,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/48.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 49,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/49.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 50,
+      "class": "button-icon is-icon-large w-embed",
+      "file": "webflow/embeds/archive/untitled/50.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 51,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/51.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 52,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/52.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 53,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/53.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 54,
+      "class": "badge-dot w-embed",
+      "file": "webflow/embeds/archive/untitled/54.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 55,
+      "class": "badge-dot w-embed",
+      "file": "webflow/embeds/archive/untitled/55.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 56,
+      "class": "badge-dot w-embed",
+      "file": "webflow/embeds/archive/untitled/56.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 57,
+      "class": "badge-dot text-color-primary500 w-embed",
+      "file": "webflow/embeds/archive/untitled/57.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 58,
+      "class": "badge-dot text-color-primary500 w-embed",
+      "file": "webflow/embeds/archive/untitled/58.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 59,
+      "class": "badge-dot text-color-primary500 w-embed",
+      "file": "webflow/embeds/archive/untitled/59.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 60,
+      "class": "badge-dot text-color-error500 w-embed",
+      "file": "webflow/embeds/archive/untitled/60.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 61,
+      "class": "badge-dot text-color-error500 w-embed",
+      "file": "webflow/embeds/archive/untitled/61.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 62,
+      "class": "badge-dot text-color-error500 w-embed",
+      "file": "webflow/embeds/archive/untitled/62.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 63,
+      "class": "badge-dot text-color-warning500 w-embed",
+      "file": "webflow/embeds/archive/untitled/63.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 64,
+      "class": "badge-dot text-color-warning500 w-embed",
+      "file": "webflow/embeds/archive/untitled/64.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 65,
+      "class": "badge-dot text-color-warning500 w-embed",
+      "file": "webflow/embeds/archive/untitled/65.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 66,
+      "class": "badge-dot text-color-success500 w-embed",
+      "file": "webflow/embeds/archive/untitled/66.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 67,
+      "class": "badge-dot text-color-success500 w-embed",
+      "file": "webflow/embeds/archive/untitled/67.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 68,
+      "class": "badge-dot text-color-success500 w-embed",
+      "file": "webflow/embeds/archive/untitled/68.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 69,
+      "class": "badge-group_icon text-color-gray500 w-embed",
+      "file": "webflow/embeds/archive/untitled/69.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 70,
+      "class": "badge-group_icon badge-icon-small text-color-gray500 w-embed",
+      "file": "webflow/embeds/archive/untitled/70.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 71,
+      "class": "badge-group_icon text-color-gray500 w-embed",
+      "file": "webflow/embeds/archive/untitled/71.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 72,
+      "class": "badge-group_icon badge-icon-small text-color-gray500 w-embed",
+      "file": "webflow/embeds/archive/untitled/72.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 73,
+      "class": "badge-group_icon text-color-primary500 w-embed",
+      "file": "webflow/embeds/archive/untitled/73.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 74,
+      "class": "badge-group_icon badge-icon-small text-color-primary500 w-embed",
+      "file": "webflow/embeds/archive/untitled/74.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 75,
+      "class": "badge-group_icon text-color-primary500 w-embed",
+      "file": "webflow/embeds/archive/untitled/75.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 76,
+      "class": "badge-group_icon badge-icon-small text-color-primary500 w-embed",
+      "file": "webflow/embeds/archive/untitled/76.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 77,
+      "class": "badge-group_icon text-color-error500 w-embed",
+      "file": "webflow/embeds/archive/untitled/77.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 78,
+      "class": "badge-group_icon badge-icon-small text-color-error500 w-embed",
+      "file": "webflow/embeds/archive/untitled/78.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 79,
+      "class": "badge-group_icon text-color-error500 w-embed",
+      "file": "webflow/embeds/archive/untitled/79.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 80,
+      "class": "badge-group_icon badge-icon-small text-color-error500 w-embed",
+      "file": "webflow/embeds/archive/untitled/80.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 81,
+      "class": "badge-group_icon text-color-warning500 w-embed",
+      "file": "webflow/embeds/archive/untitled/81.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 82,
+      "class": "badge-group_icon badge-icon-small text-color-warning500 w-embed",
+      "file": "webflow/embeds/archive/untitled/82.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 83,
+      "class": "badge-group_icon text-color-warning500 w-embed",
+      "file": "webflow/embeds/archive/untitled/83.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 84,
+      "class": "badge-group_icon badge-icon-small text-color-warning500 w-embed",
+      "file": "webflow/embeds/archive/untitled/84.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 85,
+      "class": "badge-group_icon text-color-success500 w-embed",
+      "file": "webflow/embeds/archive/untitled/85.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 86,
+      "class": "badge-group_icon badge-icon-small text-color-success500 w-embed",
+      "file": "webflow/embeds/archive/untitled/86.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 87,
+      "class": "badge-group_icon text-color-success500 w-embed",
+      "file": "webflow/embeds/archive/untitled/87.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 88,
+      "class": "badge-group_icon badge-icon-small text-color-success500 w-embed",
+      "file": "webflow/embeds/archive/untitled/88.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 89,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/89.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 90,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/90.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 91,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/91.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 92,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/92.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 93,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/93.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 94,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/94.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 95,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/95.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 96,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/96.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 97,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/97.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 98,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/98.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 99,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/99.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 100,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/100.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 101,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/101.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 102,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/102.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 103,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/103.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 104,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/104.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 105,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/105.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 106,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/106.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 107,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/107.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 108,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/108.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 109,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/109.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 110,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/110.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 111,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/111.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 112,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/112.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 113,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/113.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 114,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/114.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 115,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/115.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 116,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/116.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 117,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/117.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 118,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/118.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 119,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/119.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 120,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/120.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 121,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/121.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 122,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/122.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 123,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/123.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 124,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/124.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 125,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/125.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 126,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/126.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 127,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/127.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 128,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/128.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 129,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/129.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 130,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/130.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 131,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/131.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 132,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/132.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 133,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/133.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 134,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/134.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 135,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/135.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 136,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/136.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 137,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/137.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 138,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/138.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 139,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/139.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 140,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/140.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 141,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/141.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 142,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/142.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 143,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/143.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 144,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/144.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 145,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/145.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 146,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/146.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 147,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/147.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 148,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/148.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 149,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/149.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 150,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/150.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 151,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/151.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 152,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/152.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 153,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/153.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 154,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/154.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 155,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/155.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 156,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/156.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 157,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/157.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 158,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/158.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 159,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/159.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 160,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/160.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 161,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/161.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 162,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/162.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 163,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/163.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 164,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/164.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 165,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/165.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 166,
+      "class": "button-icon w-embed",
+      "file": "webflow/embeds/archive/untitled/166.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 167,
+      "class": "button-icon is-icon-large w-embed",
+      "file": "webflow/embeds/archive/untitled/167.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 168,
+      "class": "icon-1x1-xxsmall w-embed",
+      "file": "webflow/embeds/archive/untitled/168.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 169,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/169.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 170,
+      "class": "icon-1x1-small w-embed",
+      "file": "webflow/embeds/archive/untitled/170.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 171,
+      "class": "icon-1x1-medium w-embed",
+      "file": "webflow/embeds/archive/untitled/171.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 172,
+      "class": "icon-1x1-large w-embed",
+      "file": "webflow/embeds/archive/untitled/172.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 173,
+      "class": "icon-1x1-xlarge w-embed",
+      "file": "webflow/embeds/archive/untitled/173.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 174,
+      "class": "icon-1x1-custom w-embed",
+      "file": "webflow/embeds/archive/untitled/174.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 175,
+      "class": "icon-1x1-xxsmall w-embed",
+      "file": "webflow/embeds/archive/untitled/175.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 176,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/176.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 177,
+      "class": "icon-1x1-xxsmall w-embed",
+      "file": "webflow/embeds/archive/untitled/177.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 178,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/178.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 179,
+      "class": "icon-1x1-xxsmall w-embed",
+      "file": "webflow/embeds/archive/untitled/179.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 180,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/archive/untitled/180.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 181,
+      "class": "global-styles w-embed",
+      "file": "webflow/embeds/archive/untitled/181.html",
+      "hasScript": false,
+      "hasStyle": true
+    },
+    {
+      "page": "archive/untitled",
+      "index": 182,
+      "class": "wg-logo-embed w-embed",
+      "file": "webflow/embeds/archive/untitled/182.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 183,
+      "class": "wg-logo-embed w-embed",
+      "file": "webflow/embeds/archive/untitled/183.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 184,
+      "class": "wg-video-ico w-embed",
+      "file": "webflow/embeds/archive/untitled/184.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 185,
+      "class": "ico-btn mr-tiny w-embed",
+      "file": "webflow/embeds/archive/untitled/185.html",
+      "hasScript": false,
+      "hasStyle": true
+    },
+    {
+      "page": "archive/untitled",
+      "index": 186,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/186.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 187,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/187.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 188,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/188.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 189,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/189.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 190,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/190.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 191,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/191.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 192,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/192.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 193,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/193.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 194,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/194.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 195,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/195.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 196,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/196.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 197,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/197.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 198,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/198.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 199,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/199.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 200,
+      "class": "wg-logo-embed w-embed",
+      "file": "webflow/embeds/archive/untitled/200.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 201,
+      "class": "wg-logo-embed w-embed",
+      "file": "webflow/embeds/archive/untitled/201.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 202,
+      "class": "wg-video-ico w-embed",
+      "file": "webflow/embeds/archive/untitled/202.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 203,
+      "class": "ico-btn mr-tiny w-embed",
+      "file": "webflow/embeds/archive/untitled/203.html",
+      "hasScript": false,
+      "hasStyle": true
+    },
+    {
+      "page": "archive/untitled",
+      "index": 204,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/204.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 205,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/205.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 206,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/206.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 207,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/207.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 208,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/208.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 209,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/209.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 210,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/210.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 211,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/211.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 212,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/212.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 213,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/213.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 214,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/214.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 215,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/215.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 216,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/216.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "archive/untitled",
+      "index": 217,
+      "class": "wg-code w-embed w-script",
+      "file": "webflow/embeds/archive/untitled/217.html",
+      "hasScript": true,
+      "hasStyle": false
+    },
+    {
+      "page": "cart",
+      "index": 1,
+      "class": "cart-toggle-icon w-embed",
+      "file": "webflow/embeds/cart/01.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "cart",
+      "index": 2,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/cart/02.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "cart",
+      "index": 3,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/cart/03.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "gallery",
+      "index": 1,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/gallery/01.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "gallery",
+      "index": 2,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/gallery/02.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "index",
+      "index": 1,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/index/01.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "index",
+      "index": 2,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/index/02.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "login",
+      "index": 1,
+      "class": "icon-1x1-xsmall-2 w-embed",
+      "file": "webflow/embeds/login/01.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "menu/about",
+      "index": 1,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/menu/about/01.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "menu/about",
+      "index": 2,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/menu/about/02.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "menu/contact",
+      "index": 1,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/menu/contact/01.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "menu/contact",
+      "index": 2,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/menu/contact/02.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "menu/faq",
+      "index": 1,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/menu/faq/01.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "menu/faq",
+      "index": 2,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/menu/faq/02.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "menu/faq",
+      "index": 3,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/menu/faq/03.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "menu/faq",
+      "index": 4,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/menu/faq/04.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "menu/faq",
+      "index": 5,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/menu/faq/05.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "menu/faq",
+      "index": 6,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/menu/faq/06.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "menu/faq",
+      "index": 7,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/menu/faq/07.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "menu/faq",
+      "index": 8,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/menu/faq/08.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "menu/faq",
+      "index": 9,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/menu/faq/09.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "menu/faq",
+      "index": 10,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/menu/faq/10.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "menu/faq",
+      "index": 11,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/menu/faq/11.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "menu/terms-of-service-copy",
+      "index": 1,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/menu/terms-of-service-copy/01.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "menu/terms-of-service-copy",
+      "index": 2,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/menu/terms-of-service-copy/02.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "mypage",
+      "index": 1,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/mypage/01.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "mypage",
+      "index": 2,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/mypage/02.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "terms-of-service",
+      "index": 1,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/terms-of-service/01.html",
+      "hasScript": false,
+      "hasStyle": false
+    },
+    {
+      "page": "terms-of-service",
+      "index": 2,
+      "class": "hm-modal-close w-embed",
+      "file": "webflow/embeds/terms-of-service/02.html",
+      "hasScript": false,
+      "hasStyle": false
+    }
+  ],
+  "webflowModified": false,
+  "published": false,
+  "global": {
+    "head": "<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/00-Global-Head.js\"></script>\n<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/00-Global.css\">",
+    "body": "<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/00-Global.js\"></script>"
+  }
+}

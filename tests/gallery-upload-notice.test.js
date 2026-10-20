@@ -6,9 +6,9 @@ const vm = require("node:vm");
 const root = path.resolve(__dirname, "..");
 const mainSource = fs.readFileSync(path.join(root, "01-Main.js"), "utf8");
 const mainCssSource = fs.readFileSync(path.join(root, "01-Main.css"), "utf8");
-const galleryBodySource = fs.readFileSync(path.join(root, "02-Gallery-B.js"), "utf8");
-const galleryRuntimeSource = fs.readFileSync(path.join(root, "02-Gallery-B.runtime.js"), "utf8");
-const galleryHeadSource = fs.readFileSync(path.join(root, "02-Gallery-H.css"), "utf8");
+const galleryBodySource = fs.readFileSync(path.join(root, "legacy/02-Gallery-B.js"), "utf8");
+const galleryRuntimeSource = fs.readFileSync(path.join(root, "02-Gallery.js"), "utf8");
+const galleryHeadSource = fs.readFileSync(path.join(root, "02-Gallery.css"), "utf8");
 
 function extractFunction(name) {
   const match = mainSource.match(new RegExp(`(function ${name}\\([^]*?\\n  \\})`));

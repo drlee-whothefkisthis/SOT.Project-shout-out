@@ -10,7 +10,7 @@ function harness() {
  let now=10000000;
  const events={};
  const c={Date:{now:()=>now},JSON,Number,String,Error,localStorage:store(),sessionStorage:store(),window:{location:{href:'/mypage',pathname:'/mypage',reload(){}},addEventListener:(n,f)=>events[n]=f}};
- vm.createContext(c);vm.runInContext(source('00_Auth.js'),c);
+ vm.createContext(c);vm.runInContext(source('00-Auth.js'),c);
  return {c,auth:c.window.ShoutAuth,advance:n=>now+=n,events};
 }
 function login(h,id='user-a',token='token-a',expires=7200) {return h.auth.save({users_id:id,access_token:token,is_admin:true},{access_token:token,expires_in:expires,issued_at:h.c.Date.now()});}
@@ -61,14 +61,14 @@ test('temporary server errors are distinct from explicit token rejection',()=>{
 });
 function part(s,a,b) {const i=s.indexOf(a),j=s.indexOf(b,i);assert.ok(i>=0&&j>i);return s.slice(i,j);}
 test('orders and confirmation send no Kakao token',()=>{
- for(const n of ['03_Cart-v1-260616-2.js','03_Cart-m-checkout.runtime.js','Payment-success-B.runtime.js']) assert.doesNotMatch(source(n),/shout_access_token|["']access_token["']\s*[:,]/);
+ for(const n of ['03-Cart.js','03-Checkout.js','08-Payment.js']) assert.doesNotMatch(source(n),/shout_access_token|["']access_token["']\s*[:,]/);
 });
 test('paid return uses the initiating checkout account even if browser login changed',()=>{
- const s=source('Payment-success-B.runtime.js');assert.match(s,/if \(String\(checkoutContextAtEntry.order_id \|\| ""\).trim\(\) === orderId\) \{\s*usersId = String\(checkoutContextAtEntry.users_id \|\| usersId/);
+ const s=source('08-Payment.js');assert.match(s,/if \(String\(checkoutContextAtEntry.order_id \|\| ""\).trim\(\) === orderId\) \{\s*usersId = String\(checkoutContextAtEntry.users_id \|\| usersId/);
  assert.match(s,/if \(!usersId\)/);assert.doesNotMatch(s,/!accessToken/);
 });
 test('purchase and file requests retain tokens and use fresh credentials',async()=>{
- const s=source('04_MyPage-B.runtime.js');const h=harness();login(h);
+ const s=source('04-MyPage.js');const h=harness();login(h);
  const sent=[];Object.assign(h.c,{WF_GET_PURCHASES:'purchases',WF_SIGNED_URL:'master',WF_SIGNED_STANDARD_URL:'standard',fetch:async(url,options)=>{sent.push([url,JSON.parse(options.body)]);return {ok:true,status:200,json:async()=>({response:{}})};}});
  vm.runInContext(part(s,'  function requireMyPageLogin()', '  function waitForEventMap'),h.c);
  for(const url of ['purchases','master','standard']) await h.c.postJson(url,{access_token:'stale',users_id:'old',fileName:'file'});
@@ -76,24 +76,24 @@ test('purchase and file requests retain tokens and use fresh credentials',async(
  h.advance(7200000);await assert.rejects(h.c.postJson('master',{}),/AUTH_REQUIRED/);assert.equal(sent.length,3);
 });
 test('transient purchase error preserves credentials and does not redirect',async()=>{
- const s=source('04_MyPage-B.runtime.js'),h=harness();login(h);
+ const s=source('04-MyPage.js'),h=harness();login(h);
  Object.assign(h.c,{WF_GET_PURCHASES:'p',WF_SIGNED_URL:'m',WF_SIGNED_STANDARD_URL:'s',fetch:async()=>({ok:false,status:503,json:async()=>({message:'unavailable'})})});
  vm.runInContext(part(s,'  function requireMyPageLogin()', '  function waitForEventMap'),h.c);
  await assert.rejects(h.c.postJson('p',{}));assert.equal(h.auth.getAccessToken(),'token-a');assert.equal(h.c.window.location.href,'/mypage');
 });
 test('ZIP request function and handler remain unchanged',()=>{
  const crypto=require('node:crypto');
- const unchanged=part(source('04_MyPage-B.runtime.js'),'  async function requestZipSignedUrl(','  (async () => {');
+ const unchanged=part(source('04-MyPage.js'),'  async function requestZipSignedUrl(','  (async () => {');
  assert.equal(crypto.createHash('sha256').update(unchanged).digest('hex'),'c2d0a0e1751cc3a7c3d52623e7d089c2d1731da1ce993ece1e903d876c28932d');
 });
 test('PC error exits modal and mobile always offers a cart exit',()=>{
- const cart=source('03_Cart-v1-260616-2.js'),mobile=source('03_Cart-m-checkout.runtime.js');
+ const cart=source('03-Cart.js'),mobile=source('03-Checkout.js');
  assert.match(cart,/warn\("silent catch: createOrder.parseResponse", e\);\s*closePaymentModal\(\)/);
  assert.match(mobile,/<a href="\/cart" class="sh-checkout-back-btn">/);
  assert.match(part(mobile,'    } catch (err) {\n      console.error("[checkout.startPayment]', '  function bindEvents()'),/renderErrorState/);
 });
 test('admin page watches token expiry without renewing the expiry timestamp',()=>{
- const s=source('06_Admin-B.js');assert.match(s,/setTimeout\(check, Math.max\(0, auth.expires_at - Date.now\(\)\) \+ 10\)/);
+ const s=source('06-Admin.js');assert.match(s,/setTimeout\(check, Math.max\(0, auth.expires_at - Date.now\(\)\) \+ 10\)/);
  assert.match(s,/document.addEventListener\("visibilitychange", check\)/);
  assert.doesNotMatch(s.split('// END SHOUT AUTH SHARED')[1],/sessionStorage.getItem\("shout_access_token"\)/);
 });
@@ -102,7 +102,7 @@ function loginHarness(response,ok=true) {
  Object.assign(h.c,{console:{log(){},error(){},warn(){}},URL,alert(){},document:{readyState:'complete',getElementById:()=>({style:{},addEventListener:(n,f)=>handlers[n]=f})},fetch:async()=>({ok,status:ok?200:503,json:async()=>response})});
  h.c.window.location={origin:'https://example.test',href:'/login',pathname:'/login'};
  h.c.window.Kakao=h.c.Kakao={isInitialized:()=>true,Auth:{login:options=>sdk=options}};
- vm.runInContext(source('05_Login.runtime.js'),h.c);
+ vm.runInContext(source('05-Login.js'),h.c);
  handlers.click({preventDefault(){}});
  return {...h,getSDK:()=>sdk};
 }
@@ -123,20 +123,20 @@ test('cancelled Kakao login stays on the login page',()=>{
  const h=loginHarness({});h.getSDK().fail({error:'cancelled'});assert.equal(h.c.window.location.href,'/login');assert.equal(h.auth.getUserId(),'');
 });
 test('embedded auth helpers and HTML script mirrors match canonical raw files',()=>{
- const auth=source('00_Auth.js');
- for(const raw of ['05_Login.runtime.js','04_MyPage-B.runtime.js','06_Admin-B.js']) assert.equal(part(source(raw),'// BEGIN SHOUT AUTH SHARED\n','// END SHOUT AUTH SHARED\n').replace('// BEGIN SHOUT AUTH SHARED\n',''),auth);
- for(const [raw,wrapped] of [['05_Login.runtime.js','05_Login-B.js'],['04_MyPage-B.runtime.js','04_MyPage-B.js'],['03_Cart-m-checkout.runtime.js','03_Cart-m-checkout.js'],['Payment-success-B.runtime.js','Payment(success)-B.js']]) assert.equal(source(wrapped).replace(/^<script>\s*/,'').replace(/\s*<\/script>\s*$/,'').trim(),source(raw).trim());
+ const auth=source('00-Auth.js');
+ for(const raw of ['05-Login.js','04-MyPage.js','06-Admin.js']) assert.equal(part(source(raw),'// BEGIN SHOUT AUTH SHARED\n','// END SHOUT AUTH SHARED\n').replace('// BEGIN SHOUT AUTH SHARED\n',''),auth);
+ for(const [raw,wrapped] of [['05-Login.js','legacy/05_Login-B.js'],['04-MyPage.js','legacy/04_MyPage-B.js'],['03-Checkout.js','legacy/03_Cart-m-checkout.js'],['08-Payment.js','legacy/Payment(success)-B.js']]) assert.equal(source(wrapped).replace(/^<script>\s*/,'').replace(/\s*<\/script>\s*$/,'').trim(),source(raw).trim());
 });
 
 test('HTTP 200 without explicit Bubble confirmation cannot clear cart or report purchase success',()=>{
  const c={};vm.createContext(c);
- vm.runInContext(part(source('Payment-success-B.runtime.js'),'    function isPaymentConfirmed(', '    async function processPaymentConfirm()'),c);
+ vm.runInContext(part(source('08-Payment.js'),'    function isPaymentConfirmed(', '    async function processPaymentConfirm()'),c);
  for(const data of [null,{}, {status:'success'}, {response:{}}, {response:{status:'failed'}}]) assert.equal(c.isPaymentConfirmed({ok:true},data),false);
  assert.equal(c.isPaymentConfirmed({ok:false},{response:{status:'success'}}),false);
  assert.equal(c.isPaymentConfirmed({ok:true},{response:{status:'success'}}),true);
 });
 test('PC and mobile reject empty, zero-price, or mismatched order responses',()=>{
- for(const n of ['03_Cart-v1-260616-2.js','03_Cart-m-checkout.runtime.js']) {
+ for(const n of ['03-Cart.js','03-Checkout.js']) {
   const s=source(n),a=s.indexOf('const bubble = j && j.response;'),b=s.indexOf('totalAmount += amt;',a);
   assert.ok(a>=0&&b>a);const c={Number,Error};vm.createContext(c);
   const validate=vm.runInContext('(function(j,orderId){'+s.slice(a,b)+'return amt;})',c);

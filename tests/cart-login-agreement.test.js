@@ -4,8 +4,8 @@ const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
 const repo = process.env.SOT_TEST_REPO || path.resolve(__dirname, '..');
-const cart = fs.readFileSync(path.join(repo, '03_Cart-v1-260616-2.js'), 'utf8');
-const mobile = fs.readFileSync(path.join(repo, '03_Cart-m-checkout.runtime.js'), 'utf8');
+const cart = fs.readFileSync(path.join(repo, '03-Cart.js'), 'utf8');
+const mobile = fs.readFileSync(path.join(repo, '03-Checkout.js'), 'utf8');
 function section(source, from, to) {
   const a = source.indexOf(from), b = source.indexOf(to, a);
   assert.ok(a >= 0 && b > a, from);

@@ -1,0 +1,488 @@
+  #galleryGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-flow: dense;
+    grid-auto-rows: var(--cell, 250px);
+    gap: 14px;
+    padding-bottom: 120px;
+    width: 100%;
+  }
+
+  :root{
+    --section-pad-x: clamp(16px, 4vw, 40px);
+    --tray-height: 96px;
+  }
+
+  :is(.gallery-container){
+    padding-inline: var(--section-pad-x);
+    margin-inline: auto;
+  }
+
+  @media (max-width: 840px) {
+    #galleryGrid {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+  }
+
+  .gallery-card.size-normal { grid-column: span 1; grid-row: span 1; }
+  .gallery-card.size-wide   { grid-column: span 2; grid-row: span 1; }
+  .gallery-card.size-tall   { grid-column: span 1; grid-row: span 2; }
+  .gallery-card.size-big    { grid-column: span 2; grid-row: span 2; }
+
+  .gallery-card {
+    position: relative;
+    width: 100%; height: 100%;
+    overflow: hidden;
+    border-radius: 12px;
+    background: #111;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.06), 0 8px 24px rgba(0,0,0,0.25);
+    transform: translateY(0);
+    transition: transform 160ms ease, box-shadow 160ms ease;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .gallery-card::before {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.04) 70%, rgba(0,0,0,0.06) 100%);
+    pointer-events: none; z-index: 2;
+  }
+  .gallery-card::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.05) 35%, rgba(255,255,255,0.00) 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(255,255,255,0.07), inset 0 -2px 0 rgba(0,0,0,0.10);
+    opacity: 0.9; pointer-events: none; z-index: 3;
+  }
+
+  @media (hover: hover) {
+    .gallery-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 1px 0 rgba(255,255,255,0.08), 0 12px 36px rgba(0,0,0,0.35);
+      z-index: 10;
+    }
+    .gallery-card:hover::after { opacity: 1; }
+  }
+
+  .gallery-card .gallery-media{
+    width: 100%;
+    height: 100%;
+    display: block;
+    position: relative;
+    z-index: 1;
+
+    background-size: cover;
+    background-position: 50% 50%;
+    background-repeat: no-repeat;
+
+    transition: transform 0.4s ease;
+  }
+
+  .gallery-card:hover .gallery-media{
+    transform: scale(1.03);
+  }
+
+
+  .gallery-card .sel-badge {
+    position: absolute; top: 10px; right: 10px;
+    width: 28px; height: 28px; border-radius: 999px;
+    display: grid; place-items: center;
+    background: rgba(0,0,0,0.42);
+    border: 1px solid rgba(255,255,255,0.22);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.28);
+    z-index: 6;
+
+    pointer-events: auto;
+    cursor: pointer;
+
+    opacity: 0; transform: scale(0.96);
+    transition: all 140ms ease;
+  }
+
+  @media (hover: hover) {
+    .gallery-card:hover .sel-badge {
+      opacity: 1;
+      transform: scale(1);
+      background: rgba(0,0,0,0.28);
+      border-color: rgba(255,255,255,0.28);
+    }
+  }
+
+  .gallery-card.is-selected .sel-badge {
+    opacity: 1; transform: scale(1);
+    background: rgba(59,130,246,0.92);
+    border-color: rgba(255,255,255,0.32);
+  }
+
+  .gallery-card.is-selected {
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.85), 0 12px 36px rgba(0,0,0,0.40);
+  }
+
+  .sel-badge svg {
+    width: 16px; height: 16px; fill: none; stroke: #fff;
+    stroke-width: 3; stroke-linecap: round; stroke-linejoin: round;
+  }
+
+  #shoutModalOverlay {
+    position: fixed; inset: 0; z-index: 99999; display: none;
+    align-items: center; justify-content: center; padding: 18px;
+
+    background: rgba(0,0,0,0.72);
+    backdrop-filter: blur(10px);
+  }
+  #shoutModalOverlay.is-open { display: flex; }
+
+  /* When the fixed selected-photo tray opens, reserve its real height below the modal.
+     The modal stays centred in the remaining visual viewport instead of being covered. */
+  #shoutModalOverlay.has-selected-tray {
+    padding-bottom: calc(var(--shout-selected-tray-height, 0px) + 18px);
+  }
+
+  #shoutModalOverlay.has-selected-tray #shoutModalContainer {
+    height: min(85dvh, calc(100dvh - var(--shout-selected-tray-height, 0px) - 36px));
+    max-height: calc(100dvh - var(--shout-selected-tray-height, 0px) - 36px);
+  }
+
+  #shoutModalContainer {
+    position: relative; width: min(980px, 100%); min-width: 320px; height: min(85vh, 900px);
+    border-radius: 18px; overflow: hidden; background: rgba(20,20,20,0.95);
+    border: 0; display: flex; flex-direction: column;
+  }
+
+  /* Mobile viewer uses the whole visual viewport. When the fixed selected tray is
+     visible, the modal fills every remaining pixel above it instead of re-centring. */
+  @media (max-width: 767px) {
+    #shoutModalOverlay {
+      padding: 0;
+      align-items: stretch;
+      justify-content: stretch;
+    }
+
+    #shoutModalOverlay.has-selected-tray {
+      padding-bottom: 0;
+      background: #000;
+    }
+
+    #shoutModalContainer,
+    #shoutModalOverlay.has-selected-tray #shoutModalContainer {
+      width: 100%;
+      min-width: 0;
+      height: 100dvh;
+      max-height: 100dvh;
+      border-radius: 0;
+    }
+
+    #shoutModalOverlay.has-selected-tray #shoutModalContainer {
+      height: 100dvh;
+      max-height: 100dvh;
+    }
+
+    /* Keep the image stage anchored below the top bar while the tray overlays
+       the remaining modal background. */
+    #shoutModalOverlay.has-selected-tray #shoutModalImageWrap {
+      flex: 0 0 auto;
+      height: calc(100dvh - 40px - var(--shout-selected-tray-height, 0px));
+    }
+
+    #shoutModalTopbar { height: 40px; padding: 0 12px; align-items: flex-start; }
+    #shoutModalCounter { align-self: center; }
+    .shoutModalBtn { height: 32px; padding: 0 11px; font-size: 13px; }
+    .shoutModalNavBtn {
+      top: calc(40px + (100dvh - 40px - var(--shout-selected-tray-height, 0px)) / 2);
+      width: 32px; height: 32px;
+    }
+    .shoutModalNavBtn svg { width: 22px; height: 22px; }
+  }
+
+  #shoutModalTopbar {
+    height: 60px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; background: #202022; border-bottom: 0;
+  }
+  .shoutModalBtn {
+    height: 38px; padding: 0 14px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.06);
+    color: #fff; font-weight: 700; font-size: 14px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  #shoutModalCheckBtn.is-selected { background: #3b82f6; border-color: #60a5fa; }
+
+  #shoutModalImageWrap {
+    flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center;
+    padding: clamp(12px, 4vw, 20px);
+  }
+
+  #shoutModalImg {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 16px;
+
+    cursor: pointer;
+  }
+
+  #shoutModalImg.is-selected{
+    box-shadow:
+      0 0 0 3px rgba(59,130,246,0.92),
+      0 16px 40px rgba(0,0,0,0.45);
+  }
+
+  .shoutModalNavBtn{
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: clamp(22px, 4vw, 44px);
+    height: clamp(22px, 4vw, 44px);
+    border-radius: 0;
+    border: 0;
+    background: transparent;
+    color: #fff;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    backdrop-filter: none;
+    box-shadow: none;
+    z-index: 5;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 140ms ease, background 140ms ease, border-color 140ms ease, opacity 140ms ease;
+    opacity: 0.98;
+    padding: 0;  
+    font-size: 0; 
+    line-height: 0; 
+  }
+  .shoutModalNavBtn:hover{
+    background: transparent;
+  }
+  .shoutModalNavBtn:active{
+    transform: translateY(-50%) scale(0.96);
+  }
+  .shoutModalNavBtn.is-left{ left: 14px; right: auto; }
+  .shoutModalNavBtn.is-right{ right: 14px; left: auto; }
+  .shoutModalNavBtn.is-right svg { transform: translateX(1.5px); }
+  .shoutModalNavBtn svg{
+    width: 18px; height: 18px;
+    display: block; 
+    fill: none;
+    stroke: #fff;
+    stroke-width: 2.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.95;
+
+    transform: translateX(-1.5px);
+  }
+
+
+  #shoutSelectedTray {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 100001; display: none;
+    padding: 12px max(12px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    background: transparent; border-top: 0;
+    backdrop-filter: none; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  #shoutSelectedTray.is-open { display: block; transform: translateY(0); }
+  #shoutPackageCard {
+    position: relative; max-width: 860px; margin: 0 auto; padding: 18px 20px; border-radius: 28px;
+    color: #f7f8ff; background: #202022; border: 1px solid rgba(120,153,255,0.32);
+    box-shadow: 0 -8px 30px rgba(0,0,0,0.22);
+  }
+  /* Desktop: align the tray card with the viewer while the modal is open.
+     Square lower corners keep the image-stage selection ring fully visible. */
+  @media (min-width: 768px) {
+    #shoutModalContainer,
+    #shoutModalOverlay.is-open ~ #shoutSelectedTray #shoutPackageCard {
+      box-sizing: border-box;
+      width: min(980px, calc(100vw - 36px));
+      max-width: none;
+    }
+    #shoutModalContainer {
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+  }
+
+  #shoutPackageCard::before,
+  #shoutPackageCard::after {
+    position: absolute; z-index: 2; color: #b9c9ff; opacity: 0; pointer-events: none; content: "✦";
+    text-shadow: 0 0 14px rgba(91,125,255,0.95); transform: translate(-50%, -50%) scale(0.25);
+  }
+  #shoutPackageCard::before { left: 32%; top: 60%; font-size: 26px; }
+  #shoutPackageCard::after { left: 72%; top: 49%; font-size: 20px; }
+  .shout-package-badge {
+    display: inline-flex; align-items: center; min-height: 30px; padding: 0 12px; border-radius: 12px;
+    color: #7e9cff; background: rgba(77,112,255,0.15); font-size: 12px; font-weight: 800; letter-spacing: 0.02em;
+  }
+  .shout-package-price-row { display: flex; align-items: baseline; gap: 14px; margin-top: 10px; }
+  .shout-package-price { color: #f8f9ff; font-size: clamp(25px, 4vw, 38px); line-height: 1.08; font-weight: 800; letter-spacing: -0.055em; }
+  .shout-package-original { color: #9295a3; font-size: clamp(14px, 2.3vw, 21px); font-weight: 500; text-decoration: line-through; text-decoration-thickness: 1.5px; }
+  .shout-package-progress-row { position: relative; display: flex; align-items: center; gap: 14px; margin-top: 18px; }
+  .shout-package-progress-track { flex: 1; height: 14px; overflow: hidden; border-radius: 999px; background: #34353c; }
+  .shout-package-progress-fill { width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #3561ff 0%, #7998ff 100%); transition: width 260ms ease; }
+  .shout-package-progress-row::after {
+    position: absolute; z-index: 2; left: 54%; top: 45%; color: #fff; opacity: 0; pointer-events: none; content: "✦";
+    font-size: 16px; text-shadow: 0 0 13px rgba(111,143,255,1); transform: translate(-50%, -50%) scale(0.2);
+  }
+  #shoutPackageCard.is-sparkling .shout-package-progress-track { animation: shout-package-gauge-burst 900ms cubic-bezier(.16,.84,.32,1) both; }
+  #shoutPackageCard.is-sparkling .shout-package-progress-fill { animation: shout-package-gauge-flash 760ms ease-out both; }
+  #shoutPackageCard.is-sparkling::before { animation: shout-package-sparkle-left 780ms cubic-bezier(.12,.82,.25,1) both; }
+  #shoutPackageCard.is-sparkling::after { animation: shout-package-sparkle-right 830ms cubic-bezier(.12,.82,.25,1) both; }
+  #shoutPackageCard.is-sparkling .shout-package-progress-row::after { animation: shout-package-sparkle-center 700ms cubic-bezier(.12,.82,.25,1) both; }
+  @keyframes shout-package-gauge-burst {
+    0% { box-shadow: 0 0 0 0 rgba(104,137,255,0); }
+    22% { box-shadow: 0 0 0 3px rgba(131,158,255,0.95), 0 0 24px 8px rgba(73,109,255,0.72); }
+    100% { box-shadow: 0 0 0 11px rgba(104,137,255,0), 0 0 0 0 rgba(73,109,255,0); }
+  }
+  @keyframes shout-package-gauge-flash {
+    0%, 25% { filter: brightness(1); }
+    38% { filter: brightness(1.9); }
+    100% { filter: brightness(1); }
+  }
+  @keyframes shout-package-sparkle-left {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(.25) rotate(0deg); }
+    24% { opacity: 1; }
+    100% { opacity: 0; transform: translate(-160%, -190%) scale(1.35) rotate(100deg); }
+  }
+  @keyframes shout-package-sparkle-right {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(.25) rotate(0deg); }
+    26% { opacity: 1; }
+    100% { opacity: 0; transform: translate(95%, -250%) scale(1.18) rotate(-110deg); }
+  }
+  @keyframes shout-package-sparkle-center {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(.2); }
+    22% { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -260%) scale(1.3); }
+  }
+  .shout-package-count { flex: 0 0 auto; color: #82a0ff; font-size: 27px; line-height: 1; font-weight: 800; letter-spacing: -0.05em; }
+  .shout-package-count span { color: #f3f4f8; font-size: 16px; font-weight: 700; letter-spacing: -0.03em; }
+  .shout-package-bottom-row { display: flex; align-items: stretch; gap: 12px; margin-top: 16px; }
+  .shout-package-benefit { flex: 1; display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 14px; border: 1px solid rgba(106,142,255,0.48); border-radius: 18px; background: #292a31; }
+  .shout-package-star { flex: 0 0 40px; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 13px; color: #80a0ff; background: rgba(77,112,255,0.2); font-size: 23px; }
+  .shout-package-benefit-copy { display: grid; gap: 3px; min-width: 0; }
+  .shout-package-benefit-copy strong { overflow: hidden; color: #f5f6fa; font-size: 14px; font-weight: 750; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+  .shout-package-benefit-copy span { overflow: hidden; color: #b1b4c0; font-size: 12px; font-weight: 500; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+  #shoutGoCartBtn { flex: 0 0 auto; min-width: 116px; padding: 0 18px; border: 1px solid #b7c7ff; border-radius: 18px; color: #202022; background: #f5f6fb; font-size: 18px; font-weight: 800; cursor: pointer; }
+  #shoutSelectedList { display: none; }
+
+  @media (max-width: 540px) {
+    #shoutSelectedTray { padding: 0 10px; background: transparent !important; }
+    #shoutPackageCard {
+      display: grid; grid-template-columns: 120px minmax(0, 1fr); column-gap: 8px; row-gap: 10px;
+      padding: 12px 14px 14px; border-radius: 22px;
+    }
+    .shout-package-badge { align-self: center; min-height: 25px; padding: 0 10px; font-size: 10px; white-space: nowrap; }
+    .shout-package-price-row { min-width: 0; align-self: center; gap: 7px; margin-top: 0; white-space: nowrap; }
+    .shout-package-price { font-size: 24px; }
+    .shout-package-original { flex: 0 0 auto; font-size: 12px; }
+    .shout-package-progress-row { grid-column: 1 / -1; gap: 10px; margin-top: 0; }
+    .shout-package-progress-track { height: 12px; }
+    .shout-package-count { font-size: 23px; }
+    .shout-package-count span { font-size: 14px; }
+    .shout-package-bottom-row { grid-column: 1 / -1; gap: 8px; margin-top: 0; }
+    .shout-package-benefit { gap: 9px; padding: 8px 10px; border-radius: 15px; }
+    .shout-package-star { flex-basis: 33px; width: 33px; height: 33px; border-radius: 11px; font-size: 19px; }
+    .shout-package-benefit-copy strong { font-size: 12px; }
+    .shout-package-benefit-copy span { font-size: 10px; }
+    #shoutGoCartBtn { min-width: 84px; padding: 0 10px; border-radius: 15px; font-size: 16px; }
+  }
+
+.gallery-card{
+  position:relative;
+  overflow:hidden;
+  transition:
+    transform .18s cubic-bezier(.25,.1,.25,1),
+    filter .18s cubic-bezier(.25,.1,.25,1);
+}
+
+.gallery-card.is-in-cart{
+  transform:scale(0.985);
+  filter:saturate(.85);
+}
+
+.gallery-card.is-selected{
+  outline:2px solid #2f80ed;
+  outline-offset:-2px;
+}
+
+.gallery-card.is-in-cart{
+  pointer-events:none;
+  cursor: default;
+  box-shadow: none !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+.gallery-card.is-in-cart .sel-badge{
+  opacity: 0 !important;
+  transform: scale(.96) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+.gallery-card.is-in-cart::before{
+  opacity: 1 !important;
+  transform: none !important;
+  background: rgba(0,0,0,.42) !important;
+  backdrop-filter: blur(2px) !important;
+  -webkit-backdrop-filter: blur(2px) !important;
+}
+
+.gallery-card.is-in-cart::after{
+  inset:0 !important;
+  box-sizing:border-box !important;
+  opacity:1 !important;
+  background:transparent !important;
+  border:2px solid rgba(47,128,237,.95) !important;
+  border-radius:inherit !important;
+  box-shadow:inset 0 0 0 1px rgba(47,128,237,.35) !important;
+  z-index:4 !important;
+}
+
+.gallery-card.is-in-cart.is-selected{
+  box-shadow: none !important;
+}
+
+:root{
+  --shout-cart-lock-icon-size: 34px;
+  --shout-z-gallery-lock-icon: 5;
+}
+
+.gallery-card .cart-lock-icon{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:var(--shout-cart-lock-icon-size);
+  height:var(--shout-cart-lock-icon-size);
+  transform:translate(-50%,-50%);
+  z-index:var(--shout-z-gallery-lock-icon);
+  pointer-events:none;
+  opacity:0;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.35));
+}
+
+.gallery-card .cart-lock-icon svg,
+.gallery-card .cart-lock-icon img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  display:block;
+}
+
+.gallery-card.is-in-cart .cart-lock-icon{
+  opacity:1;
+}
+
+.gallery-viewport-bottom-mask{
+  position:fixed;
+  left:0;
+  right:0;
+  bottom:0;
+  height:max(34vh, 240px);
+  z-index:5;
+  pointer-events:none;
+  background:linear-gradient(to bottom,
+    rgba(29,30,33,0) 0%,
+    rgba(29,30,33,.05) 24%,
+    rgba(29,30,33,.22) 48%,
+    rgba(29,30,33,.58) 70%,
+    rgba(29,30,33,.9) 87%,
+    #1d1e21 100%);
+}

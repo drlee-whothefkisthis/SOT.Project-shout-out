@@ -1,0 +1,4 @@
+# Preserve original source and export evidence byte-for-byte.
+legacy/** -whitespace
+webflow/originals/** -whitespace
+webflow/embeds/** -whitespace

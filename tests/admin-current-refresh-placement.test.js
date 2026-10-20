@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
-const adminJs = fs.readFileSync(path.join(__dirname, "..", "06_Admin-B.js"), "utf8");
+const adminJs = fs.readFileSync(path.join(__dirname, "..", "06-Admin.js"), "utf8");
 
 test("legacy refresh stays in the legacy dashboard", () => {
   assert.match(adminJs, /id="sot_dash_refresh_btn">데이터 새로고침<\/button>/);
