@@ -2,7 +2,9 @@
 
 Canonical custom JavaScript and CSS are the numbered files at the repository root.
 Repository: https://github.com/project01-SOT/SOT.Project-shout-out
-Release: `v1.0.0` — never move a published tag; release fixes as `v1.0.1`, etc.
+Release: global snippets `v1.0.1`; existing page snippets `v1.0.0` — never move a published tag; release fixes as `v1.0.1`, etc.
+
+The former `00-Global-Head.js` is merged into `00-Global.js` under the existing DOM-ready initializer. Global Head now contains CSS only. Page snippets remain at v1.0.0.
 
 ## Editing and delivery
 

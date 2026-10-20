@@ -3,6 +3,35 @@ function initShoutGlobal() {
   if (window.__shoutGlobalInitialized) return;
   window.__shoutGlobalInitialized = true;
 
+  // Former Head guards run with the existing DOM-ready global initializer.
+  document.addEventListener("contextmenu", function(e) {
+      e.preventDefault();
+    });
+
+    document.addEventListener("keydown", function(e) {
+      if (e.keyCode === 123) {
+        e.preventDefault();
+        e.returnValue = false;
+      }
+      if (e.ctrlKey && e.shiftKey && e.keyCode === 73) {
+        e.preventDefault();
+        e.returnValue = false;
+      }
+      if (e.ctrlKey && e.shiftKey && e.keyCode === 74) {
+        e.preventDefault();
+        e.returnValue = false;
+      }
+      if (e.ctrlKey && e.shiftKey && e.keyCode === 67) {
+        e.preventDefault();
+        e.returnValue = false;
+      }
+      if (e.ctrlKey && e.keyCode === 85) {
+        e.preventDefault();
+        e.returnValue = false;
+      }
+    });
+
+
   function getSotInitDoneKey(ctx) {
     if (!ctx || !ctx.local_user || !ctx.session_id) return "";
     return "sot_init_done:" + ctx.local_user + ":" + ctx.session_id;

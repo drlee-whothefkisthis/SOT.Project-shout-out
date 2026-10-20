@@ -1,4 +1,4 @@
-# Webflow 붙여넣기 코드 — v1.0.0
+# Webflow 붙여넣기 코드 — 공통 v1.0.1 / 페이지 v1.0.0
 
 새 소유자: `project01-SOT`. 아래 코드는 해당 입력칸의 **기존 전체 내용을 교체**합니다. 추가로 덧붙이지 마세요.
 사이트 공통 Head/Footer를 먼저 교체하고, 페이지별 Head/Body를 교체한 뒤 한 번에 Publish합니다. SDK 태그, 순서, 어드민 `defer`를 그대로 유지하세요.
@@ -9,14 +9,13 @@
 ### Head code
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/00-Global-Head.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/00-Global.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.1/00-Global.css">
 ```
 
 ### Footer code
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/00-Global.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.1/00-Global.js"></script>
 ```
 
 ## Home — /
