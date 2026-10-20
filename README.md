@@ -28,3 +28,5 @@ Webflow settings and Publish were not changed by this migration. Replace Site Se
 Archived Untitled is not promoted or refactored: its old multiple Weglot script examples are versioned in originals/embeds. Keep it archived. Utility 404/Search have no extra page code; they receive the global snippets.
 
 See [Webflow paste guide](webflow/PASTE-GUIDE.md) and [source verification](webflow/VERIFICATION.md).
+
+Unused Cart Copy page and its dedicated 90-CartArchive assets were removed from current main. Active Cart/Checkout and existing release tags are unchanged.

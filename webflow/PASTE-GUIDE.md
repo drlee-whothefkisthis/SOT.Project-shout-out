@@ -204,20 +204,6 @@
 <script src="https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/07-GeneralLog.js"></script>
 ```
 
-## Cart Copy — /archive/cart-copy
-
-### Inside `<head>`
-
-```html
-<script src="https://js.tosspayments.com/v1/payment"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/90-CartArchive.css">
-```
-
-### Before `</body>`
-
-```html
-<script src="https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/90-CartArchive.js"></script>
-```
 
 ## Payment Fail — /payments-results/fail
 
@@ -261,7 +247,6 @@
 
 ## 보관·Embed·유틸리티 페이지
 
-- Cart Copy는 보관 페이지입니다. 위 90-CartArchive 코드도 Git에서 관리하지만 보관 상태를 유지합니다.
 - Archive/Untitled는 운영 재사용 대상이 아닙니다. 페이지 Head/Body는 비어 있으며, 내부 예전 Weglot Embed는 원문을 Git에 보존했습니다. 이번에 활성화하거나 교체하지 마세요.
 - 운영 페이지의 SVG 등 정적 Embed는 자바스크립트 로직으로 옮기지 않습니다. `webflow/embeds/`에 원문·위치를 기록했습니다.
 - 404 / Search 유틸리티 페이지는 공통 코드만 적용하며 추가 페이지 코드는 없습니다.

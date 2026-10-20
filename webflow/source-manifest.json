@@ -251,12 +251,6 @@
       "body": ""
     },
     {
-      "name": "Cart Copy",
-      "path": "archive/cart-copy.html",
-      "head": "<script src=\"https://js.tosspayments.com/v1/payment\"></script>\n<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/90-CartArchive.css\">",
-      "body": "<script src=\"https://cdn.jsdelivr.net/gh/project01-SOT/SOT.Project-shout-out@v1.0.0/90-CartArchive.js\"></script>"
-    },
-    {
       "name": "Payment Fail",
       "path": "payments-results/fail.html",
       "head": "",
@@ -295,14 +289,6 @@
       "index": 2,
       "class": "hm-modal-close w-embed",
       "file": "webflow/embeds/admin/02.html",
-      "hasScript": false,
-      "hasStyle": false
-    },
-    {
-      "page": "archive/cart-copy",
-      "index": 1,
-      "class": "hm-modal-close w-embed",
-      "file": "webflow/embeds/archive/cart-copy/01.html",
       "hasScript": false,
       "hasStyle": false
     },
@@ -2287,5 +2273,8 @@
     "mergedInto": "00-Global.js",
     "removedEntry": "00-Global-Head.js",
     "pageVersionsUnchanged": true
-  }
+  },
+  "removedUnusedPages": [
+    "Cart Copy"
+  ]
 }
