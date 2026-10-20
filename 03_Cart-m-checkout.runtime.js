@@ -446,6 +446,7 @@ onReady(function () {
       rootEl.innerHTML = `
         <div id="sh-checkout-card" class="sh-checkout-card">
           <div class="sh-checkout-head">
+            <a href="/cart" class="sh-checkout-back-btn">장바구니로 돌아가기</a>
             <div class="sh-checkout-title">결제하기</div>
             <div class="sh-checkout-sub">모바일에서는 전용 결제 페이지에서 안전하게 진행됩니다.</div>
           </div>
@@ -602,8 +603,7 @@ onReady(function () {
   }
 
   function hasCheckoutLogin() {
-    return !!String(localStorage.getItem("shout_users_id") || "").trim() &&
-      !!String(sessionStorage.getItem("shout_access_token") || "").trim();
+    return !!String(localStorage.getItem("shout_users_id") || "").trim();
   }
 
   function requireCheckoutLogin() {
@@ -628,7 +628,6 @@ onReady(function () {
 
       if (!requireCheckoutLogin()) return;
       const userId = String(localStorage.getItem("shout_users_id") || "").trim();
-      const accessToken = String(sessionStorage.getItem("shout_access_token") || "").trim();
 
       const items = getSelectedItems();
       if (!items || items.length === 0) {
@@ -700,7 +699,7 @@ onReady(function () {
       for (const group of groups) {
         const body = new URLSearchParams();
         body.set("users_id", userId);
-        body.set("access_token", accessToken);
+        // Payment identifies the account by users_id; no Kakao token is sent.
         body.set("orderId", orderId);
         body.set("event_code", group.event_code || "");
         body.set("identifier_type", group.identifier_type || "");
@@ -750,11 +749,12 @@ onReady(function () {
           throw new Error(rawText || `create-order failed for group ${group.event_code}_${group.identifier_type}_${group.identifier_value}`);
         }
 
-        const bubble = j && (j.response || j);
-        let amt = 0;
-        if (bubble && bubble.amount != null) {
-          amt = Number(bubble.amount);
-          if (!Number.isFinite(amt)) amt = 0;
+        const bubble = j && j.response;
+        const amt = Number(bubble && bubble.amount);
+        const returnedCount = Number(bubble && bubble.photo_count);
+        if (!bubble || bubble.order_id !== orderId || !Number.isFinite(amt) || amt <= 0 ||
+            !Number.isInteger(returnedCount) || returnedCount <= 0) {
+          throw new Error("INVALID_ORDER_RESPONSE");
         }
 
         totalAmount += amt;
@@ -820,7 +820,7 @@ onReady(function () {
 
     } catch (err) {
       console.error("[checkout.startPayment] error:", err);
-      alert("결제 진행 중 오류가 발생했습니다.");
+      renderErrorState("결제 진행 중 오류가 발생했습니다. 장바구니로 돌아가 다시 시도해주세요.");
     } finally {
       if (payBtnEl) {
         payBtnEl.disabled = false;

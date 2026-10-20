@@ -530,8 +530,7 @@ onShoutCartReady(function() {
   }
 
   function hasPaymentLogin() {
-    return !!String(localStorage.getItem("shout_users_id") || "").trim() &&
-      !!String(sessionStorage.getItem("shout_access_token") || "").trim();
+    return !!String(localStorage.getItem("shout_users_id") || "").trim();
   }
 
   function getCartAgreementSnapshot() {
@@ -664,6 +663,8 @@ onShoutCartReady(function() {
     document.body.style.overflow = "hidden";
     Promise.resolve().then(() => initPaymentWidget(false)).catch((e) => {
       warn("silent catch: widget.modalOpenInit", e);
+      closePaymentModal();
+      alert("결제 위젯을 준비하지 못했습니다. 장바구니에서 다시 시도해주세요.");
     });
   }
 
@@ -781,7 +782,6 @@ onShoutCartReady(function() {
         return;
       }
       const userId = String(localStorage.getItem("shout_users_id") || "").trim();
-      const accessToken = String(sessionStorage.getItem("shout_access_token") || "").trim();
       if (!hasPaymentLogin()) {
         try {
           sessionStorage.setItem(AUTH_INTENT_KEY, JSON.stringify({
@@ -858,7 +858,7 @@ onShoutCartReady(function() {
           const body = new URLSearchParams();
 
           body.set("users_id", userId);
-          body.set("access_token", accessToken);
+          // Payment identifies the account by users_id; no Kakao token is sent.
           body.set("orderId", orderId);
           body.set("session_id", getTrackingSessionId(tracking));
           body.set("local_user", (tracking && tracking.local_user) || "");
@@ -905,13 +905,14 @@ onShoutCartReady(function() {
             throw new Error(rawText || `create-order failed for group ${group.event_code}_${group.identifier_type}_${group.identifier_value}`);
           }
 
-          const bubble = j && (j.response || j);
-          let amt = 0;
-          if (bubble && bubble.amount != null) {
-            amt = Number(bubble.amount);
-            if (!Number.isFinite(amt)) amt = 0;
+          const bubble = j && j.response;
+          const amt = Number(bubble && bubble.amount);
+          const returnedCount = Number(bubble && bubble.photo_count);
+          if (!bubble || bubble.order_id !== orderId || !Number.isFinite(amt) || amt <= 0 ||
+              !Number.isInteger(returnedCount) || returnedCount <= 0) {
+            throw new Error("INVALID_ORDER_RESPONSE");
           }
-          
+
           totalAmount += amt;
         }
 
@@ -919,19 +920,22 @@ onShoutCartReady(function() {
 
       } catch (e) { 
         warn("silent catch: createOrder.parseResponse", e); 
-        alert("주문 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        closePaymentModal();
+        alert("주문 생성에 실패했습니다. 잠시 후 다시 시도해주세요. 장바구니에서 다시 시도해주세요.");
         return; 
       }
       try {
         await ensureTossPaymentsSdk();
       } catch (e) {
         warn("payment.sdkMissing", e);
-        alert("결제 모듈을 불러오지 못했습니다. (TossPayments)");
+        closePaymentModal();
+        alert("결제 모듈을 불러오지 못했습니다. (TossPayments) 장바구니에서 다시 시도해주세요.");
         return;
       }
       await initPaymentWidget(false);
       if (!paymentWidgets || !paymentWidgetReady) {
-        alert("결제 위젯을 준비하지 못했습니다. 새로고침 후 다시 시도해주세요.");
+        closePaymentModal();
+        alert("결제 위젯을 준비하지 못했습니다. 새로고침 후 다시 시도해주세요. 장바구니에서 다시 시도해주세요.");
         return;
       }
       if (paymentWidgetLastAmount !== amount) {
@@ -984,7 +988,8 @@ onShoutCartReady(function() {
       });
     } catch (err) {
       console.error("[startPayment] error:", err);
-      alert("결제 진행 중 오류가 발생했습니다.");
+      closePaymentModal();
+        alert("결제 진행 중 오류가 발생했습니다. 장바구니에서 다시 시도해주세요.");
     } finally {
       if (paymentModalConfirmBtnEl) {
         paymentModalConfirmBtnEl.disabled = false;

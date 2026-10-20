@@ -41,8 +41,7 @@ onReady(async function () {
 
     const BUBBLE_CONFIRM_API = "https://plp-62309.bubbleapps.io/api/1.1/wf/confirm_payment";
     const CHECKOUT_CONTEXT_KEY = "shout_checkout_context";
-    const usersId = localStorage.getItem("shout_users_id");
-    const accessToken = sessionStorage.getItem("shout_access_token") || "";
+    let usersId = localStorage.getItem("shout_users_id");
     const MY_PAGE_PATH = "/mypage";
 
     let urlParams = new URLSearchParams(window.location.search);
@@ -208,6 +207,10 @@ onReady(async function () {
     const paymentParams = await waitForPaymentParams(checkoutContextAtEntry);
     paymentKey = paymentParams.paymentKey;
     orderId = paymentParams.orderId || String(checkoutContextAtEntry.order_id || "").trim();
+    // A remembered account belongs to this return only when the order ID matches.
+    if (String(checkoutContextAtEntry.order_id || "").trim() === orderId) {
+        usersId = String(checkoutContextAtEntry.users_id || usersId || "").trim();
+    }
     amount = paymentParams.amount || String(checkoutContextAtEntry.amount || "").trim();
     sessionId = paymentParams.sessionId || sessionStorage.getItem("sot_session_id") || "";
 
@@ -222,7 +225,7 @@ onReady(async function () {
     }
     window.__shoutPaymentConfirmStarted = true;
 
-    if (!usersId || !accessToken) {
+    if (!usersId) {
         if (statusMsg) statusMsg.innerText = "결제 승인을 위해 다시 로그인해주세요.";
         try {
             sessionStorage.setItem("shout_auth_intent", JSON.stringify({
@@ -239,6 +242,10 @@ onReady(async function () {
     }
 
     await processPaymentConfirm();
+
+    function isPaymentConfirmed(response, data) {
+        return !!response.ok && !!data && !!data.response && data.response.status === "success";
+    }
 
     async function processPaymentConfirm() {
         if(statusMsg) statusMsg.innerText = "결제를 최종 승인하고 있습니다...";
@@ -375,7 +382,6 @@ onReady(async function () {
             "searched_query": payloadSearchedQuery,
             "session_id": trackedSessionId,
             "users_id": usersId,
-            "access_token": accessToken,
             "local_user": String((tracking && tracking.local_user) || checkoutContext.local_user || "").trim(),
             "session_key": String((tracking && tracking.ses_k) || urlParams.get("sk") || urlParams.get("ses_k") || checkoutContext.session_key || checkoutContext.ses_k || "").trim(),
             "utm_source": String((tracking && tracking.utm_s) || urlParams.get("utm_s") || urlParams.get("utm_source") || checkoutContext.utm_source || checkoutContext.utm_s || "").trim(),
@@ -389,7 +395,8 @@ onReady(async function () {
                 body: JSON.stringify(payload)
             });
 
-            if (response.ok) {
+            const data = await response.json().catch(() => null);
+            if (isPaymentConfirmed(response, data)) {
                 if(statusMsg) statusMsg.innerText = "구매가 완료되었습니다!";
                 localStorage.removeItem('shout_cart_data');
 
@@ -400,8 +407,15 @@ onReady(async function () {
             }
         } catch (error) {
             console.error(error);
-            if(statusMsg) statusMsg.innerText = "승인 중 오류가 발생했습니다. 고객센터에 문의해주세요.";
-            alert("결제 승인 실패. 관리자에게 문의하세요.");
+            if(statusMsg) {
+                statusMsg.innerText = "결제 승인 결과를 확인하지 못했습니다. 중복 결제를 피하려면 구매내역을 먼저 확인해주세요.";
+                const link = document.createElement("a");
+                link.href = MY_PAGE_PATH;
+                link.textContent = "구매내역 확인";
+                link.style.display = "block";
+                statusMsg.appendChild(link);
+            }
+            alert("결제 결과를 확인하지 못했습니다. 다시 결제하기 전에 구매내역을 확인해주세요.");
         }
     }
 });

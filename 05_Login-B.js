@@ -1,19 +1,137 @@
 <script>
-document.addEventListener("DOMContentLoaded", function () {
+// BEGIN SHOUT AUTH SHARED
+(function () {
+  "use strict";
+  if (window.ShoutAuth) return;
+  const KEY = "shout_auth";
+  const MAX_AGE_MS = 2 * 60 * 60 * 1000;
+  const LEGACY_LOCAL = ["shout_users_id", "shout_kakao_id", "shout_is_admin"];
+  let redirecting = false;
+
+  function clearCredentials() {
+    localStorage.removeItem(KEY);
+    LEGACY_LOCAL.forEach(key => localStorage.removeItem(key));
+    sessionStorage.removeItem("shout_access_token");
+  }
+
+  function read() {
+    let state;
+    try { state = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (_) {}
+    const now = Date.now();
+    if (!state || state.version !== 1 || !state.user_id || !state.access_token ||
+        !Number.isFinite(state.issued_at) || !Number.isFinite(state.expires_at) ||
+        state.issued_at > now || state.expires_at <= now ||
+        state.expires_at - state.issued_at > MAX_AGE_MS) {
+      sessionStorage.removeItem("shout_access_token");
+      return null;
+    }
+    // Compatibility aliases are written from the complete canonical record only.
+    localStorage.setItem("shout_users_id", state.user_id);
+    localStorage.setItem("shout_kakao_id", state.kakao_id || "");
+    localStorage.setItem("shout_is_admin", String(state.is_admin === true));
+    sessionStorage.setItem("shout_access_token", state.access_token);
+    return state;
+  }
+
+  function save(payload, auth) {
+    const userId = String(payload && (payload.users_id || payload.usersID || payload.user_id) || "").trim();
+    const token = String(payload && payload.access_token || "").trim();
+    const submittedToken = String(auth && auth.access_token || "").trim();
+    const issuedAt = Number(auth && auth.issued_at);
+    const expiresIn = Number(auth && auth.expires_in);
+    if (!userId || !token || token !== submittedToken || !Number.isFinite(issuedAt)) {
+      throw new Error("Incomplete login response");
+    }
+    const lifetime = Number.isFinite(expiresIn) && expiresIn > 0 ? Math.min(expiresIn * 1000, MAX_AGE_MS) : MAX_AGE_MS;
+    const state = {
+      version: 1,
+      user_id: userId,
+      kakao_id: String(payload.kakao_id || ""),
+      access_token: token,
+      is_admin: payload.is_admin === true || payload.is_admin === "true",
+      issued_at: issuedAt,
+      expires_at: issuedAt + lifetime
+    };
+    if (state.expires_at <= Date.now()) throw new Error("Login token expired before completion");
+    localStorage.setItem(KEY, JSON.stringify(state));
+    read();
+    return state;
+  }
+
+  function requireLogin(after, returnTo, fallbackTo) {
+    if (redirecting) return;
+    redirecting = true;
+    let previous = null;
+    try { previous = JSON.parse(sessionStorage.getItem("shout_auth_intent") || "null"); } catch (_) {}
+    const intent = previous && previous.after === after ? previous : {};
+    sessionStorage.setItem("shout_auth_intent", JSON.stringify(Object.assign({}, intent, {
+      after,
+      return_to: returnTo || window.location.href,
+      fallback_to: fallbackTo || "/",
+      created_at: Date.now()
+    })));
+    window.location.href = "/login";
+  }
+
+  function isAuthFailure(status, data) {
+    const text = JSON.stringify(data || {});
+    return status === 401 || /ACCESS_TOKEN_EXPIRED|AUTH_EXPIRED|AUTH_INVALID|this access token is already expired|"code"\s*:\s*-401/i.test(text);
+  }
+
+  function logout() {
+    clearCredentials();
+    sessionStorage.removeItem("shout_auth_intent");
+    sessionStorage.removeItem("shout_checkout_context");
+    sessionStorage.removeItem("shout_checkout_entry");
+    localStorage.removeItem("shout_checkout_context");
+    localStorage.removeItem("shout_cart_sync_needed");
+    if (window.Kakao && window.Kakao.Auth && typeof window.Kakao.Auth.setAccessToken === "function") {
+      try { window.Kakao.Auth.setAccessToken(null); } catch (_) {}
+    }
+    window.location.href = "/";
+  }
+
+  window.ShoutAuth = {
+    key: KEY, maxAgeMs: MAX_AGE_MS, read, save, clearCredentials, requireLogin, isAuthFailure, logout,
+    // Identity alone is permitted for payment. It does not grant purchase/admin access.
+    getUserId() { return String(localStorage.getItem("shout_users_id") || "").trim(); },
+    getAccessToken() { const state = read(); return state ? state.access_token : ""; },
+    getAdminToken() {
+      const state = read();
+      if (!state) {
+        requireLogin("admin", window.location.href, "/admin");
+        throw new Error("ADMIN_AUTH_REQUIRED");
+      }
+      return state.access_token;
+    }
+  };
+  window.addEventListener("storage", function (event) {
+    if (event.key !== KEY) return;
+    const path = window.location.pathname || "";
+    if (path === "/mypage" || path === "/admin") window.location.reload();
+  });
+})();
+// END SHOUT AUTH SHARED
+(function () {
+function onReady(fn) {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", fn, { once: true });
+  } else {
+    fn();
+  }
+}
+
+onReady(function () {
   console.log("[Shout-out] /login loaded.");
 
-  // ===== Config =====
   const AUTH_INTENT_KEY = "shout_auth_intent";
+  const AUTH_INTENT_TTL_MS = 60 * 60 * 1000;
   const KAKAO_JS_KEY = "605dc0a603b0aa18966898cc91b9ca9b";
-  const AGE_NOTICE_KEY = "shout_login_block_reason"; // 갤러리 안내 플래그 (UNDER14, AGE_REQUIRED)
-  const BUBBLE_URL = "https://plp-62309.bubbleapps.io/version-test/api/1.1/wf/auth-kakao-login";
+  const BUBBLE_URL = "https://plp-62309.bubbleapps.io/api/1.1/wf/auth-kakao-login";
 
-  // ✅ 여기 중요: /login 페이지의 카카오 버튼 ID
   const loginBtn = document.getElementById("btn-kakao-login");
 
-  // ===== UX helpers =====
   function shNotify(message, type) {
-    // 전역 토스트가 있으면 토스트 우선, 없으면 alert로 fallback
     if (typeof window.shToast === "function") {
       window.shToast(message, { type: type || "info", duration: 2000 });
       return;
@@ -28,33 +146,61 @@ document.addEventListener("DOMContentLoaded", function () {
     loginBtn.style.cursor = isLoading ? "not-allowed" : "pointer";
   }
 
-  // ===== Intent helpers =====
   function getIntent() {
     const raw = sessionStorage.getItem(AUTH_INTENT_KEY);
     if (!raw) return null;
     try { return JSON.parse(raw); } catch (e) { return null; }
   }
 
-  function getReturnTo() {
-    const intent = getIntent();
-    if (intent && intent.return_to) return intent.return_to;
-    return window.location.origin + "/"; // fallback
+  function isIntentFresh(intent) {
+    if (!intent || !intent.created_at) return true;
+    const createdAt = Number(intent.created_at);
+    if (!Number.isFinite(createdAt)) return false;
+    return Date.now() - createdAt <= AUTH_INTENT_TTL_MS;
   }
 
+  function safeSameOriginUrl(value, fallbackPath) {
+    try {
+      if (!value) return window.location.origin + fallbackPath;
+      const url = new URL(String(value), window.location.origin);
+      if (url.origin !== window.location.origin) return window.location.origin + fallbackPath;
+      return url.pathname + url.search + url.hash;
+    } catch (e) {
+      return window.location.origin + fallbackPath;
+    }
+  }
 
-  function getFallbackTo() {
-    const intent = getIntent();
-    if (intent && intent.fallback_to) return intent.fallback_to;
-    return window.location.origin + "/gallery";
+  function isAdminIntent(intent) {
+    return intent && (intent.after === "admin" || intent.type === "admin");
+  }
+
+  function shouldPreserveIntent(intent) {
+    return intent && isIntentFresh(intent) && (
+      intent.after === "start_payment" ||
+      intent.after === "checkout_payment" ||
+      isAdminIntent(intent)
+    );
+  }
+
+  function resolveReturnTo(intent) {
+    if (!intent || !isIntentFresh(intent)) {
+      return safeSameOriginUrl(null, "/");
+    }
+
+    const fallback = safeSameOriginUrl(intent.fallback_to, isAdminIntent(intent) ? "/admin" : "/");
+    return safeSameOriginUrl(intent.return_to || intent.returnTo, fallback.replace(window.location.origin, ""));
   }
 
   function goReturnTo() {
-    const target = getReturnTo();
+    const intent = getIntent();
+    const target = resolveReturnTo(intent);
+    if (!shouldPreserveIntent(intent)) {
+      sessionStorage.removeItem(AUTH_INTENT_KEY);
+    }
     console.log("[Shout-out] return_to =", target);
     window.location.href = target;
   }
 
-  // ===== Kakao init =====
   function ensureKakaoInit() {
     if (!window.Kakao) {
       shNotify("카카오 SDK 로드 실패. 새로고침 후 다시 시도해주세요.", "error");
@@ -66,62 +212,47 @@ document.addEventListener("DOMContentLoaded", function () {
     return true;
   }
 
-  // ===== Login flow =====
-  // ===== Bubble login (existing logic, wrapped as a function) =====
-  function proceedBubbleLogin(accessToken) {
-    fetch(BUBBLE_URL, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ access_token: accessToken })
-            })
-            .then(async (res) => {
-              const data = await res.json().catch(() => ({}));
-    
-              if (!res.ok) {
-                console.error("[Bubble] status", res.status, data);
-                setBtnLoading(false);
-                shNotify("로그인 서버 처리 중 오류가 발생했습니다. (status " + res.status + ")", "error");
-                return;
-              }
-    
-              const payload = data && (data.response || data);
-    
-              const usersId =
-                (payload && (payload.users_id || payload.usersID || payload.user_id)) || null;
-    
-              if (!usersId) {
-                console.error("[Bubble] users_id 누락:", data);
-                setBtnLoading(false);
-                shNotify("로그인 처리 중 오류가 발생했습니다. (User ID Missing)", "error");
-                return;
-              }
-    
-              // ✅ 로그인 상태 저장
-              localStorage.setItem("shout_users_id", usersId);
-              if (payload.kakao_id) localStorage.setItem("shout_kakao_id", payload.kakao_id);
-    
-              // 🔐 access_token은 세션 단위로만 유지
-              if (payload.access_token) {
-               sessionStorage.setItem("shout_access_token", payload.access_token);
-              }
-    
-              if (typeof payload.is_admin !== "undefined") {
-               localStorage.setItem("shout_is_admin", String(payload.is_admin));
-              }
-    
-    
-              // ✅ intent는 지우지 않음 (cart 자동결제 after 처리 목적)
-              // 성공 시에만 return_to로 이동
-              goReturnTo();
-            })
-            .catch(err => {
-              console.error("[Bubble] 통신 에러:", err);
-              setBtnLoading(false);
-              shNotify("서버 통신 중 오류가 발생했습니다.", "error");
-              // 실패 시 리다이렉트 ❌ (로그인 페이지 stay)
-            });
-  }
 
+  function proceedBubbleLogin(auth) {
+    const accessToken = auth.access_token;
+    fetch(BUBBLE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ access_token: accessToken })
+    })
+    .then(async (res) => {
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        console.error("[Bubble] status", res.status, data);
+        setBtnLoading(false);
+        shNotify("로그인 서버 처리 중 오류가 발생했습니다. (status " + res.status + ")", "error");
+        return;
+      }
+
+      const payload = data && (data.response || data);
+
+      const usersId =
+        (payload && (payload.users_id || payload.usersID || payload.user_id)) || null;
+
+      if (!usersId) {
+        console.error("[Bubble] users_id 누락:", data);
+        setBtnLoading(false);
+        shNotify("로그인 처리 중 오류가 발생했습니다. (User ID Missing)", "error");
+        return;
+      }
+
+      // Validate the whole response before replacing the previous account record.
+      window.ShoutAuth.save(payload, auth);
+
+      goReturnTo();
+    })
+    .catch(err => {
+      console.error("[Bubble] 통신 에러:", err);
+      setBtnLoading(false);
+      shNotify("서버 통신 중 오류가 발생했습니다.", "error");
+    });
+  }
 
   function startKakaoLogin() {
     if (!ensureKakaoInit()) return;
@@ -137,81 +268,21 @@ document.addEventListener("DOMContentLoaded", function () {
           return;
         }
 
-        
-        // ===== AGE GATE (front-only) =====
-        Kakao.API.request({
-          url: "/v2/user/me",
-          success: function (res) {
-            try {
-              const acc = (res && res.kakao_account) ? res.kakao_account : {};
-              const birthyear = acc.birthyear;
-              const birthday = acc.birthday;
-
-              // 연령정보 미제공/미동의: 구매를 진행하지 않고 갤러리로 이동 (필수 동의 전제)
-              if (!birthyear || !birthday) {
-                Kakao.Auth.logout();
-                if (Kakao.Auth && typeof Kakao.Auth.setAccessToken === "function") {
-                  Kakao.Auth.setAccessToken(null);
-                }
-                sessionStorage.removeItem(AUTH_INTENT_KEY);
-                sessionStorage.setItem(AGE_NOTICE_KEY, "AGE_REQUIRED");
-                setBtnLoading(false);
-                window.location.replace(getFallbackTo());
-                return;
-              }
-
-              const yyyy = parseInt(birthyear, 10);
-              const mm = parseInt(String(birthday).slice(0, 2), 10);
-              const dd = parseInt(String(birthday).slice(2, 4), 10);
-
-              const today = new Date();
-              let age = today.getFullYear() - yyyy;
-              const m = today.getMonth() + 1;
-              const d = today.getDate();
-              if (m < mm || (m === mm && d < dd)) age--;
-
-              if (age < 14) {
-                Kakao.Auth.logout();
-                if (Kakao.Auth && typeof Kakao.Auth.setAccessToken === "function") {
-                  Kakao.Auth.setAccessToken(null);
-                }
-                sessionStorage.removeItem(AUTH_INTENT_KEY);
-                sessionStorage.setItem(AGE_NOTICE_KEY, "UNDER14");
-                setBtnLoading(false);
-                window.location.replace(getFallbackTo());
-                return;
-              }
-
-              // 14세 이상: 기존 Bubble 로그인 진행
-              proceedBubbleLogin(accessToken);
-            } catch (e) {
-              console.error("[AGE] parse error", e);
-              // 파싱 오류 시에는 보수적으로 결제 차단이 맞지만, 운영 편의상 기존 로그인은 진행
-              proceedBubbleLogin(accessToken);
-            }
-          },
-          fail: function (err) {
-            console.error("[AGE] request fail", err);
-            // 네트워크/SDK 오류 시에는 기존 로그인 진행 (원하면 차단으로 변경 가능)
-            proceedBubbleLogin(accessToken);
-          }
+        proceedBubbleLogin({
+          access_token: accessToken,
+          expires_in: authObj.expires_in,
+          issued_at: Date.now()
         });
-        return;
-
       },
-
       fail: function (err) {
         console.error("[Kakao] 로그인 실패/취소:", err);
         setBtnLoading(false);
 
-        // ✅ 핵심 변경: 실패/취소 시 return_to로 자동복귀하지 않음 (로그인 페이지 stay)
-        // 사용자는 버튼을 다시 눌러 재시도 가능
         shNotify("로그인이 취소되었거나 실패했습니다.", "info");
       }
     });
   }
 
-  // ===== bind click =====
   if (!loginBtn) {
     console.warn("[Shout-out] btn-kakao-login 버튼이 없습니다. (ID 확인)");
     return;
@@ -223,4 +294,5 @@ document.addEventListener("DOMContentLoaded", function () {
     startKakaoLogin();
   });
 });
+})();
 </script>

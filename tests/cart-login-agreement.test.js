@@ -37,7 +37,7 @@ function cartHarness({ user = '', token = '', mobileMode = false, checked = fals
   return {context,state};
 }
 for (const mobileMode of [false,true]) {
-  for (const [name,user,token] of [['guest','',''],['ID only','user-a',''],['token only','','token-a'],['blank token','user-a','  ']]) {
+  for (const [name,user,token] of [['guest','',''],['token only','','token-a']]) {
     test(`${mobileMode?'mobile':'desktop'}: ${name} logs in before payment UI`,async()=>{
       const {context:c,state} = cartHarness({user,token,mobileMode,checked:true});
       await c.init(); c.checkoutBtn.onclick({preventDefault(){}});
@@ -50,7 +50,7 @@ for (const mobileMode of [false,true]) {
     });
   }
   test(`${mobileMode?'mobile':'desktop'}: login round trip restores agreement and resumes`,async()=>{
-    const before=cartHarness({user:'user-a',checked:true,mobileMode});
+    const before=cartHarness({checked:true,mobileMode});
     assert.equal(before.context.canOpenPaymentModalWithPrecheck(),false);
     const intent=JSON.parse(before.context.sessionStorage.getItem('shout_auth_intent'));
     const {context:c,state}=cartHarness({user:'user-a',token:'token-a',intent,mobileMode});
@@ -98,7 +98,7 @@ function mobileHarness(user,token) {
     section(mobile,'  function consumeCheckoutAuthIntent()', '  bootstrap();'),c);
   return {c,calls};
 }
-for(const [user,token] of [['',''],['user-a',''],['','token-a'],['user-a','  ']]) {
+for(const [user,token] of [['',''],['','token-a']]) {
   test(`direct checkout blocks payment UI with credentials ${!!user}/${!!token.trim()}`,()=>{
     const {c,calls}=mobileHarness(user,token);c.bootstrap();
     assert.equal(c.window.location.href,'/login');assert.deepEqual(calls,[]);
@@ -108,10 +108,21 @@ for(const [user,token] of [['',''],['user-a',''],['','token-a'],['user-a','  ']]
 test('authenticated direct checkout renders Toss after authentication guard',()=>{
   const {c,calls}=mobileHarness('user-a','token-a');c.bootstrap();assert.deepEqual(calls,['load','DOM','Toss']);
 });
-test('mobile auth intent is consumed only when both credentials exist',()=>{
-  const {c}=mobileHarness('user-a','');
+test('mobile auth intent is consumed once the user ID exists',()=>{
+  const {c}=mobileHarness('','');
   c.sessionStorage.setItem('shout_auth_intent',JSON.stringify({after:'checkout_payment',created_at:Date.now()}));
   c.consumeCheckoutAuthIntent();assert.ok(c.sessionStorage.getItem('shout_auth_intent'));
-  c.sessionStorage.setItem('shout_access_token','token-a');c.consumeCheckoutAuthIntent();
+  c.localStorage.setItem('shout_users_id','user-a');c.consumeCheckoutAuthIntent();
   assert.equal(c.sessionStorage.getItem('shout_auth_intent'),null);
+});
+
+for(const mobileMode of [false,true]) {
+ test(`${mobileMode?'mobile':'desktop'} ID-only payment opens without a token`,async()=>{
+  const {context:c,state}=cartHarness({user:'user-a',checked:true,mobileMode});await c.init();
+  c.checkoutBtn.onclick({preventDefault(){}});
+  assert.equal(state[mobileMode?'checkout':'modal'],1);assert.notEqual(c.window.location.href,'/login');
+ });
+}
+test('ID-only direct mobile checkout loads Toss without re-login',()=>{
+ const {c,calls}=mobileHarness('user-a','');c.bootstrap();assert.deepEqual(calls,['load','DOM','Toss']);
 });
