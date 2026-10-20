@@ -233,6 +233,7 @@ onReady(function () {
 
   if (listEl && !document.getElementById("sh-mypage-logout")) {
     const row = document.createElement("div");
+    row.className = "sh-mypage-logout-row";
     row.style.cssText = "display:flex;justify-content:flex-end;margin:12px 0";
     const button = document.createElement("button");
     button.id = "sh-mypage-logout";
@@ -242,6 +243,41 @@ onReady(function () {
     button.addEventListener("click", window.ShoutAuth.logout);
     row.appendChild(button);
     listEl.parentNode.insertBefore(row, listEl);
+  }
+
+  // Webflow collapses this navbar at 991px (data-collapse="medium").
+  // Reuse About's classes so Logout follows the same desktop/mobile typography.
+  const aboutLink = document.querySelector(".w-nav-menu .link-about");
+  if (aboutLink && !document.getElementById("sh-mobile-menu-logout")) {
+    const menuLogout = aboutLink.cloneNode(false);
+    menuLogout.id = "sh-mobile-menu-logout";
+    menuLogout.href = "#";
+    menuLogout.textContent = "LOGOUT";
+    menuLogout.removeAttribute("aria-current");
+    menuLogout.removeAttribute("target");
+    menuLogout.removeAttribute("data-w-id");
+    menuLogout.classList.remove("w--current");
+    menuLogout.setAttribute("role", "button");
+    menuLogout.addEventListener("click", function (event) {
+      event.preventDefault();
+      window.ShoutAuth.logout();
+    });
+    menuLogout.addEventListener("keydown", function (event) {
+      if (event.key === " ") {
+        event.preventDefault();
+        window.ShoutAuth.logout();
+      }
+    });
+    aboutLink.insertAdjacentElement("afterend", menuLogout);
+    const menuStyle = document.createElement("style");
+    menuStyle.textContent = `
+      #sh-mobile-menu-logout { display: none !important; }
+      @media screen and (max-width: 991px) {
+        #sh-mobile-menu-logout { display: block !important; }
+        .sh-mypage-logout-row { display: none !important; }
+      }
+    `;
+    document.head.appendChild(menuStyle);
   }
 
   if (!usersId || !accessToken) {
