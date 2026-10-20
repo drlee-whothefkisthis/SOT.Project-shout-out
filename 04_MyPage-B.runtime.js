@@ -623,13 +623,18 @@ onReady(function () {
     });
 
     const eventMap = window.__SHOUT_EVENT_MAP__ || {};
-    Array.from(set).sort().forEach(code => {
+    // Event codes begin with YYMMDD, so descending codes show the latest race first.
+    const eventCodes = Array.from(set).sort().reverse();
+    eventCodes.forEach(code => {
       const opt = document.createElement("option");
       const key = String(code || "").trim();
       opt.value = key;
       opt.textContent = eventMap[key] || key;
       selectEl.appendChild(opt);
     });
+
+    selectEl.value = eventCodes[0] || "ALL";
+    applyFilter(selectEl.value || "ALL");
 
     if (!__filterBound) {
       __filterBound = true;
