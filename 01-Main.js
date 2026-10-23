@@ -12,6 +12,22 @@ try {
   var UPLOAD_NOTICE_EVENTS = [];
   var uploadNoticeTickTimer = null;
   var uploadNoticeFetchInFlight = false;
+  var uploadNoticeTestOffsetMs = null;
+
+  function getUploadNoticeNow() {
+    var now = Date.now();
+    // Opt-in browser-only clock for the Webflow staging host. Never changes Event data.
+    if (window.location.hostname !== "shotout.webflow.io") return now;
+    if (uploadNoticeTestOffsetMs === null) {
+      var testAt = Date.parse(new URLSearchParams(window.location.search).get("sot_upload_test_at") || "");
+      uploadNoticeTestOffsetMs = Number.isFinite(testAt) ? testAt - now : 0;
+    }
+    return now + uploadNoticeTestOffsetMs;
+  }
+
+  function notifyUploadNoticeUpdate(now) {
+    document.dispatchEvent(new CustomEvent("shout:upload-notice-updated", { detail: { now: now } }));
+  }
 
   function detectKakaoInApp() {
     return /KAKAOTALK/i.test(navigator.userAgent || "");
@@ -75,7 +91,7 @@ try {
   }
 
   function getActiveUploadNoticeEvent(race, now) {
-    var current = Number.isFinite(now) ? now : Date.now();
+    var current = Number.isFinite(now) ? now : getUploadNoticeNow();
     if (!UPLOAD_NOTICE_ENABLED || !race) return null;
     var id = String(race.id || race.event_code || "").trim();
     var name = String(race.name || race.event_display_name || race || "").replace(/\s+/g, "");
@@ -87,7 +103,9 @@ try {
 
     if (!event) return null;
     return {
+      id: event.id,
       name: event.name,
+      percent: getUploadNoticePercent(event, current),
       startAt: event.startAt,
       progressStartAt: event.progressStartAt,
       completeAt: event.completeAt,
@@ -131,8 +149,8 @@ try {
     }
   }
 
-  function updateUploadNotice() {
-    var now = Date.now();
+  function updateUploadNotice(now) {
+    now = Number.isFinite(now) ? now : getUploadNoticeNow();
     var activeEvents = UPLOAD_NOTICE_EVENTS.filter(function (event) {
       return now >= event.startAt && now < event.endAt;
     }).sort(function (left, right) {
@@ -141,6 +159,7 @@ try {
     if (!isUploadNoticeActive(now) || !activeEvents.length) {
       hideUploadNotice();
       scheduleNextUploadNoticeUpdate(now, activeEvents);
+      notifyUploadNoticeUpdate(now);
       return false;
     }
 
@@ -164,6 +183,7 @@ try {
     }).join("");
     syncUploadNoticeSpacing();
     scheduleNextUploadNoticeUpdate(now, activeEvents);
+    notifyUploadNoticeUpdate(now);
     return true;
   }
 
@@ -209,7 +229,7 @@ try {
         if (remaining > 0 && !batch.length) throw new Error("Event pagination did not advance");
       } while (remaining > 0);
 
-      var now = Date.now();
+      var now = getUploadNoticeNow();
       UPLOAD_NOTICE_EVENTS = results.map(function (item) {
         return buildUploadNoticeEvent(item, now);
       }).filter(Boolean);
@@ -288,7 +308,9 @@ try {
   };
 
   window.ShoutUploadNotice = {
-    getActiveEvent: getActiveUploadNoticeEvent
+    getActiveEvent: getActiveUploadNoticeEvent,
+    now: getUploadNoticeNow,
+    refresh: updateUploadNotice
   };
 
   if (document.readyState === "loading") {
@@ -1132,14 +1154,16 @@ onReady(function () {
   function showGalleryUploadNoticeBeforeNavigation(eventCode, targetUrl) {
     const race = getRaceByCode(eventCode);
     const notice = window.ShoutUploadNotice;
+    const now = notice && typeof notice.now === "function" ? notice.now() : Date.now();
     const activeEvent = notice && typeof notice.getActiveEvent === "function"
-      ? notice.getActiveEvent(race)
+      ? notice.getActiveEvent(race, now)
       : null;
 
     if (!activeEvent) return false;
 
     const existing = document.getElementById("main-gallery-upload-notice");
     if (existing) return true;
+    if (typeof notice.refresh === "function") notice.refresh(now);
 
     const modal = document.createElement("section");
     modal.id = "main-gallery-upload-notice";
@@ -1148,19 +1172,29 @@ onReady(function () {
     modal.setAttribute("aria-labelledby", "main-gallery-upload-notice-title");
     modal.innerHTML =
       '<div class="main-gallery-upload-notice__panel">' +
-        '<p class="main-gallery-upload-notice__eyebrow">UPLOAD NOTICE</p>' +
-        '<h2 id="main-gallery-upload-notice-title">사진 업로드 진행 중</h2>' +
-        '<p class="main-gallery-upload-notice__desc">현재 촬영 사진을 순차적으로 업로드하고 있어요.<br>업로드가 완료되기 전까지 검색 결과에 모든 사진이 표시되지 않을 수 있습니다.</p>' +
-        '<button type="button" class="main-gallery-upload-notice__confirm">확인</button>' +
+        '<div class="main-gallery-upload-notice__status"><span class="main-gallery-upload-notice__dot" aria-hidden="true"></span>사진 업로드 진행 중<span class="main-gallery-upload-notice__percent" aria-live="polite">' + activeEvent.percent + '%</span></div>' +
+        '<h2 id="main-gallery-upload-notice-title">더 멋진 사진들이<br>계속 업로드되고 있어요</h2>' +
+        '<p class="main-gallery-upload-notice__desc">지금 올라온 사진을 먼저 둘러보세요.<br>곧 추가될 사진들도 기대해 주세요!</p>' +
+        '<button type="button" class="main-gallery-upload-notice__confirm">갤러리 확인하기</button>' +
       '</div>';
 
     const closeNotice = function () {
       modal.remove();
       document.body.classList.remove("has-main-gallery-upload-notice");
       document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("shout:upload-notice-updated", onUploadUpdate);
     };
     const onKeyDown = function (event) {
       if (event.key === "Escape") closeNotice();
+    };
+    const onUploadUpdate = function (event) {
+      const currentEvent = notice.getActiveEvent(race, event.detail.now);
+      if (!currentEvent) {
+        closeNotice();
+        return;
+      }
+      const percent = modal.querySelector(".main-gallery-upload-notice__percent");
+      if (percent) percent.textContent = currentEvent.percent + "%";
     };
 
     modal.addEventListener("click", function (event) {
@@ -1169,7 +1203,7 @@ onReady(function () {
         return;
       }
       if (event.target.closest(".main-gallery-upload-notice__confirm")) {
-        document.removeEventListener("keydown", onKeyDown);
+        closeNotice();
         window.location.href = targetUrl;
       }
     });
@@ -1177,6 +1211,7 @@ onReady(function () {
     document.body.appendChild(modal);
     document.body.classList.add("has-main-gallery-upload-notice");
     document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("shout:upload-notice-updated", onUploadUpdate);
     window.requestAnimationFrame(function () {
       const confirmButton = modal.querySelector(".main-gallery-upload-notice__confirm");
       if (confirmButton) confirmButton.focus();
