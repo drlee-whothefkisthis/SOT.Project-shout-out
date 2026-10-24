@@ -9,6 +9,10 @@ try {
   var DAY_MS = 24 * HOUR_MS;
   var KST_OFFSET_MS = 9 * HOUR_MS;
   var UPLOAD_EXTRA_HOURS = 3;
+  // Confirmed operational completion; shared by the banner and pre-gallery notice.
+  var UPLOAD_NOTICE_COMPLETED_AT = {
+    "261024-sa": Date.parse("2026-10-24T10:34:00+09:00")
+  };
   var UPLOAD_NOTICE_EVENTS = [];
   var uploadNoticeTickTimer = null;
   var uploadNoticeFetchInFlight = false;
@@ -65,6 +69,10 @@ try {
     // A date-only Event value appears as midnight KST; it is not a verified race start time.
     if ((startAt + KST_OFFSET_MS) % DAY_MS === 0) return null;
     var completeAt = startAt + (courseHours + UPLOAD_EXTRA_HOURS) * HOUR_MS;
+    var confirmedCompleteAt = UPLOAD_NOTICE_COMPLETED_AT[id];
+    if (Number.isFinite(confirmedCompleteAt) && confirmedCompleteAt >= startAt) {
+      completeAt = Math.min(completeAt, confirmedCompleteAt);
+    }
     return {
       id: id,
       name: name,
@@ -169,7 +177,7 @@ try {
 
     list.innerHTML = activeEvents.map(function (event) {
       var percent = getUploadNoticePercent(event, now);
-      var status = percent >= 100 ? "업로드 완료" : percent + "% 업로드";
+      var status = percent >= 100 ? "100% · 업로드 완료" : percent + "% 업로드";
       var name = escapeUploadNoticeHtml(event.name);
       return '<div class="shout-upload-notice-event">' +
         '<div class="shout-upload-notice-event-head">' +
