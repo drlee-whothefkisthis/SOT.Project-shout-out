@@ -11,7 +11,8 @@ try {
   var UPLOAD_EXTRA_HOURS = 3;
   // Confirmed operational completion; shared by the banner and pre-gallery notice.
   var UPLOAD_NOTICE_COMPLETED_AT = {
-    "261024-sa": Date.parse("2026-10-24T10:34:00+09:00")
+    "261024-sa": Date.parse("2026-10-24T10:34:00+09:00"),
+    "261024-yjd": Date.parse("2026-10-24T13:22:00+09:00")
   };
   var UPLOAD_NOTICE_EVENTS = [];
   var uploadNoticeTickTimer = null;
