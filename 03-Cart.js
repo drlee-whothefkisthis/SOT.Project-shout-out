@@ -334,6 +334,10 @@ onShoutCartReady(function() {
   let paymentWidgets = null;
   let paymentWidgetReady = false;
   let paymentWidgetRenderPending = false;
+  let paymentWidgetInitPromise = null;
+  let paymentMethodControl = null;
+  let paymentAgreementControl = null;
+  let paymentRequestPending = false;
   let paymentWidgetCustomerKey = "";
   let paymentWidgetLastAmount = null;
   let paymentModalOpen = false;
@@ -455,7 +459,9 @@ onShoutCartReady(function() {
             </div>
           </div>
           <div class="sh-payment-modal-foot" style="padding:16px;border-top:1px solid rgba(15,23,42,0.08);background:#fff;">
-            <button type="button" id="sh-payment-confirm-btn" class="sh-payment-confirm-btn" style="width:100%;height:52px;border:0;border-radius:14px;background:#0064ff;color:#fff;font-size:16px;font-weight:700;cursor:pointer;">결제 진행</button>
+            <div id="sh-payment-widget-status" role="status" style="font-size:14px;margin-bottom:8px;"></div>
+            <button type="button" id="sh-payment-widget-retry" hidden>다시 불러오기</button>
+            <button type="button" id="sh-payment-confirm-btn" class="sh-payment-confirm-btn" disabled style="width:100%;height:52px;border:0;border-radius:14px;background:#0064ff;color:#fff;font-size:16px;font-weight:700;cursor:pointer;">결제수단 불러오는 중...</button>
           </div>
         </div>
       `;
@@ -486,6 +492,11 @@ onShoutCartReady(function() {
     if (paymentModalConfirmBtnEl && !paymentModalConfirmBtnEl.__boundConfirm) {
       paymentModalConfirmBtnEl.__boundConfirm = true;
       paymentModalConfirmBtnEl.addEventListener('click', callStartPayment);
+    }
+    const retryBtn = paymentModalEl.querySelector('#sh-payment-widget-retry');
+    if (retryBtn && !retryBtn.__boundRetry) {
+      retryBtn.__boundRetry = true;
+      retryBtn.addEventListener('click', () => initPaymentWidget(true));
     }
     if (!paymentModalEl.__boundEsc) {
       paymentModalEl.__boundEsc = true;
@@ -690,61 +701,89 @@ onShoutCartReady(function() {
     return Number(total) || 0;
   }
 
-  async function initPaymentWidget(forceRerender) {
-    if (paymentWidgetRenderPending) return;
-    const amountValue = getSelectedCheckoutAmount();
-    const hasItems = amountValue > 0;
-    const mount = ensurePaymentWidgetDom();
-    if (!mount || !paymentMethodEl || !agreementEl) return;
-    if (!hasItems) return;
-    updatePaymentModalSummary(amountValue);
-
-    try {
-      await ensureTossPaymentsSdk();
-    } catch (e) {
-      warn("widget.sdkMissing", e);
-      return;
+  function syncPaymentWidgetButton(message, failed) {
+    if (paymentModalConfirmBtnEl) {
+      paymentModalConfirmBtnEl.disabled = paymentRequestPending || paymentWidgetRenderPending || !paymentWidgetReady;
+      if (!paymentRequestPending) paymentModalConfirmBtnEl.textContent = paymentWidgetRenderPending ? "결제수단 불러오는 중..." : "결제 진행";
     }
+    const status = document.getElementById("sh-payment-widget-status");
+    const retry = document.getElementById("sh-payment-widget-retry");
+    if (status && message !== undefined) status.textContent = message;
+    if (retry && failed !== undefined) retry.hidden = !failed;
+  }
 
-    const nextCustomerKey = getPaymentWidgetCustomerKey();
-    const shouldRecreate = !!forceRerender || !paymentWidgets || paymentWidgetCustomerKey !== nextCustomerKey;
+  async function resetPaymentWidget() {
+    paymentWidgetReady = false;
+    // Keep a failed destroy handle so the next retry cannot silently reuse it.
+    let destroyError = null;
+    for (const kind of ["methods", "agreement"]) {
+      const control = kind === "methods" ? paymentMethodControl : paymentAgreementControl;
+      if (!control) continue;
+      try {
+        await control.destroy();
+        if (kind === "methods") paymentMethodControl = null;
+        else paymentAgreementControl = null;
+      } catch (e) { destroyError = destroyError || e; }
+    }
+    if (destroyError) throw destroyError;
+    paymentWidgets = null;
+    tossPaymentsInstance = null;
+    paymentWidgetCustomerKey = "";
+    paymentWidgetLastAmount = null;
+    if (paymentMethodEl) paymentMethodEl.innerHTML = "";
+    if (agreementEl) agreementEl.innerHTML = "";
+  }
 
+  function initPaymentWidget(forceRerender) {
+    if (paymentWidgetInitPromise) return paymentWidgetInitPromise;
+    // Lock before SDK loading, and share the same completion with every caller.
     paymentWidgetRenderPending = true;
-    try {
-      if (shouldRecreate) {
-        paymentWidgetCustomerKey = nextCustomerKey;
-        tossPaymentsInstance = window.TossPayments(TOSS_CLIENT_KEY);
-        paymentWidgets = tossPaymentsInstance.widgets({
-          customerKey: paymentWidgetCustomerKey
-        });
+    syncPaymentWidgetButton("결제수단을 불러오고 있어요.", false);
+    paymentWidgetInitPromise = Promise.resolve().then(async () => {
+      try {
+        const mount = ensurePaymentWidgetDom();
+        if (!mount || !paymentMethodEl || !agreementEl) throw new Error("payment widget mount point not found");
+        await ensureTossPaymentsSdk();
+        let recreate = !!forceRerender;
+        // Selection/customer changes during loading are reconciled before ready.
+        while (true) {
+          const amountValue = getSelectedCheckoutAmount();
+          const customerKey = getPaymentWidgetCustomerKey();
+          if (amountValue <= 0) throw new Error("payment amount is empty");
+          updatePaymentModalSummary(amountValue);
+          if (recreate || !paymentWidgets || paymentWidgetCustomerKey !== customerKey) {
+            await resetPaymentWidget();
+            tossPaymentsInstance = window.TossPayments(TOSS_CLIENT_KEY);
+            paymentWidgets = tossPaymentsInstance.widgets({ customerKey });
+            paymentWidgetCustomerKey = customerKey;
+            recreate = false;
+          }
+          if (paymentWidgetLastAmount !== amountValue) {
+            await paymentWidgets.setAmount({ currency: "KRW", value: amountValue });
+            paymentWidgetLastAmount = amountValue;
+          }
+          if (!paymentWidgetReady) {
+            paymentMethodControl = await paymentWidgets.renderPaymentMethods({ selector: "#payment-method" });
+            paymentAgreementControl = await paymentWidgets.renderAgreement({ selector: "#agreement" });
+            paymentWidgetReady = true;
+          }
+          if (getSelectedCheckoutAmount() === amountValue && getPaymentWidgetCustomerKey() === customerKey) break;
+        }
+        syncPaymentWidgetButton("", false);
+        return true;
+      } catch (e) {
         paymentWidgetReady = false;
-        paymentWidgetLastAmount = null;
-        paymentMethodEl.innerHTML = "";
-        agreementEl.innerHTML = "";
+        warn("widget.init", e);
+        try { await resetPaymentWidget(); } catch (cleanupError) { warn("widget.cleanup", cleanupError); }
+        syncPaymentWidgetButton("결제수단을 불러오지 못했어요. 다시 불러오기를 눌러주세요.", true);
+        return false;
+      } finally {
+        paymentWidgetRenderPending = false;
+        paymentWidgetInitPromise = null;
+        syncPaymentWidgetButton();
       }
-
-      if (paymentWidgetLastAmount !== amountValue) {
-        await paymentWidgets.setAmount({
-          currency: "KRW",
-          value: amountValue
-        });
-        paymentWidgetLastAmount = amountValue;
-      }
-
-      if (!paymentWidgetReady) {
-        await paymentWidgets.renderPaymentMethods({
-          selector: "#payment-method"
-        });
-        await paymentWidgets.renderAgreement({
-          selector: "#agreement"
-        });
-        paymentWidgetReady = true;
-      }
-    } catch (e) {
-      warn("silent catch: widget.init", e);
-    } finally {
-      paymentWidgetRenderPending = false;
-    }
+    });
+    return paymentWidgetInitPromise;
   }
 
   function nudgeAgreeCheckbox() {
@@ -774,6 +813,9 @@ onShoutCartReady(function() {
     } catch (e) { warn("silent catch: agreeCheckbox.attn", e); }
   }
   async function startPayment() {
+    if (paymentRequestPending) return;
+    paymentRequestPending = true;
+    syncPaymentWidgetButton();
     try {
       const tracking = getShoutTrackingContext();
 
@@ -820,6 +862,8 @@ onShoutCartReady(function() {
         alert("검색 식별자가 없어 결제를 진행할 수 없습니다. 다시 담아주세요.");
         return;
       }
+      await initPaymentWidget(false);
+      if (!paymentWidgets || !paymentWidgetReady) return;
       let amount = calcTotalAmountByGroups(items);
       const orderName = `사진 ${photoIds.length}장`;
       let orderId = `shout_${Date.now()}_${Math.random().toString(16).slice(2,8)}`;
@@ -991,10 +1035,8 @@ onShoutCartReady(function() {
       closePaymentModal();
         alert("결제 진행 중 오류가 발생했습니다. 장바구니에서 다시 시도해주세요.");
     } finally {
-      if (paymentModalConfirmBtnEl) {
-        paymentModalConfirmBtnEl.disabled = false;
-        paymentModalConfirmBtnEl.textContent = "결제 진행";
-      }
+      paymentRequestPending = false;
+      syncPaymentWidgetButton();
     }
   }
 

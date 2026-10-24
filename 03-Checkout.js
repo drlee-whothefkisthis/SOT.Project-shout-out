@@ -89,6 +89,10 @@ onReady(function () {
   let paymentWidgets = null;
   let paymentWidgetReady = false;
   let paymentWidgetRenderPending = false;
+  let paymentWidgetInitPromise = null;
+  let paymentMethodControl = null;
+  let paymentAgreementControl = null;
+  let paymentRequestPending = false;
   let paymentWidgetCustomerKey = "";
   let paymentWidgetLastAmount = null;
 
@@ -472,7 +476,9 @@ onReady(function () {
           </div>
 
           <div class="sh-checkout-foot">
-            <button type="button" id="sh-checkout-pay-btn" class="sh-checkout-pay-btn">결제 진행</button>
+            <div id="sh-checkout-widget-status" role="status"></div>
+            <button type="button" id="sh-checkout-widget-retry" hidden>다시 불러오기</button>
+            <button type="button" id="sh-checkout-pay-btn" class="sh-checkout-pay-btn" disabled>결제수단 불러오는 중...</button>
             <div class="sh-checkout-helper">결제수단을 선택한 뒤 결제를 진행하세요.</div>
           </div>
         </div>
@@ -482,6 +488,11 @@ onReady(function () {
     paymentMethodEl = document.getElementById("payment-method");
     agreementEl = document.getElementById("agreement");
     payBtnEl = document.getElementById("sh-checkout-pay-btn");
+    const retryBtn = document.getElementById("sh-checkout-widget-retry");
+    if (retryBtn && !retryBtn.__boundRetry) {
+      retryBtn.__boundRetry = true;
+      retryBtn.addEventListener("click", () => initPaymentWidget(true));
+    }
     summaryCountEl = document.getElementById("sh-checkout-count");
     summaryAmountEl = document.getElementById("sh-checkout-amount");
     summaryBibEl = document.getElementById("sh-checkout-bib");
@@ -539,67 +550,86 @@ onReady(function () {
     if (summaryAmountEl) summaryAmountEl.textContent = formatKRW(amount);
   }
 
-  async function initPaymentWidget(forceRerender) {
-    try {
-      ensureCheckoutDom();
+  function syncPaymentWidgetButton(message, failed) {
+    if (payBtnEl) {
+      payBtnEl.disabled = paymentRequestPending || paymentWidgetRenderPending || !paymentWidgetReady;
+      if (!paymentRequestPending) payBtnEl.textContent = paymentWidgetRenderPending ? "결제수단 불러오는 중..." : "결제 진행";
+    }
+    const status = document.getElementById("sh-checkout-widget-status");
+    const retry = document.getElementById("sh-checkout-widget-retry");
+    if (status && message !== undefined) status.textContent = message;
+    if (retry && failed !== undefined) retry.hidden = !failed;
+  }
 
-      if (!paymentMethodEl || !agreementEl) {
-        throw new Error("payment widget mount point not found");
-      }
-
-      const amountValue = getEstimatedAmount();
-      if (amountValue <= 0) {
-        renderEmptyState("선택된 사진이 없습니다.");
-        return;
-      }
-
-      const customerKey = getPaymentWidgetCustomerKey();
-
-      if (!tossPaymentsInstance || paymentWidgetCustomerKey !== customerKey) {
-        tossPaymentsInstance = TossPayments(TOSS_CLIENT_KEY);
-        paymentWidgets = tossPaymentsInstance.widgets({ customerKey: customerKey });
-        paymentWidgetCustomerKey = customerKey;
-        paymentWidgetReady = false;
-        paymentWidgetLastAmount = null;
-      }
-
-      if (!paymentWidgets) {
-        throw new Error("widgets instance not created");
-      }
-
-      if (paymentWidgetRenderPending) return;
-      paymentWidgetRenderPending = true;
-
+  async function resetPaymentWidget() {
+    paymentWidgetReady = false;
+    let destroyError = null;
+    for (const kind of ["methods", "agreement"]) {
+      const control = kind === "methods" ? paymentMethodControl : paymentAgreementControl;
+      if (!control) continue;
       try {
-        if (paymentWidgetLastAmount !== amountValue) {
-          await paymentWidgets.setAmount({
-            currency: "KRW",
-            value: amountValue
-          });
-          paymentWidgetLastAmount = amountValue;
+        await control.destroy();
+        if (kind === "methods") paymentMethodControl = null;
+        else paymentAgreementControl = null;
+      } catch (e) { destroyError = destroyError || e; }
+    }
+    if (destroyError) throw destroyError;
+    paymentWidgets = null;
+    tossPaymentsInstance = null;
+    paymentWidgetCustomerKey = "";
+    paymentWidgetLastAmount = null;
+    if (paymentMethodEl) paymentMethodEl.innerHTML = "";
+    if (agreementEl) agreementEl.innerHTML = "";
+  }
+
+  function initPaymentWidget(forceRerender) {
+    if (paymentWidgetInitPromise) return paymentWidgetInitPromise;
+    paymentWidgetRenderPending = true;
+    syncPaymentWidgetButton("결제수단을 불러오고 있어요.", false);
+    paymentWidgetInitPromise = Promise.resolve().then(async () => {
+      try {
+        ensureCheckoutDom();
+        if (!paymentMethodEl || !agreementEl) throw new Error("payment widget mount point not found");
+        if (typeof TossPayments !== "function") throw new Error("payment SDK not loaded");
+        let recreate = !!forceRerender;
+        while (true) {
+          const amountValue = getEstimatedAmount();
+          const customerKey = getPaymentWidgetCustomerKey();
+          if (amountValue <= 0) throw new Error("payment amount is empty");
+          if (recreate || !paymentWidgets || paymentWidgetCustomerKey !== customerKey) {
+            await resetPaymentWidget();
+            tossPaymentsInstance = TossPayments(TOSS_CLIENT_KEY);
+            paymentWidgets = tossPaymentsInstance.widgets({ customerKey });
+            paymentWidgetCustomerKey = customerKey;
+            recreate = false;
+          }
+          if (paymentWidgetLastAmount !== amountValue) {
+            await paymentWidgets.setAmount({ currency: "KRW", value: amountValue });
+            paymentWidgetLastAmount = amountValue;
+          }
+          if (!paymentWidgetReady) {
+            paymentMethodControl = await paymentWidgets.renderPaymentMethods({ selector: "#payment-method" });
+            paymentAgreementControl = await paymentWidgets.renderAgreement({ selector: "#agreement" });
+            paymentWidgetReady = true;
+          }
+          if (getEstimatedAmount() === amountValue && getPaymentWidgetCustomerKey() === customerKey) break;
         }
-
-        if (!paymentWidgetReady || forceRerender) {
-          paymentMethodEl.innerHTML = "";
-          agreementEl.innerHTML = "";
-
-          await paymentWidgets.renderPaymentMethods({
-            selector: "#payment-method"
-          });
-
-          await paymentWidgets.renderAgreement({
-            selector: "#agreement"
-          });
-
-          paymentWidgetReady = true;
-        }
+        syncPaymentWidgetButton("", false);
+        return true;
+      } catch (e) {
+        paymentWidgetReady = false;
+        warn("initPaymentWidget", e);
+        try { await resetPaymentWidget(); } catch (cleanupError) { warn("widget.cleanup", cleanupError); }
+        // Preserve the card and its retry controls instead of deleting the mounts.
+        syncPaymentWidgetButton("결제수단을 불러오지 못했어요. 다시 불러오기를 눌러주세요.", true);
+        return false;
       } finally {
         paymentWidgetRenderPending = false;
+        paymentWidgetInitPromise = null;
+        syncPaymentWidgetButton();
       }
-    } catch (e) {
-      warn("initPaymentWidget", e);
-      renderErrorState("결제 위젯을 준비하지 못했습니다.");
-    }
+    });
+    return paymentWidgetInitPromise;
   }
 
   function hasCheckoutLogin() {
@@ -623,6 +653,9 @@ onReady(function () {
   }
 
   async function startPayment() {
+    if (paymentRequestPending) return;
+    paymentRequestPending = true;
+    syncPaymentWidgetButton();
     try {
       const tracking = getShoutTrackingContext();
 
@@ -656,6 +689,8 @@ onReady(function () {
         alert("결제 가능한 사진이 없습니다.");
         return;
       }
+      await initPaymentWidget(false);
+      if (!paymentWidgets || !paymentWidgetReady) return;
 
       let amount = calcTotalAmountByGroups(items);
       let orderId = "shout_" + Date.now() + "_" + Math.random().toString(16).slice(2, 8);
@@ -822,10 +857,8 @@ onReady(function () {
       console.error("[checkout.startPayment] error:", err);
       renderErrorState("결제 진행 중 오류가 발생했습니다. 장바구니로 돌아가 다시 시도해주세요.");
     } finally {
-      if (payBtnEl) {
-        payBtnEl.disabled = false;
-        payBtnEl.textContent = "결제 진행";
-      }
+      paymentRequestPending = false;
+      syncPaymentWidgetButton();
     }
   }
 
