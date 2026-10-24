@@ -114,7 +114,7 @@ onShoutCartReady(function() {
     const directValue = String((it && (it.identifier_value || it.search_value)) || "").trim();
 
     if (directValue) {
-      const normalizedType = directType || "name";
+      const normalizedType = /^\d+(?::\d+|-\d+)$/.test(directValue) ? "bib" : (directType || "name");
 
       return {
         type: normalizedType,
@@ -127,6 +127,9 @@ onShoutCartReady(function() {
     const name = String((it && (it.ocr_name || it.name || it.runner_name)) || "").trim();
 
     if (name) {
+      if (/^\d+(?::\d+|-\d+)$/.test(name)) {
+        return { type: "bib", value: name, bib: name, ocr_name: "" };
+      }
       return {
         type: "name",
         value: name,

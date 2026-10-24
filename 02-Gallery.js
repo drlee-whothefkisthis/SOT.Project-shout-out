@@ -536,7 +536,8 @@ window.ShoutGallery.getGalleryGridCoveredBottom = function (gridEl) {
   }
 
   function isNumericSearch(value) {
-    return /^[0-9]+$/.test(String(value || "").trim());
+    // Numeric identifiers may contain one colon or hyphen (e.g. pacer/team bibs).
+    return /^\d+(?::\d+|-\d+)?$/.test(String(value || "").trim());
   }
 
   function toPositivePrice(value) {

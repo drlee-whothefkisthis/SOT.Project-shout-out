@@ -1101,6 +1101,10 @@ onReady(function () {
     return /^\d+$/.test(String(value || "").trim());
   }
 
+  function isSymbolicBibQuery(value) {
+    return /^\d+(?::\d+|-\d+)$/.test(String(value || "").trim());
+  }
+
   const BLOCKED_BIBS = new Set(["2026"]);
 
   function isBlockedSearchQuery(value) {
@@ -1143,7 +1147,7 @@ onReady(function () {
   }
 
   function bibSearchHelpText(eventCode) {
-    return `배번호는 ${bibMinDigitsForEvent(eventCode)}자리 이상, 이름은 한글 또는 영문 2글자 이상 입력해주세요.`;
+    return `배번호는 숫자 ${bibMinDigitsForEvent(eventCode)}자리 이상 또는 1:40, 1-1 형식으로 입력해주세요. 이름은 한글 또는 영문 2글자 이상 입력해주세요.`;
   }
 
   function showBibSearchHelp(eventCode) {
@@ -1287,6 +1291,7 @@ onReady(function () {
 
   function isValidBibQuery(value, eventCode) {
     const v = String(value || "").trim();
+    if (isSymbolicBibQuery(v)) return true;
     if (isNumericSearch(v) && v.length >= bibMinDigitsForEvent(eventCode)) return true;
     if (isTextSearchQuery(v)) return true;
     return false;
